@@ -457,7 +457,7 @@ export default function App() {
     if (!fbUser?.uid) return;
     let initial = true; const seen = new Set<string>();
     return onSnapshot(query(collection(db,'transactions'),where('receiverId','==',fbUser.uid)), snapshot=>{
-      const gifts = snapshot.docs.filter(d=>d.data().type==='gift_sent');
+      const gifts = snapshot.docs.filter(d=>!d.metadata.hasPendingWrites&&d.data().type==='gift_sent');
       const count = gifts.reduce((n,d)=>n+Number(d.data().quantity||0),0);
       const coins = gifts.reduce((n,d)=>n+Number(d.data().cost||0),0);
       setS((prev:any)=>({...prev,giftReceivedCount:count,giftReceivedCoins:coins,gifts:{...prev.gifts,recv:gifts.map(d=>`${d.data().emoji} ${d.data().quantity}টি — ${d.data().senderName}`).slice(-30)}}));
