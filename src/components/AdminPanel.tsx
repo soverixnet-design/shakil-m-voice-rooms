@@ -70,6 +70,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [coinModalUser, setCoinModalUser] = useState<any | null>(null);
   const [rechargeId, setRechargeId] = useState('');
   const [rechargeAmount, setRechargeAmount] = useState('');
+  const [rechargeResult, setRechargeResult] = useState<any | null>(null);
   const [customCoinAmount, setCustomCoinAmount] = useState('');
   const [customCoinAction, setCustomCoinAction] = useState<'add' | 'deduct' | 'set'>('add');
   const [customCoinReason, setCustomCoinReason] = useState('অ্যাডমিন কয়েন পুরস্কার');
@@ -196,12 +197,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleGiveCoinsToUser = async (target: any, amount: number, action: 'add' | 'deduct' | 'set' = 'add', reason = 'অ্যাডমিন রিচার্জ', requestId?: string): Promise<boolean> => {
     if (coinLock.current) return false;
     if (!target.uid || !Number.isSafeInteger(amount) || amount < 0 || (action !== 'set' && amount === 0)) {
-      onToast('সঠিক ইউজার ও পূর্ণ কয়েন সংখ্যা দিন!'); return false;
+      setRechargeResult({error:'সঠিক ইউজার ও পূর্ণ কয়েন সংখ্যা দিন!'}); onToast('সঠিক ইউজার ও পূর্ণ কয়েন সংখ্যা দিন!'); return false;
     }
     if (!currentUser?.emailVerified || currentUser.email?.toLowerCase() !== 'yfastvpn@gmail.com') {
       onToast('অনুমোদিত অ্যাডমিন অ্যাকাউন্ট দিয়ে লগইন করুন।'); return false;
     }
-    coinLock.current = true; setSavingCoins(true);
+    coinLock.current = true; setSavingCoins(true); setRechargeResult(null);
     try {
       const ledger = requestId ? doc(db, 'transactions', `recharge_${encodeURIComponent(requestId)}`) : doc(collection(db, 'transactions'));
       const balance = await runTransaction(db, async transaction => {
@@ -215,12 +216,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         if (!Number.isSafeInteger(next) || next < 0) throw new Error('insufficient-coins');
         transaction.update(ref, { coins: next });
         transaction.set(ledger, { userId: target.uid, adminId: currentUser.uid, type: 'admin-recharge', amount: next - old, balance: next, reason, createdAt: new Date().toISOString() });
-        return next;
+        return { before: old, after: next, amount: next - old };
       });
-      onToast(`${target.name}: ${balance.toLocaleString()} কয়েন — সেভ হয়েছে ✓`);
+      setRechargeResult({ ...balance, id: String(target.id), name: target.name, transactionId: ledger.id, time: new Date().toLocaleString('bn-BD') });
+      onToast(`${target.name}: ${balance.after.toLocaleString()} কয়েন — সেভ হয়েছে ✓`);
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
+      setRechargeResult({error: message === 'already-approved' ? 'এই রিচার্জ আগে অনুমোদিত হয়েছে। নতুন করে কয়েন যোগ হয়নি।' : message === 'insufficient-coins' ? 'ব্যালেন্সের বেশি কয়েন কাটা যাবে না।' : 'রিচার্জ ব্যর্থ — কয়েন সেভ হয়নি। Firebase অনুমতি ও সংযোগ পরীক্ষা করুন।'});
       onToast(message === 'already-approved' ? 'এই রিচার্জ আগে অনুমোদিত হয়েছে।' : message === 'insufficient-coins' ? 'ব্যালেন্সের বেশি কয়েন কাটা যাবে না।' : 'রিচার্জ সেভ হয়নি। Firebase অনুমতি ও সংযোগ পরীক্ষা করুন।');
       return false;
     } finally { coinLock.current = false; setSavingCoins(false); }
@@ -457,6 +460,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return true;
   });
 
+  const rechargeMatches = userList.filter(u => String(u.id) === rechargeId.trim());
+  const rechargeUser = rechargeMatches.length === 1 ? rechargeMatches[0] : null;
+  const previewAmount = Number(rechargeAmount);
+  const validPreview = Number.isSafeInteger(previewAmount) && previewAmount > 0;
+
   return (
     <div className="space-y-3.5 text-xs pb-10">
       {/* 1. Header Banner & Live Status Bar */}
@@ -558,11 +566,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <form className="gl p-4 space-y-3" onSubmit={async e => {
             e.preventDefault();
             const id = rechargeId.trim();
-            if (!/^\d+$/.test(id)) { onToast('ইউজারের সংখ্যার ID লিখুন।'); return; }
+            setRechargeResult(null);
+            if (!/^\d+$/.test(id)) { setRechargeResult({error:'ইউজারের সংখ্যার ID লিখুন।'}); return; }
             const matches = userList.filter(u => String(u.id) === id);
-            if (matches.length !== 1) { onToast(matches.length ? 'এই ID একাধিক অ্যাকাউন্টে আছে। রিচার্জ বন্ধ রাখা হয়েছে।' : 'এই ID-তে নিবন্ধিত ইউজার পাওয়া যায়নি।'); return; }
+            if (matches.length !== 1) { setRechargeResult({error: matches.length ? 'এই ID একাধিক অ্যাকাউন্টে আছে। রিচার্জ বন্ধ রাখা হয়েছে।' : 'এই ID-তে নিবন্ধিত ইউজার পাওয়া যায়নি।'}); onToast(matches.length ? 'এই ID একাধিক অ্যাকাউন্টে আছে। রিচার্জ বন্ধ রাখা হয়েছে।' : 'এই ID-তে নিবন্ধিত ইউজার পাওয়া যায়নি।'); return; }
             const amount = Number(rechargeAmount);
-            if (!Number.isSafeInteger(amount) || amount <= 0) { onToast('সঠিক পূর্ণ কয়েন সংখ্যা লিখুন।'); return; }
+            if (!Number.isSafeInteger(amount) || amount <= 0) { setRechargeResult({error:'সঠিক পূর্ণ কয়েন সংখ্যা লিখুন।'}); return; }
             const ok = await handleGiveCoinsToUser(matches[0], amount, 'add', 'ID দিয়ে অ্যাডমিন রিচার্জ');
             if (ok) setRechargeAmount('');
           }}>
@@ -570,7 +579,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <p className="text-gray-400">ইউজারের প্রোফাইলে দেখানো ID লিখুন। নাম লাগবে না।</p>
             <label className="block">ইউজার ID<input className="in w-full mt-1" inputMode="numeric" value={rechargeId} onChange={e => setRechargeId(e.target.value)} placeholder="ইউজারের ID নম্বর" required /></label>
             <label className="block">কয়েনের পরিমাণ<input className="in w-full mt-1" inputMode="numeric" value={rechargeAmount} onChange={e => setRechargeAmount(e.target.value)} placeholder="যেমন 100000" required /></label>
-            <button type="submit" disabled={savingCoins || usersLoading || Boolean(usersError)} className="b g w-full disabled:opacity-50">{savingCoins ? 'সেভ হচ্ছে…' : '🪙 রিচার্জ দিন'}</button>
+            {rechargeUser && <div className="rounded-xl border border-cyan-400/30 bg-cyan-950/30 p-3 space-y-2" aria-live="polite">
+              <b className="block">{rechargeUser.name} · ID {rechargeUser.id}</b>
+              <div className="flex justify-between"><span>এখন আছে</span><b>🪙 {Number(rechargeUser.coins || 0).toLocaleString()}</b></div>
+              <div className="flex justify-between"><span>আপনি দিচ্ছেন</span><b className="text-amber-300">+ {validPreview ? previewAmount.toLocaleString() : '0'}</b></div>
+              <div className="flex justify-between border-t border-white/10 pt-2"><span>রিচার্জের পর হবে</span><b className="text-green-300">🪙 {(Number(rechargeUser.coins || 0) + (validPreview ? previewAmount : 0)).toLocaleString()}</b></div>
+            </div>}
+            {rechargeId && !usersLoading && !rechargeUser && <p role="status" className="text-rose-300">{usersError || (rechargeMatches.length > 1 ? 'একই ID একাধিক অ্যাকাউন্টে আছে।' : 'এই ID-তে ইউজার পাওয়া যায়নি।')}</p>}
+            <button type="submit" disabled={savingCoins || usersLoading || Boolean(usersError) || !rechargeUser || !validPreview} className="b g w-full disabled:opacity-50">{savingCoins ? 'সেভ হচ্ছে…' : '🪙 রিচার্জ দিন'}</button>
+            {savingCoins && <p role="status" className="text-amber-300">রিচার্জ সেভ হচ্ছে… সফল বার্তা আসা পর্যন্ত অপেক্ষা করুন।</p>}
+            {rechargeResult && <div role={rechargeResult.error ? 'alert' : 'status'} className={`rounded-xl border p-3 space-y-2 ${rechargeResult.error ? 'border-rose-400/40 bg-rose-950/40 text-rose-200' : 'border-green-400/40 bg-green-950/40 text-green-100'}`}>
+              {rechargeResult.error ? <b>{rechargeResult.error}</b> : <>
+                <b className="block text-green-300 text-sm">✅ সফল — ইউজারের অ্যাকাউন্টে কয়েন সেভ হয়েছে</b>
+                <p>{rechargeResult.name} · ID {rechargeResult.id}</p>
+                <p>আগে ছিল: 🪙 {rechargeResult.before.toLocaleString()}</p>
+                <p>আপডেট: {rechargeResult.amount >= 0 ? '+' : ''}{rechargeResult.amount.toLocaleString()} কয়েন</p>
+                <p className="font-bold">সেভ হওয়ার পর মোট: 🪙 {rechargeResult.after.toLocaleString()}</p>
+                <p className="text-[10px] break-all opacity-75">লেনদেন ID: {rechargeResult.transactionId} · {rechargeResult.time}</p>
+              </>}
+            </div>}
           </form>
           {/* Top User Actions & Search Bar */}
           <div className="gl p-3.5 space-y-3">
