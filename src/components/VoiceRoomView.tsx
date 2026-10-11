@@ -64,8 +64,13 @@ export const VoiceRoomView: React.FC<Props> = ({
   onLeaveRoom,
   onClose,
 }) => {
-  const [seatedIndex, setSeatedIndex] = useState<number | null>(null);
-  const [isMicOn, setIsMicOn] = useState<boolean>(false);
+  const seatCount = room.sc || (room.d ? 12 : 8);
+  const isCurrentUserHost = Boolean(room.host === user.name || (room.hostId && (room.hostId === user.id || room.hostId === user.uid)));
+  
+  const [seatedIndex, setSeatedIndex] = useState<number | null>(() => {
+    return isCurrentUserHost ? 0 : null;
+  });
+  const [isMicOn, setIsMicOn] = useState<boolean>(() => isCurrentUserHost);
   const [isRoomSoundOn, setIsRoomSoundOn] = useState<boolean>(true);
   const [isFollowed, setIsFollowed] = useState<boolean>(false);
   const [chatMessages, setChatMessages] = useState<{ id: string; type: 'chat' | 'gift' | 'notice'; text: string; sender: string }[]>([
@@ -83,7 +88,6 @@ export const VoiceRoomView: React.FC<Props> = ({
   const [roomCoinTotal, setRoomCoinTotal] = useState<number>(room.tot || 344002);
   const [copied, setCopied] = useState<boolean>(false);
 
-  const seatCount = room.sc || (room.d ? 12 : 8);
   const [seats, setSeats] = useState<{ name: string; avatar: string; isSpeaking: boolean }[]>(() => {
     const arr = Array(seatCount).fill(null);
     if (room.oc) {
@@ -92,6 +96,10 @@ export const VoiceRoomView: React.FC<Props> = ({
           arr[o.s] = { name: o.n, avatar: o.av, isSpeaking: false };
         }
       });
+    }
+    // If the room was created by this user or user is the host, ensure they sit on Seat 1 (index 0)
+    if (isCurrentUserHost) {
+      arr[0] = { name: user.name, avatar: user.img ? '👤' : (user.av || '🎤'), isSpeaking: false };
     }
     return arr;
   });

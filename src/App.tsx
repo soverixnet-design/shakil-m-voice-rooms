@@ -176,6 +176,10 @@ const DEFAULT_CUSTOM_GIFTS = [
   { id: 'g8', name: 'ক্রাউন', icon: '👑', price: 15000, type: 'royal' },
 ];
 
+export const ADMIN_EMAILS = [
+  'yfastvpn@gmail.com',
+];
+
 export default function App() {
   const [splashVisible, setSplashVisible] = useState(true);
   const [splashFade, setSplashFade] = useState(false);
@@ -275,8 +279,24 @@ export default function App() {
   const [refInput, setRefInput] = useState('');
   const [postText, setPostText] = useState('');
 
+  // User Room Creation Modal State
+  const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
+  const [newRoomName, setNewRoomName] = useState('');
+  const [newRoomCategory, setNewRoomCategory] = useState('চ্যাট');
+  const [newRoomTag, setNewRoomTag] = useState('আড্ডা');
+  const [newRoomIcon, setNewRoomIcon] = useState('🎤');
+  const [newRoomAnn, setNewRoomAnn] = useState('');
+  const [newRoomSeatCount, setNewRoomSeatCount] = useState<number>(8);
+
   const lv = Math.floor(1 + Math.sqrt(S.xp / 50));
   const wl = Math.floor(1 + Math.sqrt((S.spent || 0) / 1000));
+
+  // Determine if current logged-in user is Super Admin
+  const isSuperAdmin = Boolean(
+    (fbUser && fbUser.email && ADMIN_EMAILS.includes(fbUser.email.toLowerCase())) ||
+    S.role === 'admin' ||
+    isAdminLoggedIn
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -436,31 +456,33 @@ export default function App() {
           </b>
         </div>
 
-        {/* Admin Super Button */}
-        <button
-          className="ib"
-          style={{
-            height: '34px',
-            padding: '0 9px',
-            fontSize: '11px',
-            fontWeight: 800,
-            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 70, 239, 0.25))',
-            border: '1px solid rgba(245, 158, 11, 0.5)',
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            color: '#fbbf24',
-            cursor: 'pointer'
-          }}
-          onClick={() => {
-            setIsAdminLoggedIn(true);
-            setActivePage('admin');
-          }}
-          title="সুপার অ্যাডমিন প্যানেল"
-        >
-          👑 <span>অ্যাডমিন</span>
-        </button>
+        {/* Admin Super Button - Only visible to Admin (yfastvpn@gmail.com / Admin role) */}
+        {isSuperAdmin && (
+          <button
+            className="ib"
+            style={{
+              height: '34px',
+              padding: '0 9px',
+              fontSize: '11px',
+              fontWeight: 800,
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 70, 239, 0.25))',
+              border: '1px solid rgba(245, 158, 11, 0.5)',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              color: '#fbbf24',
+              cursor: 'pointer'
+            }}
+            onClick={() => {
+              setIsAdminLoggedIn(true);
+              setActivePage('admin');
+            }}
+            title="সুপার অ্যাডমিন প্যানেল"
+          >
+            👑 <span>অ্যাডমিন</span>
+          </button>
+        )}
 
         {/* Coin Balance Badge */}
         <div className="coin" onClick={() => setTab('wallet')}>
@@ -545,6 +567,64 @@ export default function App() {
                   {c}
                 </span>
               ))}
+            </div>
+
+            {/* User Room Creation Action */}
+            <div 
+              style={{ 
+                margin: '12px 0 6px',
+                padding: '12px 14px',
+                background: 'linear-gradient(135deg, rgba(25, 230, 193, 0.18), rgba(138, 92, 255, 0.22))',
+                border: '1.5px solid rgba(25, 230, 193, 0.45)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
+                cursor: 'pointer'
+              }}
+              onClick={() => {
+                setNewRoomName(`${S.name}-এর আড্ডা`);
+                setNewRoomAnn('স্বাগতম! সবাই মিলে আড্ডা দিই ও গান শুনি 🎶');
+                setShowCreateRoomModal(true);
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div 
+                  style={{ 
+                    width: '42px', 
+                    height: '42px', 
+                    borderRadius: '12px', 
+                    background: 'linear-gradient(135deg, #19e6c1, #3a7cff)',
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    fontSize: '22px',
+                    boxShadow: '0 4px 12px rgba(25, 230, 193, 0.35)'
+                  }}
+                >
+                  🎙️
+                </div>
+                <div>
+                  <b style={{ fontSize: '15px', color: '#fff', display: 'block' }}>নিজের ভয়েস রুম তৈরি করুন</b>
+                  <div style={{ fontSize: '11px', color: '#cbd5e1' }}>৮ বা ১২ সিটের নিজস্ব রুম খুলে বন্ধুদের ডাকুন</div>
+                </div>
+              </div>
+              <button 
+                className="b"
+                style={{
+                  background: 'linear-gradient(135deg, #19e6c1, #06b6d4)',
+                  color: '#022c22',
+                  fontWeight: 800,
+                  fontSize: '12px',
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  boxShadow: '0 3px 10px rgba(25, 230, 193, 0.4)'
+                }}
+              >
+                + রুম বানান
+              </button>
             </div>
 
             {/* Top Rooms Header */}
@@ -1070,7 +1150,7 @@ export default function App() {
                     ['📞', 'কাস্টমার সাপোর্ট ও হেল্পলাইন (Support)', 'policy_support'],
                     ['❓', 'সাধারণ জিজ্ঞাসা ও গাইড (FAQ)', 'policy_faq'],
                     ['ℹ️', 'আমাদের সম্পর্কে ও লাইসেন্স (About Us)', 'policy_about'],
-                    ['⚙️', 'অ্যাডমিন প্যানেল (Admin Panel)', 'admin'],
+                    ...(isSuperAdmin ? [['⚙️', 'অ্যাডমিন প্যানেল (Admin Panel)', 'admin']] : []),
                   ].map(r => (
                     <div key={r[2]} className="lr" onClick={() => setActivePage(r[2])}>
                       <span style={{ fontSize: '20px' }}>{r[0]}</span>
@@ -1548,14 +1628,42 @@ export default function App() {
 
             {/* SUBPAGE: ADMIN PANEL */}
             {activePage === 'admin' && (
-              <AdminPanel
-                currentUser={fbUser}
-                appState={S}
-                onUpdateAppState={setS}
-                onToast={toast}
-                onClose={() => setActivePage(null)}
-                onUpdateCoins={updateCoins}
-              />
+              isSuperAdmin ? (
+                <AdminPanel
+                  currentUser={fbUser}
+                  appState={S}
+                  onUpdateAppState={setS}
+                  onToast={toast}
+                  onClose={() => setActivePage(null)}
+                  onUpdateCoins={updateCoins}
+                />
+              ) : (
+                <div className="gl" style={{ padding: '28px 20px', textAlign: 'center', margin: '20px 0' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔒</div>
+                  <b style={{ fontSize: '18px', color: '#f87171', display: 'block', marginBottom: '8px' }}>
+                    অ্যাক্সেস সংরক্ষিত (Admin Only)
+                  </b>
+                  <p style={{ fontSize: '12px', color: '#94a3b8', lineHeight: 1.6, marginBottom: '18px' }}>
+                    এই অ্যাডমিন প্যানেলটি শুধুমাত্র প্ল্যাটফর্মের প্রধান অ্যাডমিনদের জন্য নির্ধারিত। অনুগ্রহ করে আপনার অনুমোদিত অ্যাডমিন গুগল অ্যাকাউন্ট দিয়ে সাইন ইন করুন।
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '280px', margin: '0 auto' }}>
+                    <button
+                      className="b t"
+                      style={{ padding: '10px 16px', fontSize: '13px' }}
+                      onClick={handleGoogleLogin}
+                    >
+                      Google অ্যাডমিন লগইন
+                    </button>
+                    <button
+                      className="b"
+                      style={{ padding: '8px 16px', fontSize: '12px', background: 'rgba(255,255,255,0.1)' }}
+                      onClick={() => setActivePage(null)}
+                    >
+                      ফিরে যান
+                    </button>
+                  </div>
+                </div>
+              )
             )}
 
             {/* SUBPAGE: RANKINGS */}
@@ -2101,6 +2209,171 @@ export default function App() {
                 }}
               />
             )}
+          </div>
+        </div>
+      )}
+
+      {/* User Create Room Modal */}
+      {showCreateRoomModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+          onClick={() => setShowCreateRoomModal(false)}
+        >
+          <div 
+            className="w-full max-w-sm bg-[#12092b] border border-cyan-400/40 rounded-3xl p-5 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative text-white"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-indigo-600 flex items-center justify-center text-lg shadow">
+                  🎙️
+                </div>
+                <div>
+                  <b className="text-base block font-bold text-white">নতুন ভয়েস রুম তৈরি</b>
+                  <span className="text-[11px] text-gray-400">আপনার নিজস্ব আড্ডার আসর খুলুন</span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowCreateRoomModal(false)}
+                className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-gray-300 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-gray-300 font-semibold mb-1">রুমের নাম *</label>
+                <input 
+                  type="text"
+                  value={newRoomName}
+                  onChange={e => setNewRoomName(e.target.value)}
+                  placeholder="যেমন: বাংলা গান ও আড্ডা"
+                  className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-gray-300 font-semibold mb-1">ক্যাটাগরি</label>
+                  <select 
+                    value={newRoomCategory}
+                    onChange={e => setNewRoomCategory(e.target.value)}
+                    className="w-full bg-[#1e133e] border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400"
+                  >
+                    {['চ্যাট', 'পার্টি', 'গেম', 'নতুন', 'ইভেন্ট'].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-300 font-semibold mb-1">সিট সংখ্যা</label>
+                  <select 
+                    value={newRoomSeatCount}
+                    onChange={e => setNewRoomSeatCount(Number(e.target.value))}
+                    className="w-full bg-[#1e133e] border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400"
+                  >
+                    <option value={8}>৮ সিট (8 Seats)</option>
+                    <option value={12}>১২ সিট (12 Seats)</option>
+                    <option value={20}>২০ সিট (20 Seats)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 font-semibold mb-1">রুমের আইকন / কভার</label>
+                <div className="flex items-center gap-2 overflow-x-auto py-1">
+                  {['🎤', '🎶', '🎮', '💬', '🌙', '💞', '🔥', '🎉', '🎸', '☕'].map(icon => (
+                    <button
+                      key={icon}
+                      type="button"
+                      onClick={() => setNewRoomIcon(icon)}
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 transition-all ${
+                        newRoomIcon === icon 
+                          ? 'bg-cyan-400/30 border-2 border-cyan-400 scale-105' 
+                          : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 font-semibold mb-1">রুমের ট্যাগ</label>
+                <input 
+                  type="text"
+                  value={newRoomTag}
+                  onChange={e => setNewRoomTag(e.target.value)}
+                  placeholder="যেমন: আড্ডা, গান, ফ্রেন্ডস"
+                  className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 font-semibold mb-1">স্বাগতম নোটিশ (Announcement)</label>
+                <textarea 
+                  rows={2}
+                  value={newRoomAnn}
+                  onChange={e => setNewRoomAnn(e.target.value)}
+                  placeholder="রুমে আসা মেম্বারদের জন্য বার্তা..."
+                  className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2.5 mt-5">
+              <button
+                type="button"
+                onClick={() => setShowCreateRoomModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300 font-semibold hover:bg-white/15 active:scale-95"
+              >
+                বাতিল
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!newRoomName.trim()) {
+                    toast('অনুগ্রহ করে রুমের নাম লিখুন');
+                    return;
+                  }
+                  const createdRoom: any = {
+                    id: String(Math.floor(30000 + Math.random() * 69999)),
+                    name: newRoomName.trim(),
+                    host: S.name,
+                    hostId: S.id,
+                    cv: newRoomIcon,
+                    c: newRoomCategory,
+                    th: Math.floor(Math.random() * 4),
+                    d: 0,
+                    n: 1,
+                    flag: S.country === 'সৌদি' ? '🇸🇦' : S.country === 'ভারত' ? '🇮🇳' : '🇧🇩',
+                    tag: newRoomTag.trim() || 'আড্ডা',
+                    ann: newRoomAnn.trim() || 'স্বাগতম! সবাই মিলে আড্ডা দিই 🎉',
+                    sc: newRoomSeatCount,
+                    oc: [{ s: 0, n: S.name, av: S.img ? '👤' : (S.av || '🎤'), sc: 0 }]
+                  };
+
+                  // Prepend newly created room to list
+                  setS((prev: any) => ({
+                    ...prev,
+                    rooms: [createdRoom, ...prev.rooms.filter((r: any) => r.id !== createdRoom.id)]
+                  }));
+
+                  setShowCreateRoomModal(false);
+                  toast(`🎉 "${createdRoom.name}" রুম সফলভাবে তৈরি হয়েছে!`);
+
+                  // Automatically open the user's new room as host!
+                  setActiveRoom(createdRoom);
+                  setIsRoomMinimized(false);
+                  playEntryAnimation(S.en, S.name);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 font-bold hover:brightness-110 active:scale-95 shadow-lg shadow-cyan-500/25"
+              >
+                🚀 লাইভ রুম চালু করুন
+              </button>
+            </div>
           </div>
         </div>
       )}
