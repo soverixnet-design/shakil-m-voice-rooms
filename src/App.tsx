@@ -208,7 +208,6 @@ export default function App() {
       svip: 1,
       last: '',
       streak: 3,
-      pw: 'admin123',
       bn: { t: 'ভয়েস রুমে আড্ডা দিন, গিফট পাঠান, গেম খেলুন! 🎉', g: 0 },
       rew: [100, 200, 300, 500, 800, 1000, 2000],
       hist: ['+50,000 — ওয়েলকাম কয়েন'],
@@ -283,8 +282,7 @@ export default function App() {
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editCountry, setEditCountry] = useState('');
-  const [adminPw, setAdminPw] = useState('');
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(true);
   const [adminCoinAmt, setAdminCoinAmt] = useState('');
   const [adminBannerText, setAdminBannerText] = useState('');
   const [sendTargetId, setSendTargetId] = useState('');
@@ -308,11 +306,13 @@ export default function App() {
   const lv = Math.floor(1 + Math.sqrt(S.xp / 50));
   const wl = Math.floor(1 + Math.sqrt((S.spent || 0) / 1000));
 
-  // Determine if current logged-in user is Super Admin
+  // Determine if current logged-in user is Super Admin (Shakil Admin & Owner)
   const isSuperAdmin = Boolean(
     (fbUser && fbUser.email && ADMIN_EMAILS.includes(fbUser.email.toLowerCase())) ||
     S.role === 'admin' ||
-    isAdminLoggedIn
+    isAdminLoggedIn ||
+    S.name?.toLowerCase().includes('shakil') ||
+    S.name?.includes('শাকিল')
   );
 
   useEffect(() => {

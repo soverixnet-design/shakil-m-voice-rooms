@@ -100,7 +100,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [inviteRewardPct, setInviteRewardPct] = useState(String(appState.invPct || 5));
   const [welcomeCoins, setWelcomeCoins] = useState(String(appState.welcomeCoins || 50000));
   const [supportPhone, setSupportPhone] = useState(appState.supportPhone || '+880 1700-000000');
-  const [adminPassword, setAdminPassword] = useState(appState.pw || 'admin123');
 
   // Normalized User List & Requests from State
   const userList: any[] = appState.userList || [];
@@ -465,8 +464,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       ...prev,
       invPct: pct,
       welcomeCoins: wel,
-      supportPhone: supportPhone.trim(),
-      pw: adminPassword.trim() || 'admin123'
+      supportPhone: supportPhone.trim()
     }));
     onToast('ব্যবসা ও সিস্টেম সেটিংস সফলভাবে সংরক্ষিত হয়েছে ✓');
   };
@@ -1510,18 +1508,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               />
             </div>
 
-            <div>
-              <label className="block text-gray-300 font-bold mb-1">
-                অ্যাডমিন মাস্টার পাসওয়ার্ড পরিবর্তন:
-              </label>
-              <input
-                type="text"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                className="in w-full text-xs"
-                placeholder="নতুন পাসওয়ার্ড"
-              />
-            </div>
 
             <button
               onClick={handleSaveBusinessSettings}
