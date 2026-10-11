@@ -67,4 +67,12 @@ npm run build
 
 ---
 
+## 🔗 রিপোজিটরি ও লাইভ লিঙ্ক (Links)
+
+- **🌐 লাইভ শেয়ার্ড ওয়েব অ্যাপ:** [https://ais-pre-rktr5ve3meqsxiwojkwdb4-551896246899.europe-west2.run.app](https://ais-pre-rktr5ve3meqsxiwojkwdb4-551896246899.europe-west2.run.app)
+- **📦 মেইন অ্যাপ সোর্স কোড (GitHub):** [https://github.com/soverixnet-design/shakil-m-voice-rooms](https://github.com/soverixnet-design/shakil-m-voice-rooms)
+- **🛡️ আলাদা সুপার অ্যাডমিন প্যানেল রিপোজিটরি (GitHub):** [https://github.com/soverixnet-design/shakil-m-voice-admin](https://github.com/soverixnet-design/shakil-m-voice-admin)
+
+---
+
 © 2026 Shakil M Voice Rooms. All Rights Reserved.

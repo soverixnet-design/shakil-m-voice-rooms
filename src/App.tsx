@@ -324,6 +324,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const handleUrlRoute = () => {
+      if (window.location.hash === '#admin' || window.location.search.includes('admin=true')) {
+        setActivePage('admin');
+      }
+    };
+    handleUrlRoute();
+    window.addEventListener('hashchange', handleUrlRoute);
+    return () => window.removeEventListener('hashchange', handleUrlRoute);
+  }, []);
+
+  useEffect(() => {
     try {
       localStorage.setItem('sv3', JSON.stringify(S));
     } catch (_) {}
