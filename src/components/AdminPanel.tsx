@@ -43,11 +43,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onClose,
   onUpdateCoins
 }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'quick_boost' | 'rooms' | 'gifts' | 'packages' | 'banner' | 'system'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'requests' | 'quick_boost' | 'rooms' | 'gifts' | 'packages' | 'banner' | 'system'>('users');
   
   // Search & Filters
   const [searchUser, setSearchUser] = useState('');
   const [userFilter, setUserFilter] = useState<'all' | 'admin' | 'svip' | 'banned'>('all');
+  const [reqFilter, setReqFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
 
   // New User Form State
   const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -101,11 +102,74 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [supportPhone, setSupportPhone] = useState(appState.supportPhone || '+880 1700-000000');
   const [adminPassword, setAdminPassword] = useState(appState.pw || 'admin123');
 
-  // Normalized User List from State
+  // Normalized User List & Requests from State
   const userList: any[] = appState.userList || [];
   const roomsList: any[] = appState.rooms || [];
   const giftsList: any[] = appState.customGifts || [];
   const packagesList: any[] = appState.pk || [];
+  const rechargeRequests: any[] = appState.rechargeRequests || [];
+  const pendingRequestsCount = rechargeRequests.filter((r: any) => r.status === 'pending').length;
+
+  // RECHARGE REQUEST HANDLERS
+  const handleApproveRequest = (req: any) => {
+    const amount = Number(req.coins) || 0;
+    
+    // 1. If approving current user account
+    if (req.userId === appState.id || req.userName === appState.name) {
+      onUpdateCoins(amount, `অনুমোদিত রিচার্জ: 🪙 ${amount.toLocaleString()}`);
+    }
+
+    // 2. Update user in userList and mark request approved
+    onUpdateAppState((prev: any) => {
+      const updatedUsers = (prev.userList || []).map((u: any) => {
+        if (u.id === req.userId || u.name === req.userName) {
+          return { ...u, coins: (u.coins || 0) + amount };
+        }
+        return u;
+      });
+
+      const updatedRequests = (prev.rechargeRequests || []).map((r: any) => {
+        if (r.id === req.id) {
+          return { 
+            ...r, 
+            status: 'approved', 
+            approvedAt: new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' }) 
+          };
+        }
+        return r;
+      });
+
+      return {
+        ...prev,
+        userList: updatedUsers,
+        rechargeRequests: updatedRequests,
+      };
+    });
+
+    onToast(`✅ [${req.userName}] (ID: ${req.userId}) এর জন্য 🪙 ${amount.toLocaleString()} কয়েন সফলভাবে অনুমোদন করা হয়েছে! 🎉`);
+  };
+
+  const handleRejectRequest = (req: any) => {
+    onUpdateAppState((prev: any) => ({
+      ...prev,
+      rechargeRequests: (prev.rechargeRequests || []).map((r: any) => 
+        r.id === req.id ? { 
+          ...r, 
+          status: 'rejected', 
+          rejectedAt: new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' }) 
+        } : r
+      )
+    }));
+    onToast(`❌ [${req.userName}] এর রিচার্জ অনুরোধ বাতিল করা হয়েছে!`);
+  };
+
+  const handleDeleteRequest = (reqId: string) => {
+    onUpdateAppState((prev: any) => ({
+      ...prev,
+      rechargeRequests: (prev.rechargeRequests || []).filter((r: any) => r.id !== reqId)
+    }));
+    onToast('অনুরোধ তালিকা থেকে মুছে ফেলা হয়েছে!');
+  };
 
   // 1. ADD NEW USER
   const handleAddUser = (e: React.FormEvent) => {
@@ -475,6 +539,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
         {[
           { id: 'users', label: '👥 ইউজার ও কয়েন', icon: Users },
+          { 
+            id: 'requests', 
+            label: `📥 রিচার্জ অনুরোধ${pendingRequestsCount > 0 ? ` (${pendingRequestsCount})` : ''}`, 
+            icon: Coins,
+            hasBadge: pendingRequestsCount > 0
+          },
           { id: 'quick_boost', label: '👑 অ্যাডমিন ওয়ালেট বুস্ট', icon: Zap },
           { id: 'rooms', label: '🎙️ ভয়েস রুম', icon: Radio },
           { id: 'gifts', label: '🎁 গিফট শপ', icon: Gift },
@@ -488,7 +558,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id as any)}
-              className={`px-3 py-2 rounded-xl font-bold flex items-center gap-1.5 whitespace-nowrap transition-all active:scale-95 text-[11px] ${
+              className={`px-3 py-2 rounded-xl font-bold flex items-center gap-1.5 whitespace-nowrap transition-all active:scale-95 text-[11px] relative ${
                 isActive
                   ? 'bg-gradient-to-r from-amber-500 to-pink-600 text-white shadow-md border border-amber-300/40'
                   : 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/5'
@@ -496,6 +566,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             >
               <Icon size={14} />
               {t.label}
+              {t.hasBadge && (
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping absolute top-1 right-1" />
+              )}
             </button>
           );
         })}
@@ -748,6 +821,193 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
                 );
               })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* TAB: RECHARGE REQUESTS & PERMISSION CONTROL (রিচার্জ অনুরোধ ও অনুমোদন) */}
+      {/* ======================================================== */}
+      {activeTab === 'requests' && (
+        <div className="space-y-3">
+          {/* Header & Policy Notice */}
+          <div className="gl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-rose-600 flex items-center justify-center text-xl shadow">
+                  📥
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-amber-300">ইউজার রিচার্জ অনুরোধ ও অনুমোদন সেন্টার</h3>
+                  <p className="text-[11px] text-gray-300">
+                    সাধারণ ইউজারদের সেলফ-কয়েন নেওয়ার পারমিশন বন্ধ আছে। শুধুমাত্র আপনার অনুমোদনেই কয়েন যোগ হবে।
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Security Explanation Card */}
+            <div className="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-xl flex items-center gap-2.5 text-[11px] text-emerald-200">
+              <span className="text-xl">🛡️</span>
+              <div className="leading-relaxed">
+                <b>সিকিউরিটি প্রোটেকশন চালু আছে:</b> ওয়ালেটে ব্যবহারকারীরা সরাসরি কোনো কয়েন যোগ করতে পারবে না। তারা প্যাকেজে ক্লিক করে আবেদন করলে এখানে জমা হবে। আপনি [অনুমোদন করুন] চাপলে স্বয়ংক্রিয়ভাবে ব্যবহারকারীর অ্যাকাউন্টে কয়েন পৌঁছে যাবে।
+              </div>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex gap-1.5 pt-1 overflow-x-auto pb-1 scrollbar-none">
+              {[
+                { id: 'all', label: `সকল (${rechargeRequests.length})` },
+                { id: 'pending', label: `পেন্ডিং (${pendingRequestsCount})`, isAlert: pendingRequestsCount > 0 },
+                { id: 'approved', label: `অনুমোদিত (${rechargeRequests.filter((r: any) => r.status === 'approved').length})` },
+                { id: 'rejected', label: `বাতিল (${rechargeRequests.filter((r: any) => r.status === 'rejected').length})` },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setReqFilter(f.id as any)}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-[11px] transition-all active:scale-95 ${
+                    reqFilter === f.id
+                      ? 'bg-amber-400 text-slate-950 shadow-md'
+                      : f.isAlert
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                      : 'bg-white/5 text-gray-300 hover:bg-white/10'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Request List */}
+          <div className="space-y-2.5">
+            {rechargeRequests
+              .filter((r: any) => {
+                if (reqFilter === 'all') return true;
+                return r.status === reqFilter;
+              })
+              .length === 0 ? (
+              <div className="gl p-8 text-center text-gray-400">
+                <span className="text-3xl block mb-2">✨</span>
+                <b className="text-xs text-gray-300">কোনো রিচার্জ অনুরোধ পাওয়া যায়নি!</b>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  ইউজাররা ওয়ালেটে রিকোয়েস্ট সাবমিট করলে এই তালিকায় প্রদর্শিত হবে।
+                </p>
+              </div>
+            ) : (
+              rechargeRequests
+                .filter((r: any) => {
+                  if (reqFilter === 'all') return true;
+                  return r.status === reqFilter;
+                })
+                .map((req: any) => {
+                  const isPending = req.status === 'pending';
+                  const isApproved = req.status === 'approved';
+                  const isRejected = req.status === 'rejected';
+
+                  return (
+                    <div
+                      key={req.id}
+                      className={`p-3.5 rounded-2xl border transition-all ${
+                        isPending
+                          ? 'bg-amber-950/20 border-amber-500/40 shadow-lg shadow-amber-950/20'
+                          : isApproved
+                          ? 'bg-emerald-950/15 border-emerald-500/30'
+                          : 'bg-rose-950/15 border-rose-500/25 opacity-70'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">{req.userAv || '🧑'}</span>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <b className="text-xs text-white">{req.userName}</b>
+                              <span className="px-1.5 py-0.5 rounded bg-white/10 text-amber-300 font-mono text-[10px] font-bold">
+                                ID: SM{req.userId}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-gray-400">
+                              সময়: {req.createdAt || 'অজানা'} {req.date ? `· ${req.date}` : ''}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div>
+                          {isPending && (
+                            <span className="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] border border-amber-500/40 animate-pulse">
+                              ⏳ পেন্ডিং
+                            </span>
+                          )}
+                          {isApproved && (
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/40">
+                              ✓ অনুমোদিত ({req.approvedAt || 'অনুমোদিত'})
+                            </span>
+                          )}
+                          {isRejected && (
+                            <span className="px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 font-bold text-[10px] border border-rose-500/40">
+                              ✕ বাতিল
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Package Info */}
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-black/40 border border-white/5 mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">🪙</span>
+                          <div>
+                            <span className="text-[10px] text-gray-400 block">অনুরোধকৃত কয়েন:</span>
+                            <b className="text-sm font-black text-amber-300">
+                              {Number(req.coins).toLocaleString()} কয়েন
+                            </b>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-[10px] text-gray-400 block">প্যাকেজ মূল্য:</span>
+                          <b className="text-xs font-bold text-emerald-400">
+                            ${req.price} USD (~৳{req.price * 120} BDT)
+                          </b>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center justify-between gap-2 pt-1">
+                        {isPending ? (
+                          <>
+                            <button
+                              onClick={() => handleApproveRequest(req)}
+                              className="flex-1 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-110 font-bold text-slate-950 text-xs active:scale-95 shadow-md flex items-center justify-center gap-1.5"
+                            >
+                              <CheckCircle size={14} />
+                              <span>অনুমোদন করুন ও কয়েন দিন</span>
+                            </button>
+                            <button
+                              onClick={() => handleRejectRequest(req)}
+                              className="px-3.5 py-2 rounded-xl bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs active:scale-95 border border-rose-500/30"
+                            >
+                              বাতিল
+                            </button>
+                          </>
+                        ) : (
+                          <div className="text-[11px] text-gray-400 flex items-center gap-1">
+                            <span>এই অনুরোধটি সম্পন্ন হয়েছে।</span>
+                          </div>
+                        )}
+
+                        <button
+                          onClick={() => handleDeleteRequest(req.id)}
+                          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-rose-300"
+                          title="মুছে ফেলুন"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
             )}
           </div>
         </div>

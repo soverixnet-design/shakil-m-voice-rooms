@@ -194,6 +194,7 @@ export default function App() {
           ...parsed,
           userList: Array.isArray(parsed.userList) && parsed.userList.length > 0 ? parsed.userList : DEFAULT_USER_LIST,
           customGifts: Array.isArray(parsed.customGifts) && parsed.customGifts.length > 0 ? parsed.customGifts : DEFAULT_CUSTOM_GIFTS,
+          rechargeRequests: Array.isArray(parsed.rechargeRequests) ? parsed.rechargeRequests : [],
         };
       }
     } catch (_) {}
@@ -236,6 +237,19 @@ export default function App() {
       gifts: { sent: 4000, recv: ['🌹', '❤️', '💎', '🚗'] },
       userList: DEFAULT_USER_LIST,
       customGifts: DEFAULT_CUSTOM_GIFTS,
+      rechargeRequests: [
+        {
+          id: 'req_1',
+          userId: '102938',
+          userName: 'রাফি',
+          userAv: '🧑',
+          coins: 5500,
+          price: 5,
+          status: 'pending',
+          createdAt: '১০ মিনিট আগে',
+          date: 'আজ',
+        }
+      ],
       users: {},
       pk: [
         { u: 1, c: 1000 },
@@ -287,6 +301,9 @@ export default function App() {
   const [newRoomIcon, setNewRoomIcon] = useState('🎤');
   const [newRoomAnn, setNewRoomAnn] = useState('');
   const [newRoomSeatCount, setNewRoomSeatCount] = useState<number>(8);
+
+  // User Recharge Permission Guard Modal State
+  const [selectedRechargePackage, setSelectedRechargePackage] = useState<{ u: number; c: number } | null>(null);
 
   const lv = Math.floor(1 + Math.sqrt(S.xp / 50));
   const wl = Math.floor(1 + Math.sqrt((S.spent || 0) / 1000));
@@ -775,12 +792,18 @@ export default function App() {
                 color: '#3a1c00',
                 cursor: 'pointer',
               }}
-              onClick={() => toast('রিচার্জ প্যাকেজ বেছে নিন')}
+              onClick={() => {
+                if (S.pk && S.pk.length > 0) {
+                  setSelectedRechargePackage(S.pk[0]);
+                } else {
+                  toast('🔒 সরাসরি কয়েন যোগ বন্ধ আছে। অ্যাডমিনের সাথে যোগাযোগ করুন।');
+                }
+              }}
             >
               <span style={{ fontSize: '32px' }}>🎁</span>
               <div className="sp">
                 <b>First Recharge Bonus</b>
-                <div style={{ fontSize: '12px' }}>প্রথম রিচার্জে বিশেষ উপহার ও +১০% কয়েন</div>
+                <div style={{ fontSize: '12px' }}>প্রথম রিচার্জে বিশেষ উপহার ও +১০% কয়েন (অ্যাডমিন অনুমোদিত)</div>
               </div>
               ›
             </div>
@@ -829,23 +852,81 @@ export default function App() {
               </button>
             </div>
 
-            {/* Recharge Packages */}
-            <h3>কয়েন প্যাকেজ</h3>
+            {/* Recharge Packages - Self addition disabled! Permission off */}
+            <div className="row" style={{ marginTop: '16px', alignItems: 'center' }}>
+              <h3 style={{ margin: 0 }}>কয়েন প্যাকেজ</h3>
+              <span className="sp"></span>
+              <span style={{ 
+                fontSize: '11px', 
+                padding: '3px 8px', 
+                borderRadius: '8px', 
+                background: 'rgba(239, 68, 68, 0.15)', 
+                color: '#f87171',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                fontWeight: 700
+              }}>
+                🔒 নিজে কয়েন নেওয়া বন্ধ
+              </span>
+            </div>
+
+            {/* Security Alert Banner */}
+            <div
+              style={{
+                marginTop: '8px',
+                marginBottom: '12px',
+                padding: '12px 14px',
+                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(185, 28, 28, 0.08))',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}
+            >
+              <span style={{ fontSize: '26px' }}>🛡️</span>
+              <div style={{ flex: 1, fontSize: '12px', lineHeight: '1.45', color: '#fca5a5' }}>
+                <b style={{ color: '#fff', fontSize: '13px' }}>নিরাপত্তা নির্দেশিকা (Permission Off):</b>
+                <div>সাধারণ ইউজারদের নিজে থেকে কয়েন যোগ করার অনুমতি বন্ধ রয়েছে। প্যাকেজ সিলেক্ট করে অ্যাডমিনকে রিচার্জ রিকোয়েস্ট পাঠান। অ্যাডমিন অনুমোদন করলে কয়েন যোগ হবে।</div>
+              </div>
+            </div>
+
             <div className="rg">
               {S.pk.map((p: any, i: number) => (
                 <div
                   key={i}
                   className="gl"
-                  style={{ padding: '14px', textAlign: 'center', cursor: 'pointer' }}
+                  style={{
+                    padding: '14px',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    border: '1px solid rgba(255, 176, 42, 0.25)',
+                    transition: 'all 0.2s ease',
+                  }}
                   onClick={() => {
-                    updateCoins(p.c, `$${p.u} রিচার্জ প্যাকেজ`);
-                    toast(`🎉 +${p.c.toLocaleString()} কয়েন রিচার্জ সম্পন্ন!`);
+                    setSelectedRechargePackage(p);
                   }}
                 >
+                  <div style={{ position: 'absolute', top: '8px', right: '8px', fontSize: '12px' }} title="অনুমোদন আবশ্যক">
+                    🔒
+                  </div>
                   <div style={{ fontSize: '28px' }}>🪙</div>
                   <b style={{ fontSize: '18px', color: 'var(--g)' }}>{p.c.toLocaleString()}</b>
-                  <div className="b g" style={{ marginTop: '8px', padding: '8px' }}>
-                    ${p.u}
+                  <div 
+                    className="b g" 
+                    style={{ 
+                      marginTop: '8px', 
+                      padding: '7px 8px', 
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span>${p.u}</span>
+                    <span style={{ opacity: 0.8, fontSize: '10px' }}>· অনুরোধ</span>
                   </div>
                 </div>
               ))}
@@ -2372,6 +2453,136 @@ export default function App() {
                 className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 font-bold hover:brightness-110 active:scale-95 shadow-lg shadow-cyan-500/25"
               >
                 🚀 লাইভ রুম চালু করুন
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Recharge Package Permission / Request Modal */}
+      {selectedRechargePackage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+          onClick={() => setSelectedRechargePackage(null)}
+        >
+          <div 
+            className="w-full max-w-sm bg-[#12092b] border border-amber-400/40 rounded-3xl p-5 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative text-white"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-rose-600 flex items-center justify-center text-xl shadow">
+                  🔒
+                </div>
+                <div>
+                  <b className="text-sm block font-bold text-white">
+                    {isSuperAdmin ? '👑 সুপার অ্যাডমিন রিচার্জ' : '🔒 কয়েন রিচার্জ অনুমতি সংরক্ষিত'}
+                  </b>
+                  <span className="text-[11px] text-gray-300">
+                    {isSuperAdmin ? 'অ্যাডমিন অ্যাকাউন্ট প্রিভিলেজ' : 'নিজে থেকে কয়েন নেওয়ার পারমিশন বন্ধ আছে'}
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedRechargePackage(null)}
+                className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-gray-300 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Package Summary Box */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/15 via-black/40 to-purple-900/30 border border-amber-400/30 text-center mb-4">
+              <div className="text-[11px] text-gray-300 mb-1">নির্বাচিত প্যাকেজ:</div>
+              <div className="text-2xl font-black text-amber-300 flex items-center justify-center gap-1.5">
+                <span>🪙</span>
+                <span>{selectedRechargePackage.c.toLocaleString()} কয়েন</span>
+              </div>
+              <div className="text-xs text-emerald-400 font-bold mt-1">
+                মূল্য: ${selectedRechargePackage.u} USD (~৳{selectedRechargePackage.u * 120} BDT)
+              </div>
+              <div className="mt-2 text-[11px] text-gray-300 border-t border-white/10 pt-2 flex items-center justify-between">
+                <span>ব্যবহারকারী আইডি:</span>
+                <span className="font-mono font-bold text-amber-300">SM{S.id} ({S.name})</span>
+              </div>
+            </div>
+
+            {/* Security Notice / Policy */}
+            <div className="p-3 rounded-xl bg-red-950/40 border border-red-500/30 text-[11px] text-red-200 leading-relaxed mb-4">
+              {isSuperAdmin ? (
+                <div className="text-emerald-300">
+                  👑 আপনি সিস্টেমের সুপার অ্যাডমিন হিসেবে লগইন আছেন। আপনি চাইলে সরাসরি নিজের অ্যাকাউন্টে কয়েন যুক্ত করতে পারেন অথবা অ্যাডমিন প্যানেলে পরিচালনা করতে পারেন।
+                </div>
+              ) : (
+                <div>
+                  🛡️ <b>নিরাপত্তা নিয়ম:</b> সিস্টেমের সুরক্ষার স্বার্থে কোনো সাধারণ ইউজার সরাসরি ওয়ালেটে কয়েন যোগ করতে পারবেন না। অ্যাডমিন অনুমোদন ছাড়া কয়েন ব্যালেন্সে যোগ হবে না।
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-2">
+              {isSuperAdmin ? (
+                <>
+                  <button
+                    onClick={() => {
+                      updateCoins(selectedRechargePackage.c, `অ্যাডমিন সেলফ রিচার্জ (${selectedRechargePackage.u}$)`);
+                      toast(`🎉 +${selectedRechargePackage.c.toLocaleString()} কয়েন ব্যালেন্সে যোগ করা হয়েছে!`);
+                      setSelectedRechargePackage(null);
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 shadow-md flex items-center justify-center gap-2"
+                  >
+                    <span>🪙 অ্যাডমিন রিচার্জ সম্পন্ন করুন (+{selectedRechargePackage.c.toLocaleString()})</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedRechargePackage(null);
+                      setActivePage('admin');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-purple-600/50 hover:bg-purple-600 text-white font-bold text-xs active:scale-95 border border-purple-400/30 flex items-center justify-center gap-1.5"
+                  >
+                    <span>⚙️ অ্যাডমিন প্যানেলে যান</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      const newReq = {
+                        id: 'req_' + Date.now(),
+                        userId: S.id,
+                        userName: S.name,
+                        userAv: S.img ? '👤' : (S.av || '🧑'),
+                        coins: selectedRechargePackage.c,
+                        price: selectedRechargePackage.u,
+                        status: 'pending',
+                        createdAt: new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' }),
+                        date: new Date().toLocaleDateString('bn-BD'),
+                      };
+                      setS((prev: any) => ({
+                        ...prev,
+                        rechargeRequests: [newReq, ...(prev.rechargeRequests || [])]
+                      }));
+                      setSelectedRechargePackage(null);
+                      toast('📩 রিচার্জের অনুরোধ অ্যাডমিন প্যানেলে সফলভাবে পাঠানো হয়েছে! অ্যাডমিন যাচাই করে অনুমোদন করবেন।');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2"
+                  >
+                    <span>📩 অ্যাডমিনকে রিচার্জ অনুরোধ পাঠান</span>
+                  </button>
+                  <div className="text-center pt-1">
+                    <span className="text-[10px] text-gray-400 block">
+                      অ্যাডমিন হেল্পলাইন / ইমেইল: <b className="text-amber-300">yfastvpn@gmail.com</b>
+                    </span>
+                  </div>
+                </>
+              )}
+
+              <button
+                onClick={() => setSelectedRechargePackage(null)}
+                className="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 text-xs font-semibold"
+              >
+                বাতিল করুন
               </button>
             </div>
           </div>
