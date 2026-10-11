@@ -276,6 +276,7 @@ export default function App() {
   });
 
   const [tab, setTab] = useState<'home' | 'explore' | 'wallet' | 'moments' | 'msg'>('home');
+  const [giftRecipient,setGiftRecipient]=useState<string|undefined>(undefined);
   const [showUserDirectory, setShowUserDirectory] = useState(false);
   const [incomingGift, setIncomingGift] = useState<any>(null);
   const [activePage, setActivePage] = useState<string | null>(null);
@@ -622,13 +623,13 @@ export default function App() {
       {activePage==='support_chat'&&<SupportChat user={fbUser} onClose={()=>setActivePage(null)}/>}
       {activePage==='notices'&&<Notices onClose={()=>setActivePage(null)}/>}
       {activeRoom&&customEntry&&<EntryMedia key={activeRoom.id+customEntry.id} image={customEntry.image} name={S.name}/>}
-      {showUserDirectory && <UserDirectory roomId={activeRoom?.id} onClose={()=>setShowUserDirectory(false)} onJoin={room=>{setActiveRoom(room);setIsRoomMinimized(false);setShowUserDirectory(false)}} />}
-      {incomingGift && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.giftImage?<img src={incomingGift.giftImage} alt={incomingGift.giftName} className="w-24 h-24 object-contain"/>:incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · মূল্য 🪙 {incomingGift.cost}</p></div>}
+      {showUserDirectory && <UserDirectory initialRecipient={giftRecipient} onGiftSent={event=>{setShowUserDirectory(false);toast(`✅ ID ${event.receiverPublicId}-তে ${event.quantity}টি ${event.giftName} পাঠানো হয়েছে। বাকি ${event.balance} কয়েন।`)}} roomId={activeRoom?.id} onClose={()=>setShowUserDirectory(false)} onJoin={room=>{setActiveRoom(room);setIsRoomMinimized(false);setShowUserDirectory(false)}} />}
+      {incomingGift && (!activeRoom||isRoomMinimized||incomingGift.roomId!==activeRoom.id) && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.giftImage?<img src={incomingGift.giftImage} alt={incomingGift.giftName} className="w-24 h-24 object-contain"/>:incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · মূল্য 🪙 {incomingGift.cost}</p></div>}
 
       {isAuthenticated && <UploadedDesign state={{...S,customFrameImage:customFrame?.image,mediaBanners:mediaAssets.filter(a=>a.kind==='banner'),sellerEnabled:Boolean(delegatedAccess?.active&&delegatedAccess.permissions?.seller)}} admin={isSuperAdmin}
         visible={!activePage && !activeRoom && !activeGame && tab === 'home' && !showCreateRoomModal && !splashVisible}
         onAction={(action, value) => {
-          if (action === 'users') setShowUserDirectory(true);
+          if (action === 'users') {setGiftRecipient(undefined);setShowUserDirectory(true);}
           if (action === 'logout') handleLogout();
           if (action === 'admin' && isSuperAdmin) setActivePage('admin');
           if (action === 'page' && ['edit_profile','hist','frames','entries','svip','tasks','invite','store','items','seller','support_chat','notices'].includes(value || '')) setActivePage(value!);
@@ -2515,7 +2516,7 @@ export default function App() {
       {/* 6. Active Voice Room View */}
       {activeRoom && !isRoomMinimized && (
         <VoiceRoomView
-          onOpenUsers={()=>setShowUserDirectory(true)}
+          onOpenUsers={uid=>{setGiftRecipient(uid);setShowUserDirectory(true)}}
           room={activeRoom}
           user={S}
           customGifts={S.customGifts}

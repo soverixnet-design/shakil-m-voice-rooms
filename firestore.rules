@@ -47,6 +47,38 @@ service cloud.firestore {
       allow update: if owner() || (active() && resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId);
       allow delete: if owner() || (active() && resource.data.hostId == request.auth.uid);
     }
+    // Public room animation mirrors a newly committed private gift receipt.
+    match /rooms/{roomId}/giftEvents/{giftId} {
+      allow read: if active();
+      allow create: if active()
+        && request.resource.data.keys().hasOnly([
+          'type','senderId','receiverId','userId','senderName',
+          'receiverName','receiverPublicId','receiverAvatar',
+          'giftName','emoji','giftImage','quantity','cost','roomId','createdAt'
+        ])
+        && request.resource.data.type == 'gift_sent'
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.roomId == roomId
+        && request.resource.data.giftImage is string
+        && request.resource.data.giftImage.size() <= 600000
+        && (request.resource.data.giftImage == '' || request.resource.data.giftImage.matches('data:image/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]*={0,2}'))
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity > 0
+        && request.resource.data.quantity <= 999
+        && request.resource.data.cost is int
+        && request.resource.data.cost > 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.receiverPublicId == get(/databases/$(database)/documents/users/$(request.resource.data.receiverId)).data.get('id',request.resource.data.receiverId)
+        && !exists(/databases/$(database)/documents/transactions/$(giftId))
+        && getAfter(/databases/$(database)/documents/transactions/$(giftId)).data == request.resource.data
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.coins
+          == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.coins - request.resource.data.cost
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.coins >= 0
+        && !(get(/databases/$(database)/documents/users/$(request.resource.data.receiverId)).data.get('status','active') in ['banned','archived']);
+      allow update, delete: if false;
+    }
+
     match /system/{id} {
       allow read: if true;
       allow write: if owner();

@@ -1,4 +1,5 @@
 import {useMediaAssets,MediaAvatar,EntryMedia} from './MediaAssets';
+import {RoomGiftFlights} from './RoomGiftFlights';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Volume2, 
@@ -19,7 +20,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import { auth, db } from '../firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, updateDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { VoiceRoom, UserProfile } from '../types';
 
 interface Props {
@@ -32,7 +33,7 @@ interface Props {
   onMinimize: () => void;
   onLeaveRoom: () => void;
   onClose?: () => void;
-  onOpenUsers: () => void;
+  onOpenUsers: (uid?:string) => void;
 }
 
 const GIFTS = [
@@ -90,7 +91,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
   const [floatingParticles, setFloatingParticles] = useState<{ id: number; emoji: string; x: number }[]>([]);
   const [giftOverlay, setGiftOverlay] = useState<{ emoji: string; text: string } | null>(null);
-  const [roomCoinTotal, setRoomCoinTotal] = useState<number>(room.tot || 344002);
+  const [roomCoinTotal, setRoomCoinTotal] = useState<number>(room.tot || 0);
   const [copied, setCopied] = useState<boolean>(false);
 
   const [seats, setSeats] = useState<{ name: string; avatar: string; isSpeaking: boolean }[]>(() => {
@@ -126,26 +127,18 @@ export const VoiceRoomView: React.FC<Props> = ({
     }
   }, [chatMessages, activeChatTab]);
 
-  const handleSeatClick = (index: number) => {
-    if (seatedIndex === index) {
-      // Leave seat
-      setSeats(prev => {
-        const copy = [...prev];
-        copy[index] = null as any;
-        return copy;
-      });
-      setSeatedIndex(null);
-      setIsMicOn(false);
-    } else {
-      // Take seat
-      setSeats(prev => {
-        const copy = [...prev];
-        if (seatedIndex !== null) copy[seatedIndex] = null as any;
-        copy[index] = { name: user.name, avatar: user.img ? '👤' : user.av, isSpeaking: false };
-        return copy;
-      });
-      setSeatedIndex(index);
-    }
+  const [seatBusy,setSeatBusy]=useState(false),[seatError,setSeatError]=useState('');
+  const seatLock=useRef(false);
+  const liveSeats=Array.from({length:seatCount},(_,index)=>liveMembers.filter(m=>m.roomSeat===index).sort((a,b)=>a.uid.localeCompare(b.uid))[0]||null);
+  useEffect(()=>{if(auth.currentUser)void updateDoc(doc(db,'users',auth.currentUser.uid),{roomSeat:isCurrentUserHost?0:null}).catch(()=>setSeatError('সিট সেভ হয়নি। Google লগইন পরীক্ষা করুন।'))},[room.id]);
+  const handleSeatClick = async (index:number) => {
+    if(seatLock.current)return;
+    if(!auth.currentUser){setSeatError('রুমে বসতে Google দিয়ে লগইন করুন।');return;}
+    const occupant=liveSeats[index];
+    if(occupant&&occupant.uid!==auth.currentUser.uid){onOpenUsers(occupant.uid);return;}
+    seatLock.current=true;setSeatBusy(true);setSeatError('');
+    const next=seatedIndex===index?null:index;
+    try{await updateDoc(doc(db,'users',auth.currentUser.uid),{roomSeat:next});setSeatedIndex(next);if(next===null)setIsMicOn(false)}catch{setSeatError('সিট সেভ হয়নি। সংযোগ পরীক্ষা করুন।')}finally{seatLock.current=false;setSeatBusy(false)}
   };
 
   const handleMicToggle = () => {
@@ -291,16 +284,20 @@ export const VoiceRoomView: React.FC<Props> = ({
 
       {/* Center Seats Grid (.sg3, .s3w, .s3, .nm3, .sc3) */}
       <div className="relative z-10 flex-1 overflow-y-auto px-2 py-2 flex flex-col justify-between">
+        <RoomGiftFlights roomId={room.id} onGift={event=>{setRoomCoinTotal(p=>p+event.cost);setChatMessages(p=>[...p,{id:event.id,type:'gift',sender:event.senderName,text:`${event.senderName} → ${event.receiverName} (ID ${event.receiverPublicId}): ${event.quantity}টি ${event.giftName} · ${event.cost} কয়েন`}])}}/>
+        <p className="text-xs text-cyan-200">ইউজারের ছবি বা সিটে চাপ দিয়ে তাকে গিফট দিন।</p>
+        {seatError&&<p role="status">{seatError}</p>}
+        {seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}
         {roomEntry&&mediaAssets.find(a=>a.id===roomEntry.customEntryId)&&<EntryMedia key={roomEntry.uid+roomEntry.at} image={mediaAssets.find(a=>a.id===roomEntry.customEntryId)!.image} name={roomEntry.name}/>}
-        <div className="flex gap-2 overflow-x-auto pb-3">{liveMembers.map(member=><button key={member.uid} className="gl p-2 shrink-0 text-center" onClick={onOpenUsers}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===member.customFrameId)?.image}/><b className="block">{member.name}</b><small className="block">ID {member.id} · 🟢 অনলাইন</small><small>🎁 {member.giftReceivedCount||0}টি · 🪙 {Number(member.giftReceivedCoins||0).toLocaleString()}</small></button>)}</div>
+        <div className="flex gap-2 overflow-x-auto pb-3">{liveMembers.map(member=><button key={member.uid} className="gl p-2 shrink-0 text-center" onClick={()=>onOpenUsers(member.uid)}><span data-gift-uid={member.uid}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===member.customFrameId)?.image}/></span><b className="block">{member.name}</b><small className="block">ID {member.id} · 🟢 অনলাইন</small><small>🎁 {member.giftReceivedCount||0}টি · 🪙 {Number(member.giftReceivedCoins||0).toLocaleString()}</small></button>)}</div>
         <div className="sg3" style={{ gridTemplateColumns: `repeat(${seatCount <= 8 ? 4 : 4}, 1fr)`, margin: 'auto 0' }}>
-          {seats.map((seat, idx) => {
+          {liveSeats.map((seat, idx) => {
             const isUserSeatedHere = seatedIndex === idx;
             return (
-              <div key={idx} className="s3w" onClick={() => handleSeatClick(idx)}>
-                <div className={`s3 ${seat ? 'on' : ''} ${isUserSeatedHere && isMicOn ? 'talk' : ''}`}>
+              <div key={idx} className="s3w" onClick={() => seat?.uid?onOpenUsers(seat.uid):void handleSeatClick(idx)}>
+                <div data-gift-uid={seat?.uid} data-gift-seat={seat?.uid?'true':undefined} className={`s3 ${seat ? 'on' : ''} ${isUserSeatedHere && isMicOn ? 'talk' : ''}`}>
                   {seat ? (
-                    <span>{seat.avatar}</span>
+                    <MediaAvatar avatar={seat.avatar} frame={mediaAssets.find(a=>a.id===seat.customFrameId)?.image} size={48}/>
                   ) : (
                     <span style={{ fontSize: '15px', fontWeight: 900, opacity: 0.7 }}>{idx + 1}</span>
                   )}
@@ -308,7 +305,7 @@ export const VoiceRoomView: React.FC<Props> = ({
                 <div className="nm3" style={{ color: isUserSeatedHere ? 'var(--t)' : '#fff' }}>
                   {seat ? seat.name : `সিট ${idx + 1}`}
                 </div>
-                <span className="sc3">🪙 {isUserSeatedHere ? Number((user as any).giftReceivedCoins || 0).toLocaleString() : '০'}</span>
+                <span className="sc3">🪙 {isUserSeatedHere ? Number((user as any).giftReceivedCoins || 0).toLocaleString() : Number(seat?.giftReceivedCoins||0).toLocaleString()}</span>
               </div>
             );
           })}
@@ -348,7 +345,7 @@ export const VoiceRoomView: React.FC<Props> = ({
       <div className="fb">
         <button onClick={() => setShowGameDrawer(true)} title="রুমের ভেতর গেমস">🎮</button>
         <button onClick={onOpenWallet} title="ওয়ালেট">👛</button>
-        <button onClick={onOpenUsers} title="গিফট" style={{ animation: 'bounce 1.5s infinite' }}>🎁</button>
+        <button onClick={()=>onOpenUsers()} title="গিফট" style={{ animation: 'bounce 1.5s infinite' }}>🎁</button>
         <button onClick={() => setShowReactionModal(!showReactionModal)} title="রিঅ্যাকশন">😊</button>
       </div>
 

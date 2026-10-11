@@ -1,6 +1,10 @@
 import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {giftFlightOffset} from '../src/lib/giftFlight.ts';
+import {sendDirectGift} from '../src/lib/gifts.ts';
 import {initializeTestEnvironment,assertSucceeds,assertFails} from '@firebase/rules-unit-testing';
 import {doc,setDoc,getDoc,updateDoc,deleteDoc,runTransaction,serverTimestamp} from 'firebase/firestore';
+const start={left:180,top:640,width:96,height:96},end={left:32,top:180,width:60,height:60},offset=giftFlightOffset(start,end);assert.equal(start.left+start.width/2+offset.x,end.left+end.width/2);assert.equal(start.top+start.height/2+offset.y,end.top+end.height/2);
 const [host,port]=process.env.FIRESTORE_EMULATOR_HOST.split(':');
 const env=await initializeTestEnvironment({projectId:'demo-voice-admin',firestore:{host,port:Number(port),rules:fs.readFileSync('firestore.rules','utf8')}});
 const user=(uid,email=uid+'@example.com')=>env.authenticatedContext(uid,{email,email_verified:true}).firestore();
@@ -27,5 +31,21 @@ try{
  await assertSucceeds(getDoc(doc(support,'supportTickets','recipient','messages','question')));await assertSucceeds(setDoc(doc(support,'supportTickets','recipient','messages','reply'),{senderId:'support',kind:'staff',text:'Reply',image:'',createdAt:serverTimestamp()}));
  await assertFails(deleteDoc(doc(owner,'sellerTransfers','valid-transfer')));
  await seed();const races=await Promise.allSettled([transfer(seller,'race-one',300),transfer(seller,'race-two',300)]);if(races.filter(x=>x.status==='fulfilled').length!==1)throw Error('Concurrent overspend accepted');const remaining=await getDoc(doc(seller,'sellerWallets','seller'));if(remaining.data().balance!==200)throw Error('Incorrect concurrent balance');
- console.log('PASS: seller conservation, replay/overspend/revocation, scoped permissions, block enforcement, support privacy and immutable receipts');
+ await seed();
+ const gift=await assertSucceeds(sendDirectGift(recipient,{senderId:'recipient',receiverId:'other',roomId:'gift-room',item:{name:'Rose',emoji:'🌹',cost:5},quantity:2}));
+ const senderAfter=await getDoc(doc(recipient,'users','recipient'));if(senderAfter.data().coins!==90||senderAfter.data().giftSentCount!==2)throw Error('Gift debit/count incorrect');
+ const publicGift=await assertSucceeds(getDoc(doc(seller,'rooms','gift-room','giftEvents',gift.id)));if(publicGift.data().receiverId!=='other')throw Error('Wrong recipient');
+ await assertFails(getDoc(doc(seller,'transactions',gift.id)));
+ const selfGift=await assertSucceeds(sendDirectGift(recipient,{senderId:'recipient',receiverId:'recipient',roomId:'gift-room',item:{name:'Heart',emoji:'❤️',cost:10},quantity:1}));
+ if(selfGift.balance!==80||(await getDoc(doc(recipient,'users','recipient'))).data().coins!==80)throw Error('Self gift must deduct exactly once');
+ if((await getDoc(doc(recipient,'transactions',selfGift.id))).data().receiverId!=='recipient')throw Error('Self gift receiver mismatch');
+ await assertFails(setDoc(doc(seller,'rooms','gift-room','giftEvents','forged'),{...publicGift.data(),senderId:'seller',userId:'seller',createdAt:serverTimestamp()}));
+ await assertFails(setDoc(doc(recipient,'rooms','other-room','giftEvents',gift.id),{...publicGift.data(),roomId:'other-room',createdAt:serverTimestamp()}));
+ await assert.rejects(sendDirectGift(recipient,{senderId:'recipient',receiverId:'other',roomId:'gift-room',item:{name:'Expensive',emoji:'🎁',cost:81},quantity:1}),/কয়েন যথেষ্ট নয়/);
+ if((await getDoc(doc(recipient,'users','recipient'))).data().coins!==80)throw Error('Failed gift changed balance');
+ const receiverBalance=await getDoc(doc(other,'users','other'));if(receiverBalance.data().coins!==100)throw Error('Gift must not mint receiver wallet coins');
+ await assertFails(runTransaction(recipient,async t=>{const ref=doc(recipient,'users','recipient'),s=await t.get(ref);const data={...publicGift.data(),cost:1,quantity:1,createdAt:serverTimestamp()};t.update(ref,{coins:s.data().coins-1});t.set(doc(recipient,'transactions','atomic-failure'),data);t.set(doc(recipient,'rooms','gift-room','giftEvents','atomic-failure'),{...data,receiverId:'seller'})}));if((await getDoc(doc(recipient,'users','recipient'))).data().coins!==80)throw Error('Failed room gift debited wallet');
+ await assertSucceeds(updateDoc(doc(other,'users','other'),{online:true,currentRoomId:'receiver-room',lastSeen:serverTimestamp()}));const remoteGift=await sendDirectGift(recipient,{senderId:'recipient',receiverId:'other',roomId:'gift-room',item:{name:'Rose',emoji:'🌹',cost:5},quantity:1});if(remoteGift.roomId!=='receiver-room')throw Error('Gift did not follow recipient room');await assertSucceeds(getDoc(doc(other,'rooms','receiver-room','giftEvents',remoteGift.id)));
+ await seed();const giftRaces=await Promise.allSettled([sendDirectGift(other,{senderId:'other',receiverId:'recipient',roomId:'gift-room',item:{name:'Rose',emoji:'🌹',cost:60},quantity:1}),sendDirectGift(other,{senderId:'other',receiverId:'recipient',roomId:'gift-room',item:{name:'Rose',emoji:'🌹',cost:60},quantity:1})]);if(giftRaces.filter(x=>x.status==='fulfilled').length!==1||(await getDoc(doc(other,'users','other'))).data().coins!==40)throw Error('Concurrent gift overspend');
+ console.log('PASS: seller conservation, replay/overspend/revocation, scoped permissions, block enforcement, support privacy immutable receipts, directed room gifts, and self gifts');
 }finally{await env.cleanup()}
