@@ -118,7 +118,7 @@ const day=new Date().toDateString();
 let bal=0,round=S.get('rd',36),res=S.get('rs',[4,5,5,4,2,2,6,4]),hist=S.get('hi',[]),tw=S.get('tw',{d:day,v:0}),lb=S.get('lb',{d:day,p:{}});
 if(tw.d!==day)tw={d:day,v:0};if(lb.d!==day)lb={d:day,p:{}};
 if(!lb.u){const NM=['Rafi','Mim','Sumi','Tuhin','Nila','Arif','Jamal','Xeloi-club','chanda','Sakib','Tania','Rony','Lima','Hasan','Mitu','Babu','Shuvo','Nusrat','Imran','Rima'];lb.u=Array.from({length:99},(_,i)=>({n:NM[i%20]+(i>=20?(i*7)%90+10:''),v:Math.round((Math.pow(Math.random(),2.5)*8e6+2e4)/1000)*1000}))}
-let bets=Array(10).fill(0),last=null,auto=false,chip=1,phase='load',t=0,cur=0,mute=false,topw={n:'chanda',v:210000};
+let bets=Array(10).fill(0),last=null,auto=false,chip=1000,phase='load',t=0,cur=0,mute=false,topw={n:'chanda',v:210000};
 let walletReady=false,walletBusy=false,pendingWallet=null;
 function wallet(delta){if(!walletReady||walletBusy)return Promise.resolve(false);walletBusy=true;return new Promise(resolve=>{pendingWallet=resolve;parent.postMessage({type:'gl-wallet',delta},location.origin)})}
 window.addEventListener('message',e=>{if(e.source!==parent||e.origin!==location.origin)return;const d=e.data||{};if(d.type==='gl-request-exit'){$('bk').onclick();return;}if(d.type==='gl-init'){bal=d.balance;walletReady=true;document.querySelector('.me span').textContent=d.name||'User';render()}if(d.type==='gl-saved'||d.type==='gl-error'){if(d.type==='gl-saved')bal=d.balance;walletBusy=false;const cb=pendingWallet;pendingWallet=null;cb?.(d.type==='gl-saved');render()}});
@@ -132,7 +132,7 @@ const winSnd=()=>[523,659,784,1047,1319,1047,1319].forEach((fr,i)=>tone(fr,i*.12
 function toast(m){const e=$('toast');e.textContent=m;e.style.display='block';clearTimeout(e._t);e._t=setTimeout(()=>e.style.display='none',2000)}
 IT.forEach((x,i)=>{const a=i*Math.PI/4,d=document.createElement('div');d.className='st';d.id='s'+i;d.style.left=(50+36*Math.sin(a))+'%';d.style.top=(50-37*Math.cos(a))+'%';d.innerHTML=`<s>HOT</s><em>${x.e}</em><div class=pd></div><u>x${x.m}</u><b></b>`;d.onclick=()=>place(i);$('wh').appendChild(d)});
 GR.forEach((g,j)=>{const d=document.createElement('div');d.className='gs';d.id='s'+(8+j);d.style.left=j?'90%':'10%';d.style.top='90%';d.innerHTML=`<em>${g.e}</em><u>${g.n.toLowerCase()}</u><b></b>`;d.onclick=()=>place(8+j);$('wh').appendChild(d)});
-[1,10,100,1000].forEach(v=>{const b=document.createElement('button');b.innerHTML='🪙<br>'+k(v);b.dataset.v=v;b.onclick=()=>{chip=v;beep(700,.04);render()};$('ch').appendChild(b)});
+[1000,10000,100000,1000000].forEach(v=>{const b=document.createElement('button');b.innerHTML='🪙<br>'+k(v);b.dataset.v=v;b.onclick=()=>{chip=v;beep(700,.04);render()};$('ch').appendChild(b)});
 function render(){for(let i=0;i<10;i++){const b=document.querySelector('#s'+i+' b');b.textContent=bets[i]?k(bets[i]):'';b.style.display=bets[i]?'block':'none'}
 $('bl').textContent=f(bal);$('tw2').textContent=' '+f(tw.v);$('rn').textContent='round:'+round;
 $('rl').innerHTML=res.slice(0,8).map(r=>`<span>${IT[r].e}</span>`).join('');

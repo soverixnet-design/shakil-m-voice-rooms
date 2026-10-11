@@ -9,7 +9,7 @@ interface Props {
   onClose: () => void;
 }
 
-const BETS = [100, 500, 1000, 5000, 10000, 50000, 100000];
+const BETS = [1000, 10000, 100000, 1000000];
 const SYMBOLS = ['7', 'B3', 'B2', 'B1', 'BL', 'GR', 'OR', 'CH'];
 const WEIGHTS: Record<string, number> = {
   '7': 2, 'B3': 3, 'B2': 4, 'B1': 6, 'BL': 10, 'GR': 22, 'OR': 34, 'CH': 50
@@ -31,7 +31,7 @@ export const SlotsGame: React.FC<Props> = ({
   onUpdateCoins,
   onClose,
 }) => {
-  const [betIndex, setBetIndex] = useState(2); // 1000
+  const [betIndex, setBetIndex] = useState(0); // 1000
   const [isSpinning, setIsSpinning] = useState(false);
   const [fastMode, setFastMode] = useState(false);
   const [autoSpin, setAutoSpin] = useState(false);

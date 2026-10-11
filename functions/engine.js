@@ -1,0 +1,10 @@
+import {createHash} from 'node:crypto';
+export const CHIPS=[1000,10000,100000,1000000];
+export const GAMES=['greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots'];
+export const ROUND_MS=32000,BET_MS=20000,REVEAL_MS=26000;
+export function roundAt(now){const id=Math.floor(now/ROUND_MS),startAt=id*ROUND_MS;return {id:String(id),startAt,closeAt:startAt+BET_MS,revealAt:startAt+REVEAL_MS,endAt:startAt+ROUND_MS};}
+export function phaseAt(round,now){return now<round.closeAt?'bet':now<round.revealAt?'spin':now<round.endAt?'result':'ended';}
+const lion=[45,25,15,10,5,5,5,5],night=[10,15,25,45,5,5,5,5],fruit=[5,5,5,40,0,5,20,10,10];
+export function outcome(game,seed){const bytes=createHash('sha256').update(game+':'+seed).digest();let cursor=0;const unit=()=>bytes.readUInt32BE((cursor++%8)*4)/4294967296;const pick=(weights)=>{let n=unit()*weights.reduce((a,b)=>a+b,0);for(let i=0;i<weights.length;i++){n-=weights[i];if(n<0)return i;}return weights.length-1;};if(game==='slots')return {symbols:Array.from({length:3},()=>pick([2,3,4,6,10,22,34,50]))};const mult=game==='night_wheel'?night:game==='jackpot_fruit'?fruit:lion;return {winner:pick(mult.map(m=>m?1/m:0))};}
+export function payout(game,bets,result){if(game==='slots'){const a=result.symbols;const triple=[70,20,15,12,10,7,6,5],pair=[6,5,4,3.5,3,3,3,2.5];let m=0;if(a[0]===a[1]&&a[1]===a[2])m=triple[a[0]];else if(a.every(x=>x>=1&&x<=3))m=4.5;else if(a[0]===a[1])m=pair[a[0]];else if(a[1]===a[2])m=pair[a[1]];else if(a[0]===a[2])m=pair[a[0]];return Math.floor((bets[0]||0)*m);}const w=result.winner,mult=game==='night_wheel'?night:game==='jackpot_fruit'?fruit:lion;let amount=(bets[w]||0)*mult[w];if(game==='greedy_lion'){if(w>=4)amount+=(bets[8]||0)*1.25;else amount+=(bets[9]||0)*4.3;}else if(game!=='jackpot_fruit'){if(mult[w]===5)amount+=(bets[8]||0)*1.2;else amount+=(bets[9]||0)*4;}return Math.floor(amount);}
+export function validateBet(game,index,amount){if(!GAMES.includes(game)||!CHIPS.includes(amount)||!Number.isInteger(index)||index<0||index>=(game==='slots'?1:game==='jackpot_fruit'?9:10)||game==='jackpot_fruit'&&index===4)throw Error('invalid-bet');}

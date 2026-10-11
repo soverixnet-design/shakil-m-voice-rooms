@@ -22,10 +22,26 @@ service cloud.firestore {
       let nextUser = getAfter(userPath).data;
       return permission('seller') && !exists(path) && data.keys().hasOnly(['type','sellerId','receiverId','receiverPublicId','amount','sellerBefore','sellerAfter','receiverBefore','receiverAfter','createdAt']) && data.type == 'transfer' && data.sellerId == request.auth.uid && data.receiverId != request.auth.uid && data.amount is int && data.amount > 0 && data.amount <= wallet.balance && data.createdAt == request.time && !(recipient.get('status','active') in ['banned','archived']) && data.receiverPublicId == recipient.id && data.sellerBefore == wallet.balance && data.sellerAfter == wallet.balance - data.amount && data.receiverBefore == recipient.coins && data.receiverAfter == recipient.coins + data.amount && nextWallet.balance == data.sellerAfter && nextWallet.lastTransferId == id && nextWallet.diff(wallet).affectedKeys().hasOnly(['balance','lastTransferId']) && nextUser.coins == data.receiverAfter && nextUser.lastSellerTransfer == id && nextUser.diff(recipient).affectedKeys().hasOnly(['coins','lastSellerTransfer']);
     }
+    function validGiftDebit(id) {
+      let path = /databases/$(database)/documents/transactions/$(id);
+      let gift = getAfter(path).data;
+      let before = resource.data;
+      let after = request.resource.data;
+      return !exists(path) && gift.type == 'gift_sent'
+        && gift.senderId == request.auth.uid && gift.userId == request.auth.uid
+        && gift.cost is int && gift.cost > 0
+        && gift.quantity is int && gift.quantity > 0 && gift.quantity <= 999
+        && gift.createdAt == request.time
+        && exists(/databases/$(database)/documents/users/$(gift.receiverId))
+        && after.coins == before.coins - gift.cost && after.coins >= 0
+        && after.get('giftSentCount',0) == before.get('giftSentCount',0) + gift.quantity
+        && after.get('giftSentCoins',0) == before.get('giftSentCoins',0) + gift.cost
+        && after.diff(before).affectedKeys().hasOnly(['coins','lastGiftReceipt','giftSentCount','giftSentCoins']);
+    }
     match /users/{uid} {
       allow read: if active() || self(uid);
-      allow create: if owner() || (self(uid) && active() && request.resource.data.get('role','user') == 'user' && request.resource.data.get('status','active') == 'active' && request.resource.data.get('email','') == request.auth.token.get('email',''));
-      allow update: if owner() || (self(uid) && active() && mayEnterRoom(request.resource.data.get('currentRoomId',null)) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','status','email','lastSellerTransfer'])) || (permission('moderate') && resource.data.get('email','') != 'yfastvpn@gmail.com' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status in ['active','banned']) || (permission('seller') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coins','lastSellerTransfer']) && validSellerTransfer(request.resource.data.get('lastSellerTransfer','missing')));
+      allow create: if owner() || (self(uid) && active() && request.resource.data.get('role','user') == 'user' && request.resource.data.get('status','active') == 'active' && request.resource.data.get('email','') == request.auth.token.get('email','') && request.resource.data.get('coins',0) is int && request.resource.data.get('coins',0) >= 0 && request.resource.data.get('coins',0) <= 50000);
+      allow update: if owner() || (self(uid) && active() && validGiftDebit(request.resource.data.get('lastGiftReceipt','missing'))) || (self(uid) && active() && mayEnterRoom(request.resource.data.get('currentRoomId',null)) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','status','email','lastSellerTransfer','coins','lastGiftReceipt','giftSentCount','giftSentCoins'])) || (permission('moderate') && resource.data.get('email','') != 'yfastvpn@gmail.com' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status in ['active','banned']) || (permission('seller') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coins','lastSellerTransfer']) && validSellerTransfer(request.resource.data.get('lastSellerTransfer','missing')));
       allow delete: if owner();
     }
     match /admins/{uid} { allow read: if owner() || self(uid); allow write: if owner(); }
@@ -113,6 +129,18 @@ service cloud.firestore {
         allow update, delete: if owner();
       }
     }
+    // Shared games: clients can watch real bets/results but cannot write them.
+    match /sharedGames/{game}/rounds/{round} {
+      allow read: if active();
+      allow write: if false;
+      match /players/{uid} { allow read: if active(); allow write: if false; }
+    }
+    match /sharedGames/{game}/days/{day}/ranking/{uid} {
+      allow read: if active(); allow write: if false;
+    }
+    match /gameReceipts/{id} { allow read: if owner() || (active() && resource.data.uid == request.auth.uid); allow write: if false; }
+    match /gameRequests/{id} { allow read, write: if false; }
+    match /gameSecrets/{id} { allow read, write: if false; }
     match /{document=**} { allow read, write: if false; }
   }
 }

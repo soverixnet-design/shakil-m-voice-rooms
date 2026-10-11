@@ -22,6 +22,8 @@ jobs:
         run: npm install
       - name: Check types
         run: npm run lint
+      - name: Check shared round engine
+        run: npm run test:games
       - name: Build production app
         run: npm run build
       - name: Configure Pages

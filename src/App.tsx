@@ -1,3 +1,4 @@
+import {SharedRoundGame} from './games/SharedRoundGame';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   auth, 
@@ -411,7 +412,7 @@ export default function App() {
               name: u.displayName || S.name,
               email: u.email,
               avatar: S.av,
-              coins: S.coins,
+              coins: Number.isSafeInteger(S.coins) ? Math.min(50000, Math.max(0, S.coins)) : 5500,
               role: isOwnerEmail ? 'admin' : 'user',
               createdAt: new Date().toISOString(),
             });
@@ -2623,7 +2624,7 @@ export default function App() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if(activeGame==='greedy_lion'){window.dispatchEvent(new Event('greedy-lion-exit'));return;}
+              
               setActiveGame(null);
               setIsGameMinimized(false);
               toast('গেম বন্ধ করা হয়েছে');
@@ -2668,7 +2669,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => {
-                    if(activeGame==='greedy_lion'){window.dispatchEvent(new Event('greedy-lion-exit'));return;}
+                    
                     setActiveGame(null);
                     setIsGameMinimized(false);
                     toast('রুমে ফিরে এসেছেন');
@@ -2683,68 +2684,7 @@ export default function App() {
           )}
 
           <div className="flex-1 relative overflow-hidden">
-            {activeGame === 'greedy_lion' && <GreedyLionGame getBalance={()=>coinsRef.current} userCoins={S.coins} userName={S.name} userAvatar={S.av} onUpdateCoins={updateCoins} onClose={()=>{setActiveGame(null);setIsGameMinimized(false)}}/>}
-            {activeGame === 'jackpot_fruit' && (
-              <JackpotFruitGame
-                getBalance={() => coinsRef.current}
-                userCoins={S.coins}
-                userName={S.name}
-                userAvatar={S.av}
-                onUpdateCoins={updateCoins}
-                onClose={() => {
-                  setActiveGame(null);
-                  setIsGameMinimized(false);
-                }}
-              />
-            )}
-
-            {activeGame === 'lion_wheel' && (
-              <LionFoodWheelGame
-                userCoins={S.coins}
-                userName={S.name}
-                userAvatar={S.av}
-                onUpdateCoins={(newCoins, note) => {
-                  const diff = newCoins - S.coins;
-                  updateCoins(diff, note);
-                }}
-                onClose={() => {
-                  setActiveGame(null);
-                  setIsGameMinimized(false);
-                }}
-              />
-            )}
-
-            {activeGame === 'night_wheel' && (
-              <NightFoodWheelGame
-                userCoins={S.coins}
-                userName={S.name}
-                userAvatar={S.av}
-                onUpdateCoins={(newCoins, note) => {
-                  const diff = newCoins - S.coins;
-                  updateCoins(diff, note);
-                }}
-                onClose={() => {
-                  setActiveGame(null);
-                  setIsGameMinimized(false);
-                }}
-              />
-            )}
-
-            {activeGame === 'slots' && (
-              <SlotsGame
-                userCoins={S.coins}
-                userName={S.name}
-                userAvatar={S.av}
-                onUpdateCoins={(newCoins, note) => {
-                  const diff = newCoins - S.coins;
-                  updateCoins(diff, note);
-                }}
-                onClose={() => {
-                  setActiveGame(null);
-                  setIsGameMinimized(false);
-                }}
-              />
-            )}
+            {['greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots'].includes(activeGame) && <SharedRoundGame key={activeGame} game={activeGame}/>}
 
             {activeGame === 'carrom' && (
               <CarromGame

@@ -20,7 +20,7 @@ const ITEMS: [string, number][] = [
   ['🍅', 5],
 ];
 
-const CHIPS = [10000, 100000, 500000, 1000000];
+const CHIPS = [1000, 10000, 100000, 1000000];
 
 export const NightFoodWheelGame: React.FC<Props> = ({
   userCoins,

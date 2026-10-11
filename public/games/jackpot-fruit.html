@@ -64,7 +64,7 @@ body{background:radial-gradient(circle at 50% 20%,#4b1a7a,#12061f 75%);color:#ff
 <script>
 let lp=0;setTimeout(()=>lbar.style.width='10%',50);const lh=setInterval(()=>{lp++;lbar.style.width=(lp+1)*10+'%';if(lp>=10){clearInterval(lh);load.remove();phase='bet';t=20;ui()}},1000);
 const $=s=>document.querySelector(s),fmt=n=>n>=1e6?+(n/1e6).toFixed(2)+'M':n>=1e3?+(n/1e3).toFixed(0)+'K':n;
-const F=[['🍋',5],['🍇',5],['🥝',5],['🍒',40],0,['🍑',5],['🍉',20],['🍌',10],['🍓',10]],RING=[0,1,2,5,8,7,6,3],CH=[10000,100000,500000,1000000];
+const F=[['🍋',5],['🍇',5],['🥝',5],['🍒',40],0,['🍑',5],['🍉',20],['🍌',10],['🍓',10]],RING=[0,1,2,5,8,7,6,3],CH=[1000,10000,100000,1000000];
 let bal=0,reported=0,walletReady=false,walletPending=false;const hostOrigin=location.origin;
 let ss0=617,chip=CH[0],bets=Array(9).fill(0),last=null,hist=[],t=20,phase='load',rd=1500,td=0,jp=21817399,auto=0,on=1,av='',nm='আপনি',ac;
 function snd(f,d){if(!on)return;try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;g.gain.value=.07;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}

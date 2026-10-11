@@ -12,7 +12,7 @@ export async function sendDirectGift(db:Firestore,{senderId,receiverId,roomId,it
   const receiverOnline=recipient.online===true&&Date.now()-(recipient.lastSeen?.toMillis?.()||0)<90000;
   const destinationRoom=receiverOnline&&recipient.currentRoomId?String(recipient.currentRoomId):roomId||null;
   const event={type:'gift_sent',senderId,receiverId,userId:senderId,senderName:String(sender.name||'ইউজার').slice(0,80),receiverName:String(recipient.name||'ইউজার').slice(0,80),receiverPublicId:recipient.id||receiverId,receiverAvatar:String(recipient.avatar||'👤').slice(0,24),giftName:String(item.name||'গিফট').slice(0,80),emoji:String(item.emoji||'🎁').slice(0,24),giftImage:item.image||'',quantity,cost,roomId:destinationRoom,createdAt:serverTimestamp()};
-  t.update(senderRef,{coins:coins-cost,giftSentCount:Number(sender.giftSentCount||0)+quantity,giftSentCoins:Number(sender.giftSentCoins||0)+cost});
+  t.update(senderRef,{coins:coins-cost,lastGiftReceipt:ledger.id,giftSentCount:Number(sender.giftSentCount||0)+quantity,giftSentCoins:Number(sender.giftSentCoins||0)+cost});
   t.set(ledger,event);
   if(destinationRoom)t.set(doc(db,'rooms',destinationRoom,'giftEvents',ledger.id),event);
   return {...event,id:ledger.id,balance:coins-cost};

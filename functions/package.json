@@ -1,0 +1,16 @@
+{
+  "name": "voice-room-shared-games",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "test": "node --import ../node_modules/tsx/dist/loader.mjs --test ../tests/shared-games.test.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "13.10.0",
+    "firebase-functions": "6.6.0"
+  }
+}
