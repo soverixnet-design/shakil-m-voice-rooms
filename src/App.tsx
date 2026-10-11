@@ -11,7 +11,7 @@ import {
   setDoc,
   updateDoc
 } from './firebase';
-import { runTransaction } from 'firebase/firestore';
+import { runTransaction, onSnapshot } from 'firebase/firestore';
 import { JackpotFruitGame } from './games/JackpotFruitGame';
 import { LionFoodWheelGame } from './games/LionFoodWheelGame';
 import { NightFoodWheelGame } from './games/NightFoodWheelGame';
@@ -402,6 +402,15 @@ export default function App() {
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (!fbUser?.uid) return;
+    return onSnapshot(doc(db, 'users', fbUser.uid), snapshot => {
+      if (!snapshot.exists()) return;
+      const coins = snapshot.data().coins;
+      if (Number.isSafeInteger(coins) && coins >= 0) setS((prev: any) => ({ ...prev, coins }));
+    }, () => setToastText('লাইভ ব্যালেন্স লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
+  }, [fbUser?.uid]);
 
   const toast = (text: string) => {
     setToastText(text);

@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
-import { 
-  ShieldCheck, 
-  Coins, 
-  Users, 
-  Radio, 
-  Settings, 
-  PlusCircle, 
-  Trash2, 
-  Edit3, 
-  CheckCircle, 
+import { db, doc, collection } from '../firebase';
+import { onSnapshot, runTransaction } from 'firebase/firestore';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  ShieldCheck,
+  Coins,
+  Users,
+  Radio,
+  Settings,
+  PlusCircle,
+  Trash2,
+  Edit3,
+  CheckCircle,
   AlertTriangle,
   Gift,
   ShoppingBag,
@@ -44,7 +46,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateCoins
 }) => {
   const [activeTab, setActiveTab] = useState<'users' | 'requests' | 'quick_boost' | 'rooms' | 'gifts' | 'packages' | 'banner' | 'system'>('users');
-  
+
   // Search & Filters
   const [searchUser, setSearchUser] = useState('');
   const [userFilter, setUserFilter] = useState<'all' | 'admin' | 'svip' | 'banned'>('all');
@@ -102,7 +104,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [supportPhone, setSupportPhone] = useState(appState.supportPhone || '+880 1700-000000');
 
   // Normalized User List & Requests from State
-  const userList: any[] = appState.userList || [];
+  const [userList, setUserList] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState('');
+  const [savingCoins, setSavingCoins] = useState(false);
+  const coinLock = useRef(false);
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    return onSnapshot(collection(db, 'users'), snapshot => {
+      setUserList(snapshot.docs.map(item => ({ ...item.data(), uid: item.id,
+        id: item.data().id || item.data().userId || item.id,
+        name: item.data().name || item.data().email || 'ইউজার',
+        av: item.data().avatar || '🧑' })));
+      setUsersLoading(false); setUsersError('');
+    }, () => { setUsersLoading(false); setUsersError('ইউজার তালিকা লোড হয়নি। Firebase অনুমতি ও সংযোগ পরীক্ষা করুন।'); });
+  }, [currentUser?.uid]);
   const roomsList: any[] = appState.rooms || [];
   const giftsList: any[] = appState.customGifts || [];
   const packagesList: any[] = appState.pk || [];
@@ -110,52 +126,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const pendingRequestsCount = rechargeRequests.filter((r: any) => r.status === 'pending').length;
 
   // RECHARGE REQUEST HANDLERS
-  const handleApproveRequest = (req: any) => {
-    const amount = Number(req.coins) || 0;
-    
-    // 1. If approving current user account
-    if (req.userId === appState.id || req.userName === appState.name) {
-      onUpdateCoins(amount, `অনুমোদিত রিচার্জ: 🪙 ${amount.toLocaleString()}`);
-    }
-
-    // 2. Update user in userList and mark request approved
-    onUpdateAppState((prev: any) => {
-      const updatedUsers = (prev.userList || []).map((u: any) => {
-        if (u.id === req.userId || u.name === req.userName) {
-          return { ...u, coins: (u.coins || 0) + amount };
-        }
-        return u;
-      });
-
-      const updatedRequests = (prev.rechargeRequests || []).map((r: any) => {
-        if (r.id === req.id) {
-          return { 
-            ...r, 
-            status: 'approved', 
-            approvedAt: new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' }) 
-          };
-        }
-        return r;
-      });
-
-      return {
-        ...prev,
-        userList: updatedUsers,
-        rechargeRequests: updatedRequests,
-      };
-    });
-
-    onToast(`✅ [${req.userName}] (ID: ${req.userId}) এর জন্য 🪙 ${amount.toLocaleString()} কয়েন সফলভাবে অনুমোদন করা হয়েছে! 🎉`);
+  const handleApproveRequest = async (req: any) => {
+    const matches = userList.filter(u => u.uid === req.userId || String(u.id) === String(req.userId));
+    if (matches.length !== 1) { onToast('এই রিকোয়েস্টের সঠিক ইউজার ID পাওয়া যায়নি। ইউজার তালিকা থেকে রিচার্জ দিন।'); return; }
+    const ok = await handleGiveCoinsToUser(matches[0], Number(req.coins), 'add', 'অনুমোদিত রিচার্জ', String(req.id));
+    if (ok) onUpdateAppState((prev: any) => ({ ...prev, rechargeRequests: (prev.rechargeRequests || []).map((r: any) => r.id === req.id ? { ...r, status: 'approved' } : r) }));
   };
 
   const handleRejectRequest = (req: any) => {
     onUpdateAppState((prev: any) => ({
       ...prev,
-      rechargeRequests: (prev.rechargeRequests || []).map((r: any) => 
-        r.id === req.id ? { 
-          ...r, 
-          status: 'rejected', 
-          rejectedAt: new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' }) 
+      rechargeRequests: (prev.rechargeRequests || []).map((r: any) =>
+        r.id === req.id ? {
+          ...r,
+          status: 'rejected',
+          rejectedAt: new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })
         } : r
       )
     }));
@@ -206,49 +191,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   // 2. QUICK COIN INJECTION TO A USER
-  const handleGiveCoinsToUser = (target: any, amount: number, action: 'add' | 'deduct' | 'set' = 'add', reason = 'অ্যাডমিন উপহার') => {
-    if (isNaN(amount) || amount <= 0) {
-      onToast('সঠিক কয়েন সংখ্যা দিন!');
-      return;
+  const handleGiveCoinsToUser = async (target: any, amount: number, action: 'add' | 'deduct' | 'set' = 'add', reason = 'অ্যাডমিন রিচার্জ', requestId?: string): Promise<boolean> => {
+    if (coinLock.current) return false;
+    if (!target.uid || !Number.isSafeInteger(amount) || amount < 0 || (action !== 'set' && amount === 0)) {
+      onToast('সঠিক ইউজার ও পূর্ণ কয়েন সংখ্যা দিন!'); return false;
     }
-
-    // If modifying self account
-    if (target.id === appState.id || target.name === appState.name) {
-      if (action === 'add') {
-        onUpdateCoins(amount, reason);
-      } else if (action === 'deduct') {
-        onUpdateCoins(-amount, reason);
-      } else {
-        onUpdateAppState((prev: any) => ({
-          ...prev,
-          coins: amount,
-          hist: [`🪙 অ্যাডমিন ব্যালেন্স সরাসরি সেট: ${amount.toLocaleString()}`, ...(prev.hist || []).slice(0, 30)]
-        }));
-      }
-      onToast(`আপনার ব্যালেন্সে কয়েন আপডেট সফল (${amount.toLocaleString()} 🪙)`);
-      return;
+    if (!currentUser?.emailVerified || currentUser.email?.toLowerCase() !== 'yfastvpn@gmail.com') {
+      onToast('অনুমোদিত অ্যাডমিন অ্যাকাউন্ট দিয়ে লগইন করুন।'); return false;
     }
-
-    // Modifying another user in userList
-    onUpdateAppState((prev: any) => {
-      const list = [...(prev.userList || [])];
-      const idx = list.findIndex(u => u.id === target.id);
-      if (idx !== -1) {
-        let newBal = list[idx].coins || 0;
-        if (action === 'add') newBal += amount;
-        else if (action === 'deduct') newBal = Math.max(0, newBal - amount);
-        else newBal = amount;
-
-        list[idx] = { ...list[idx], coins: newBal };
-      }
-      return {
-        ...prev,
-        userList: list,
-        hist: [`অ্যাডমিন: ইউজার [${target.name}] কে ${amount.toLocaleString()} কয়েন প্রদান`, ...(prev.hist || []).slice(0, 30)]
-      };
-    });
-
-    onToast(`ইউজার [${target.name}] এর ব্যালেন্স আপডেট হয়েছে! (+${amount.toLocaleString()} 🪙)`);
+    coinLock.current = true; setSavingCoins(true);
+    try {
+      const ledger = requestId ? doc(db, 'transactions', `recharge_${encodeURIComponent(requestId)}`) : doc(collection(db, 'transactions'));
+      const balance = await runTransaction(db, async transaction => {
+        const ref = doc(db, 'users', target.uid);
+        const user = await transaction.get(ref);
+        const previous = await transaction.get(ledger);
+        if (previous.exists()) throw new Error('already-approved');
+        if (!user.exists()) throw new Error('missing-user');
+        const old = Number(user.data().coins || 0);
+        const next = action === 'set' ? amount : old + (action === 'deduct' ? -amount : amount);
+        if (!Number.isSafeInteger(next) || next < 0) throw new Error('insufficient-coins');
+        transaction.update(ref, { coins: next });
+        transaction.set(ledger, { userId: target.uid, adminId: currentUser.uid, type: 'admin-recharge', amount: next - old, balance: next, reason, createdAt: new Date().toISOString() });
+        return next;
+      });
+      onToast(`${target.name}: ${balance.toLocaleString()} কয়েন — সেভ হয়েছে ✓`);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      onToast(message === 'already-approved' ? 'এই রিচার্জ আগে অনুমোদিত হয়েছে।' : message === 'insufficient-coins' ? 'ব্যালেন্সের বেশি কয়েন কাটা যাবে না।' : 'রিচার্জ সেভ হয়নি। Firebase অনুমতি ও সংযোগ পরীক্ষা করুন।');
+      return false;
+    } finally { coinLock.current = false; setSavingCoins(false); }
   };
 
   // 3. EDIT USER DETAILS
@@ -471,10 +444,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // Filtered Users List
   const filteredUsers = userList.filter(u => {
-    const matchesSearch = !searchUser || 
-      u.name.toLowerCase().includes(searchUser.toLowerCase()) || 
+    const matchesSearch = !searchUser ||
+      String(u.name || '').toLowerCase().includes(searchUser.toLowerCase()) || String(u.email || '').toLowerCase().includes(searchUser.toLowerCase()) || String(u.uid || '').includes(searchUser) ||
       String(u.id).includes(searchUser);
-    
+
     if (!matchesSearch) return false;
     if (userFilter === 'admin') return u.role === 'admin';
     if (userFilter === 'svip') return (u.svip || 0) > 0;
@@ -540,9 +513,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
         {[
           { id: 'users', label: '👥 ইউজার ও কয়েন', icon: Users },
-          { 
-            id: 'requests', 
-            label: `📥 রিচার্জ অনুরোধ${pendingRequestsCount > 0 ? ` (${pendingRequestsCount})` : ''}`, 
+          {
+            id: 'requests',
+            label: `📥 রিচার্জ অনুরোধ${pendingRequestsCount > 0 ? ` (${pendingRequestsCount})` : ''}`,
             icon: Coins,
             hasBadge: pendingRequestsCount > 0
           },
@@ -605,7 +578,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="ইউজার নাম অথবা আইডি দিয়ে সার্চ করুন..."
+                  placeholder="নাম, ইমেইল অথবা ID দিয়ে খুঁজুন..."
                   value={searchUser}
                   onChange={(e) => setSearchUser(e.target.value)}
                   className="in w-full pl-8 text-xs py-2"
@@ -618,8 +591,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     key={f}
                     onClick={() => setUserFilter(f)}
                     className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${
-                      userFilter === f 
-                        ? 'bg-amber-500/20 text-amber-300 border-amber-400/50' 
+                      userFilter === f
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-400/50'
                         : 'bg-white/5 text-gray-400 border-white/5'
                     }`}
                   >
@@ -675,7 +648,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             {filteredUsers.length === 0 ? (
               <div className="gl p-6 text-center text-gray-400">
-                কোনো ইউজার পাওয়া যায়নি। নতুন ইউজার যুক্ত করুন!
+                {usersLoading ? 'ইউজার তালিকা লোড হচ্ছে…' : usersError || 'কোনো নিবন্ধিত ইউজার পাওয়া যায়নি। ইউজারকে Google দিয়ে লগইন করতে বলুন।'}
               </div>
             ) : (
               filteredUsers.map((u) => {
@@ -685,10 +658,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <div
                     key={u.id}
                     className={`p-3 bg-black/40 border rounded-2xl space-y-2 transition-all ${
-                      isBanned 
-                        ? 'border-rose-500/30 bg-rose-950/20' 
-                        : isAdmin 
-                        ? 'border-amber-400/40 bg-purple-950/20' 
+                      isBanned
+                        ? 'border-rose-500/30 bg-rose-950/20'
+                        : isAdmin
+                        ? 'border-amber-400/40 bg-purple-950/20'
                         : 'border-white/10 hover:border-white/20'
                     }`}
                   >
@@ -778,8 +751,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <button
                           onClick={() => handleToggleUserRole(u)}
                           className={`p-1 rounded-lg text-[10px] font-bold border active:scale-95 ${
-                            isAdmin 
-                              ? 'bg-amber-500/30 text-amber-300 border-amber-400/40' 
+                            isAdmin
+                              ? 'bg-amber-500/30 text-amber-300 border-amber-400/40'
                               : 'bg-white/5 text-gray-400 border-white/5'
                           }`}
                           title="অ্যাডমিন ভূমিকা টগল করুন"
@@ -791,8 +764,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <button
                           onClick={() => handleToggleUserBan(u)}
                           className={`p-1 rounded-lg text-[10px] font-bold border active:scale-95 ${
-                            isBanned 
-                              ? 'bg-emerald-500/30 text-emerald-300 border-emerald-400/40' 
+                            isBanned
+                              ? 'bg-emerald-500/30 text-emerald-300 border-emerald-400/40'
                               : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
                           }`}
                           title={isBanned ? 'আনব্যান করুন' : 'ব্যান করুন'}
@@ -1694,17 +1667,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               <button
                 onClick={() => {
-                  const amt = parseInt(customCoinAmount, 10);
-                  if (isNaN(amt) || amt <= 0) {
+                  const amt = Number(customCoinAmount);
+                  if (!Number.isSafeInteger(amt) || amt < 0 || (customCoinAction !== 'set' && amt === 0)) {
                     onToast('সঠিক কয়েন সংখ্যা দিন!');
                     return;
                   }
-                  handleGiveCoinsToUser(coinModalUser, amt, customCoinAction, customCoinReason);
-                  setCoinModalUser(null);
+                  void handleGiveCoinsToUser(coinModalUser, amt, customCoinAction, customCoinReason).then(ok => { if (ok) setCoinModalUser(null); });
                 }}
                 className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 font-black text-slate-950 text-xs active:scale-95 shadow"
               >
-                ✓ কয়েন আপডেট সম্পন্ন করুন
+                {savingCoins ? 'সেভ হচ্ছে…' : '✓ কয়েন রিচার্জ / আপডেট করুন'}
               </button>
             </div>
           </div>
