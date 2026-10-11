@@ -2637,8 +2637,8 @@ export default function App() {
       )}
 
       {/* 7. Native Embedded Games (User Requested Games) with In-Room Header */}
-      {activeGame && !isGameMinimized && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-[#0c0824]">
+      {activeGame && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-[#0c0824]" style={{display:isGameMinimized?'none':undefined}}>
           {/* In-Room Status Bar: Keeps user in voice room while playing! */}
           {activeRoom && (
             <div className="bg-[#0c0824]/95 border-b-2 border-cyan-400 px-3 py-2 flex items-center justify-between text-white backdrop-blur-md shadow-2xl z-[60] shrink-0">
