@@ -1,5 +1,5 @@
 import { db, doc, collection } from '../firebase';
-import { onSnapshot, runTransaction } from 'firebase/firestore';
+import { onSnapshot, runTransaction, writeBatch } from 'firebase/firestore';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldCheck,
@@ -128,16 +128,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const rechargeRequests: any[] = appState.rechargeRequests || [];
   const pendingRequestsCount = rechargeRequests.filter((r: any) => r.status === 'pending').length;
 
+  const applyAdminState = async (updater: (prev:any)=>any): Promise<boolean> => {
+    if (!currentUser?.emailVerified || currentUser.email?.toLowerCase() !== 'yfastvpn@gmail.com') { onToast('অনুমোদিত অ্যাডমিন লগইন প্রয়োজন।'); return false; }
+    const base = {...appState,userList};
+    const next = updater(base);
+    const batch = writeBatch(db);
+    try {
+      for (const old of userList) {
+        const changed = (next.userList || userList).find((u:any)=>u.uid===old.uid);
+        if ((!changed || ['banned','archived'].includes(changed.status)) && old.uid === currentUser.uid) throw Error('owner-status');
+        if (!changed) { batch.update(doc(db,'users',old.uid), {status:'archived'}); continue; }
+        const patch:any = {};
+        for(const field of ['name','coins','svip','badge','status','avatar']) if(changed[field]!==old[field] && changed[field]!==undefined) patch[field]=changed[field];
+        if(patch.coins!==undefined && (!Number.isSafeInteger(patch.coins)||patch.coins<0)) throw Error('invalid-coins');
+        if(Object.keys(patch).length) batch.update(doc(db,'users',old.uid),patch);
+      }
+      if (next.rooms !== base.rooms) {
+        for(const room of next.rooms||[]) {
+          const old=(base.rooms||[]).find((r:any)=>r.id===room.id);
+          if(!old||JSON.stringify(old)!==JSON.stringify(room)) batch.set(doc(db,'rooms',String(room.id)),{...room,hostId:room.hostId||currentUser.uid},{merge:true});
+        }
+        for(const room of base.rooms||[]) if(!(next.rooms||[]).some((r:any)=>r.id===room.id)) batch.set(doc(db,'rooms',String(room.id)),{archived:true},{merge:true});
+      }
+      const config:any = {};
+      for(const field of ['bn','pk','customGifts','invPct','welcomeCoins','supportPhone']) if(next[field]!==base[field]) config[field]=next[field];
+      if(Object.keys(config).length) batch.set(doc(db,'system','config'),config,{merge:true});
+      await batch.commit();
+      onUpdateAppState(()=>next);
+      return true;
+    } catch { onToast('সেভ হয়নি। Firebase অনুমতি ও সংযোগ পরীক্ষা করুন।'); return false; }
+  };
+
   // RECHARGE REQUEST HANDLERS
   const handleApproveRequest = async (req: any) => {
     const matches = userList.filter(u => u.uid === req.userId || String(u.id) === String(req.userId));
     if (matches.length !== 1) { onToast('এই রিকোয়েস্টের সঠিক ইউজার ID পাওয়া যায়নি। ইউজার তালিকা থেকে রিচার্জ দিন।'); return; }
     const ok = await handleGiveCoinsToUser(matches[0], Number(req.coins), 'add', 'অনুমোদিত রিচার্জ', String(req.id));
-    if (ok) onUpdateAppState((prev: any) => ({ ...prev, rechargeRequests: (prev.rechargeRequests || []).map((r: any) => r.id === req.id ? { ...r, status: 'approved' } : r) }));
+    if (ok) if (!await applyAdminState((prev: any) => ({ ...prev, rechargeRequests: (prev.rechargeRequests || []).map((r: any) => r.id === req.id ? { ...r, status: 'approved' } : r) }))) return;
   };
 
-  const handleRejectRequest = (req: any) => {
-    onUpdateAppState((prev: any) => ({
+  const handleRejectRequest = async (req: any) => {
+    if (!await applyAdminState((prev: any) => ({
       ...prev,
       rechargeRequests: (prev.rechargeRequests || []).map((r: any) =>
         r.id === req.id ? {
@@ -146,51 +177,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           rejectedAt: new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })
         } : r
       )
-    }));
+    }))) return;
     onToast(`❌ [${req.userName}] এর রিচার্জ অনুরোধ বাতিল করা হয়েছে!`);
   };
 
-  const handleDeleteRequest = (reqId: string) => {
-    onUpdateAppState((prev: any) => ({
+  const handleDeleteRequest = async (reqId: string) => {
+    if (!await applyAdminState((prev: any) => ({
       ...prev,
       rechargeRequests: (prev.rechargeRequests || []).filter((r: any) => r.id !== reqId)
-    }));
-    onToast('অনুরোধ তালিকা থেকে মুছে ফেলা হয়েছে!');
+    }))) return;
+    onToast('অনুরোধ তালিকা থেকে তালিকা থেকে আর্কাইভ করা হয়েছে!');
   };
 
   // 1. ADD NEW USER
   const handleAddUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUserName.trim()) {
-      onToast('ইউজার নাম লিখুন!');
-      return;
-    }
-    const c = parseInt(newUserCoins, 10) || 50000;
-    const d = parseInt(newUserDiamonds, 10) || 100;
-    const generatedId = newUserId.trim() || String(Math.floor(10000 + Math.random() * 89999));
-
-    const newUser = {
-      id: generatedId,
-      name: newUserName.trim(),
-      av: newUserAv,
-      coins: c,
-      diamond: d,
-      svip: newUserSvip,
-      role: newUserRole,
-      badge: newUserBadge.trim() || 'Active Member',
-      status: 'active',
-      createdAt: new Date().toLocaleDateString('bn-BD')
-    };
-
-    onUpdateAppState((prev: any) => ({
-      ...prev,
-      userList: [newUser, ...(prev.userList || [])]
-    }));
-
-    onToast(`ইউজার [${newUser.name}] আইডি: ${newUser.id} সফলভাবে যুক্ত হয়েছে! 🎉`);
-    setNewUserName('');
-    setNewUserId('');
-    setShowAddUserModal(false);
+    e.preventDefault(); onToast('আসল ইউজারকে Google দিয়ে লগইন করতে বলুন। তখন তার অ্যাকাউন্ট তালিকায় আসবে।');
   };
 
   // 2. QUICK COIN INJECTION TO A USER
@@ -230,70 +231,60 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   // 3. EDIT USER DETAILS
-  const handleSaveEditUser = () => {
+  const handleSaveEditUser = async () => {
     if (!editingUser) return;
-    onUpdateAppState((prev: any) => {
+    if (!await applyAdminState((prev: any) => {
       const list = (prev.userList || []).map((u: any) => {
         if (u.id === editingUser.id) return editingUser;
         return u;
       });
       return { ...prev, userList: list };
-    });
+    })) return;
     onToast(`ইউজার [${editingUser.name}] এর তথ্য সংরক্ষিত হয়েছে! ✓`);
     setEditingUser(null);
   };
 
   // 4. TOGGLE BAN / UNBAN USER
-  const handleToggleUserBan = (target: any) => {
+  const handleToggleUserBan = async (target: any) => {
     const newStatus = target.status === 'banned' ? 'active' : 'banned';
-    onUpdateAppState((prev: any) => {
+    if (!await applyAdminState((prev: any) => {
       const list = (prev.userList || []).map((u: any) => {
         if (u.id === target.id) return { ...u, status: newStatus };
         return u;
       });
       return { ...prev, userList: list };
-    });
+    })) return;
     onToast(`ইউজার [${target.name}] ${newStatus === 'banned' ? 'সাসপেন্ড / ব্যান করা হয়েছে 🚫' : 'আনব্যান করা হয়েছে 🟢'}`);
   };
 
   // 5. TOGGLE ADMIN ROLE
-  const handleToggleUserRole = (target: any) => {
-    const newRole = target.role === 'admin' ? 'user' : 'admin';
-    onUpdateAppState((prev: any) => {
-      const list = (prev.userList || []).map((u: any) => {
-        if (u.id === target.id) return { ...u, role: newRole };
-        return u;
-      });
-      return { ...prev, userList: list };
-    });
-    onToast(`ইউজার [${target.name}] এর ভূমিকা পরিবর্তন: ${newRole === 'admin' ? '👑 অ্যাডমিন' : '👤 সাধারণ ইউজার'}`);
-  };
+  const handleToggleUserRole = () => { onToast('অ্যাডমিন অনুমতি শুধুই অনুমোদিত মালিকের জন্য।'); };
 
   // 6. CYCLE SVIP LEVEL
-  const handleCycleSvip = (target: any) => {
-    const nextSvip = ((target.svip || 0) + 1) % 6;
-    onUpdateAppState((prev: any) => {
+  const handleCycleSvip = async (target: any) => {
+    const nextSvip = ((target.svip || 0) + 1) % 4;
+    if (!await applyAdminState((prev: any) => {
       const list = (prev.userList || []).map((u: any) => {
         if (u.id === target.id) return { ...u, svip: nextSvip };
         return u;
       });
       return { ...prev, userList: list };
-    });
+    })) return;
     onToast(`ইউজার [${target.name}] এর SVIP লেভেল ${nextSvip} এ সেট করা হয়েছে! 👑`);
   };
 
   // 7. DELETE USER
-  const handleDeleteUser = (userId: string, userName: string) => {
-    if (!window.confirm(`আপনি কি নিশ্চিত যে ইউজার [${userName}] কে মুছে ফেলতে চান?`)) return;
-    onUpdateAppState((prev: any) => ({
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!window.confirm(`আপনি কি নিশ্চিত যে ইউজার [${userName}] কে তালিকা থেকে আর্কাইভ করতে চান?`)) return;
+    if (!await applyAdminState((prev: any) => ({
       ...prev,
       userList: (prev.userList || []).filter((u: any) => u.id !== userId)
-    }));
-    onToast(`ইউজার [${userName}] মুছে ফেলা হয়েছে!`);
+    }))) return;
+    onToast(`ইউজার [${userName}] তালিকা থেকে আর্কাইভ করা হয়েছে!`);
   };
 
   // 8. CREATE VOICE ROOM
-  const handleCreateRoom = (e: React.FormEvent) => {
+  const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRoomName.trim() || !newRoomHost.trim()) {
       onToast('রুমের নাম ও হোস্টের নাম পূরণ করুন!');
@@ -313,38 +304,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       ann: newRoomAnn.trim()
     };
 
-    onUpdateAppState((prev: any) => ({
+    if (!await applyAdminState((prev: any) => ({
       ...prev,
       rooms: [newRoom, ...(prev.rooms || [])]
-    }));
+    }))) return;
 
     setNewRoomName('');
     onToast(`নতুন ভয়েস রুম "${newRoom.name}" সফলভাবে লাইভ করা হয়েছে! 🎉`);
   };
 
   // 9. DELETE ROOM
-  const handleDeleteRoom = (roomId: string) => {
+  const handleDeleteRoom = async (roomId: string) => {
     if (!window.confirm('এই রুমটি কি মুছে ফেলতে চান?')) return;
-    onUpdateAppState((prev: any) => ({
+    if (!await applyAdminState((prev: any) => ({
       ...prev,
       rooms: (prev.rooms || []).filter((r: any) => r.id !== roomId)
-    }));
+    }))) return;
     onToast('রুম সফলভাবে মুছে ফেলা হয়েছে!');
   };
 
   // 10. SAVE EDITED ROOM
-  const handleSaveEditRoom = () => {
+  const handleSaveEditRoom = async () => {
     if (!editingRoom) return;
-    onUpdateAppState((prev: any) => ({
+    if (!await applyAdminState((prev: any) => ({
       ...prev,
       rooms: (prev.rooms || []).map((r: any) => r.id === editingRoom.id ? editingRoom : r)
-    }));
+    }))) return;
     onToast(`রুম "${editingRoom.name}" এর তথ্য আপডেট হয়েছে! ✓`);
     setEditingRoom(null);
   };
 
   // 11. ADD NEW GIFT
-  const handleAddGift = (e: React.FormEvent) => {
+  const handleAddGift = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newGiftName.trim()) {
       onToast('গিফটের নাম পূরণ করুন!');
@@ -363,10 +354,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       type: newGiftType
     };
 
-    onUpdateAppState((prev: any) => ({
+    if (!await applyAdminState((prev: any) => ({
       ...prev,
       customGifts: [...(prev.customGifts || []), giftObj]
-    }));
+    }))) return;
 
     setNewGiftName('');
     setShowAddGiftModal(false);
@@ -374,76 +365,76 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   // 12. DELETE GIFT
-  const handleDeleteGift = (giftId: string) => {
-    onUpdateAppState((prev: any) => ({
+  const handleDeleteGift = async (giftId: string) => {
+    if (!await applyAdminState((prev: any) => ({
       ...prev,
       customGifts: (prev.customGifts || []).filter((g: any) => g.id !== giftId)
-    }));
+    }))) return;
     onToast('গিফট মুছে ফেলা হয়েছে!');
   };
 
   // 13. EDIT GIFT PRICE
-  const handleUpdateGiftPrice = (giftId: string, newPrice: number) => {
+  const handleUpdateGiftPrice = async (giftId: string, newPrice: number) => {
     if (isNaN(newPrice) || newPrice <= 0) return;
-    onUpdateAppState((prev: any) => ({
+    if (!await applyAdminState((prev: any) => ({
       ...prev,
       customGifts: (prev.customGifts || []).map((g: any) => g.id === giftId ? { ...g, price: newPrice } : g)
-    }));
+    }))) return;
     onToast('গিফটের মূল্য আপডেট করা হয়েছে ✓');
   };
 
   // 14. ADD RECHARGE PACKAGE
-  const handleAddPackage = () => {
+  const handleAddPackage = async () => {
     const c = parseInt(newPkgCoins, 10);
     const b = parseInt(newPkgBdt, 10);
     if (!c || !b) {
       onToast('সঠিক কয়েন এবং টাকার পরিমাণ লিখুন!');
       return;
     }
-    onUpdateAppState((prev: any) => ({
+    if (!await applyAdminState((prev: any) => ({
       ...prev,
       pk: [...(prev.pk || []), { u: b, c: c }]
-    }));
+    }))) return;
     setNewPkgCoins('');
     setNewPkgBdt('');
     onToast(`নতুন কয়েন প্যাকেজ (${c.toLocaleString()} 🪙 = ৳${b}) যোগ হয়েছে!`);
   };
 
   // 15. DELETE PACKAGE
-  const handleDeletePackage = (idx: number) => {
-    onUpdateAppState((prev: any) => ({
+  const handleDeletePackage = async (idx: number) => {
+    if (!await applyAdminState((prev: any) => ({
       ...prev,
       pk: (prev.pk || []).filter((_: any, i: number) => i !== idx)
-    }));
+    }))) return;
     onToast('কয়েন প্যাকেজ মুছে ফেলা হয়েছে!');
   };
 
   // 16. SAVE BANNER
-  const handleSaveBanner = () => {
+  const handleSaveBanner = async () => {
     if (!bannerText.trim()) {
       onToast('ব্যানার টেক্সট খালি রাখা যাবে না!');
       return;
     }
-    onUpdateAppState((prev: any) => ({
+    if (!await applyAdminState((prev: any) => ({
       ...prev,
       bn: {
         ...(prev.bn || {}),
         t: bannerText.trim()
       }
-    }));
+    }))) return;
     onToast('অ্যানাউন্সমেন্ট ব্যানার সফলভাবে সংরক্ষিত হয়েছে ✓');
   };
 
   // 17. SAVE BUSINESS SETTINGS
-  const handleSaveBusinessSettings = () => {
+  const handleSaveBusinessSettings = async () => {
     const pct = parseInt(inviteRewardPct, 10) || 5;
     const wel = parseInt(welcomeCoins, 10) || 50000;
-    onUpdateAppState((prev: any) => ({
+    if (!await applyAdminState((prev: any) => ({
       ...prev,
       invPct: pct,
       welcomeCoins: wel,
       supportPhone: supportPhone.trim()
-    }));
+    }))) return;
     onToast('ব্যবসা ও সিস্টেম সেটিংস সফলভাবে সংরক্ষিত হয়েছে ✓');
   };
 
@@ -453,7 +444,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       String(u.name || '').toLowerCase().includes(searchUser.toLowerCase()) || String(u.email || '').toLowerCase().includes(searchUser.toLowerCase()) || String(u.uid || '').includes(searchUser) ||
       String(u.id).includes(searchUser);
 
-    if (!matchesSearch) return false;
+    if (!matchesSearch || u.status === 'archived') return false;
     if (userFilter === 'admin') return u.role === 'admin';
     if (userFilter === 'svip') return (u.svip || 0) > 0;
     if (userFilter === 'banned') return u.status === 'banned';
@@ -673,8 +664,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
               <button
                 onClick={() => {
-                  onUpdateCoins(50000, 'অ্যাডমিন কুইক বুস্ট');
-                  onToast('আপনার অ্যাকাউন্টে ৫০,০০০ কয়েন যোগ করা হয়েছে! 🪙');
+                  void onUpdateCoins(50000, 'অ্যাডমিন কুইক বুস্ট').then(ok => { if(ok) onToast('আপনার অ্যাকাউন্টে ৫০,০০০ কয়েন সেভ হয়েছে! 🪙'); });
                 }}
                 className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-[10px] active:scale-95 shadow"
               >
@@ -795,7 +785,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                         {/* Admin Toggle */}
                         <button
-                          onClick={() => handleToggleUserRole(u)}
+                          onClick={handleToggleUserRole}
                           className={`p-1 rounded-lg text-[10px] font-bold border active:scale-95 ${
                             isAdmin
                               ? 'bg-amber-500/30 text-amber-300 border-amber-400/40'
@@ -1080,8 +1070,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <button
                   key={item.amt}
                   onClick={() => {
-                    onUpdateCoins(item.amt, 'অ্যাডমিন ইনস্ট্যান্ট বুস্ট');
-                    onToast(`${item.label} কয়েন সফলভাবে যুক্ত হয়েছে! 🪙`);
+                    void onUpdateCoins(item.amt, 'অ্যাডমিন ইনস্ট্যান্ট বুস্ট').then(ok => { if(ok) onToast(`${item.label} কয়েন সেভ হয়েছে! 🪙`); });
                   }}
                   className="p-2.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500 hover:to-orange-500 hover:text-slate-950 border border-amber-400/40 rounded-xl font-black text-amber-300 text-xs shadow transition-all active:scale-95 text-center"
                 >
@@ -1629,7 +1618,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     onChange={(e) => setNewUserSvip(parseInt(e.target.value, 10))}
                     className="in w-full bg-slate-900 text-xs"
                   >
-                    {[0, 1, 2, 3, 4, 5].map(lv => (
+                    {[0, 1, 2, 3].map(lv => (
                       <option key={lv} value={lv}>SVIP {lv}</option>
                     ))}
                   </select>
@@ -1844,7 +1833,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <label className="block text-[11px] font-bold text-gray-300 mb-1">ডায়মন্ড:</label>
                   <input
                     type="number"
-                    value={editingUser.diamond || 0}
+                    disabled title="ডায়মন্ড সার্ভার এখনো সক্রিয় নয়" value={editingUser.diamond || 0}
                     onChange={(e) => setEditingUser({ ...editingUser, diamond: parseInt(e.target.value, 10) || 0 })}
                     className="in w-full text-xs"
                   />
@@ -1859,7 +1848,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     onChange={(e) => setEditingUser({ ...editingUser, svip: parseInt(e.target.value, 10) })}
                     className="in w-full bg-slate-900 text-xs"
                   >
-                    {[0, 1, 2, 3, 4, 5].map(lv => (
+                    {[0, 1, 2, 3].map(lv => (
                       <option key={lv} value={lv}>SVIP {lv}</option>
                     ))}
                   </select>
@@ -1867,7 +1856,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div>
                   <label className="block text-[11px] font-bold text-gray-300 mb-1">ভূমিকা / রোল:</label>
                   <select
-                    value={editingUser.role}
+                    disabled title="অ্যাডমিন অনুমতি মালিকের জন্য নির্দিষ্ট" value={editingUser.role}
                     onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
                     className="in w-full bg-slate-900 text-xs"
                   >

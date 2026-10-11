@@ -429,6 +429,7 @@ export default function App() {
       const data = snapshot.data();
       if (data.id) setS((prev: any) => ({...prev, id: String(data.id), uid: fbUser.uid }));
       if (data.giftSentCount !== undefined) setS((prev:any)=>({...prev,giftSentCount:data.giftSentCount,giftSentCoins:data.giftSentCoins,gifts:{...prev.gifts,sent:data.giftSentCoins||0}}));
+      for(const field of ['name','svip','badge']) if(data[field]!==undefined)setS((prev:any)=>({...prev,[field]:data[field]}));
       const coins = data.coins;
       if (Number.isSafeInteger(coins) && coins >= 0) setS((prev: any) => ({ ...prev, coins }));
     }, () => setToastText('লাইভ ব্যালেন্স লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
@@ -461,10 +462,15 @@ export default function App() {
   useEffect(() => {
     if (!fbUser?.uid) return;
     return onSnapshot(collection(db,'rooms'),snapshot=>{
-      const remote = snapshot.docs.map(d=>({...d.data(),id:d.id,own:d.data().hostId===fbUser.uid}));
-      setS((prev:any)=>({...prev,rooms:[...remote,...prev.rooms.filter((r:any)=>!remote.some((x:any)=>x.id===r.id))]}));
+      const archived = snapshot.docs.filter(d=>d.data().archived).map(d=>d.id);
+      const remote = snapshot.docs.filter(d=>!d.data().archived).map(d=>({...d.data(),id:d.id,own:d.data().hostId===fbUser.uid}));
+      setS((prev:any)=>({...prev,rooms:[...remote,...prev.rooms.filter((r:any)=>!archived.includes(r.id)&&!remote.some((x:any)=>x.id===r.id))]}));
     },()=>setToastText('রুম তালিকা লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
   }, [fbUser?.uid]);
+
+  useEffect(()=>onSnapshot(doc(db,'system','config'),snapshot=>{
+    if(snapshot.exists())setS((prev:any)=>({...prev,...snapshot.data()}));
+  },()=>setToastText('সাইটের সেটিংস লোড হয়নি। সংযোগ পরীক্ষা করুন।')),[]);
 
   const toast = (text: string) => {
     setToastText(text);
