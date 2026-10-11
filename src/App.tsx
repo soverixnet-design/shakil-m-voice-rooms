@@ -1,0 +1,2116 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  auth, 
+  googleProvider, 
+  signInWithPopup, 
+  signOut, 
+  onAuthStateChanged,
+  db,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc
+} from './firebase';
+import { JackpotFruitGame } from './games/JackpotFruitGame';
+import { LionFoodWheelGame } from './games/LionFoodWheelGame';
+import { NightFoodWheelGame } from './games/NightFoodWheelGame';
+import { SlotsGame } from './games/SlotsGame';
+import { CarromGame } from './games/CarromGame';
+import { Chess3DGame } from './games/Chess3DGame';
+import { VoiceRoomView } from './components/VoiceRoomView';
+import { AdminPanel } from './components/AdminPanel';
+import { 
+  Maximize2, 
+  ChevronDown, 
+  ShieldCheck, 
+  FileText, 
+  HelpCircle, 
+  PhoneCall, 
+  Info, 
+  Scale, 
+  Lock, 
+  Award,
+  Sparkles
+} from 'lucide-react';
+
+// All 18 Frames from user's file
+const FRM: [string, number, string, string, number, string?][] = [
+  ['ডিফল্ট', 0, 'linear-gradient(135deg,#19e6c1,#8a5cff)', '', 0],
+  ['নীল রিং', 2000, 'linear-gradient(135deg,#4aa8ff,#7affea,#4aa8ff)', '', 1],
+  ['বেগুনি রিং', 3000, 'linear-gradient(135deg,#c66cff,#ff7ad9,#c66cff)', '', 1],
+  ['সোনালি রিং', 5000, 'linear-gradient(135deg,#ffe38a,#d8920a,#ffe38a)', '👑', 1],
+  ['রেইনবো (বিশেষ)', -1, 'linear-gradient(90deg,#ff2a2a,#ffb02a,#ffe14a,#2aff7a,#2ab8ff,#8a2aff,#ff2a2a)', '🌈', 1],
+  ['ফায়ার (বিশেষ)', -1, 'linear-gradient(135deg,#ff2a2a,#ff9a00,#ffe14a,#ff2a2a)', '🔥', 1],
+  ['আইস ক্রিস্টাল', 8000, 'linear-gradient(135deg,#bff3ff,#4aa8ff,#e8fbff,#bff3ff)', '❄️', 1],
+  ['চেরি ব্লসম', 8000, 'linear-gradient(135deg,#ffb7d5,#ff5c9d,#ffe0ee,#ffb7d5)', '🌸', 1],
+  ['নিয়ন গ্রিন', 10000, 'linear-gradient(135deg,#19ff8a,#00e5ff,#19ff8a)', '⚡', 1, 'pu'],
+  ['ডায়মন্ড', 20000, 'linear-gradient(135deg,#ffffff,#7ae8ff,#d8b7ff,#ffffff)', '💎', 1, 'pu'],
+  ['রাজকীয়', 30000, 'linear-gradient(135deg,#7a2aff,#ffd23f,#7a2aff)', '👑', 1, 'pu'],
+  ['প্রজাপতি', 15000, 'linear-gradient(135deg,#19e6c1,#ff5c9d,#8a5cff,#19e6c1)', '🦋', 1],
+  ['গ্যালাক্সি', 25000, 'linear-gradient(135deg,#1a0a5a,#5a2aff,#19e6c1,#1a0a5a)', '🌌', 1, 'pu'],
+  ['লাভা (বিশেষ)', -1, 'linear-gradient(135deg,#2a0a0a,#ff2a00,#ffb000,#2a0a0a)', '🌋', 1, 'pu'],
+  ['ড্রাগন গোল্ড (বিশেষ)', -1, 'linear-gradient(135deg,#ffd23f,#ff2a2a,#ffd23f)', '🐉', 1, 'pu'],
+  ['সানরাইজ', 12000, 'linear-gradient(135deg,#ff9a2a,#ffe14a,#ff5c7a,#ff9a2a)', '🌅', 1],
+  ['মিন্ট', 6000, 'linear-gradient(135deg,#7affc8,#19c6a1,#c8ffe8,#7affc8)', '🍃', 1],
+  ['ব্ল্যাক গোল্ড', 40000, 'linear-gradient(135deg,#111,#ffd23f,#111)', '🖤', 1, 'pu'],
+];
+
+// All 15 Entries from user's file
+const ENT: [string, string, number, string, string, number][] = [
+  ['🚗', 'গাড়ি এন্ট্রি', 20000, 'slide', '💨', 0],
+  ['✨', 'স্টার এন্ট্রি', 10000, 'burst', '⭐', 0],
+  ['🐉', 'ড্রাগন এন্ট্রি', 50000, 'fly', '🔥', 0],
+  ['🏰', 'কেল্লা এন্ট্রি', 100000, 'rise', '🎆', 0],
+  ['🦄', 'ইউনিকর্ন (বিশেষ)', -1, 'slide', '🌈', 0],
+  ['🚀', 'রকেট এন্ট্রি', 30000, 'launch', '🔥', 0],
+  ['🛸', 'UFO এন্ট্রি', 25000, 'zig', '⭐', 0],
+  ['👑', 'রাজা এন্ট্রি', 40000, 'drop', '🪙', 1],
+  ['🦁', 'সিংহ এন্ট্রি', 15000, 'zoom', '🐾', 0],
+  ['🏍️', 'বাইক এন্ট্রি', 12000, 'slide', '💨', 0],
+  ['🌈', 'রেইনবো এন্ট্রি', 18000, 'fly', '✨', 0],
+  ['❄️', 'আইস কিং', 22000, 'burst', '❄️', 1],
+  ['💎', 'ডায়মন্ড শাওয়ার', 60000, 'drop', '💎', 1],
+  ['🔥', 'ফায়ার (বিশেষ)', -1, 'burst', '🔥', 0],
+  ['🎆', 'ফায়ারওয়ার্ক', 35000, 'zoom', '🎇', 0],
+];
+
+const SV: [string, number, string][] = [
+  ['SVIP 1', 50000, '#8cf'],
+  ['SVIP 2', 200000, '#ffd23f'],
+  ['SVIP 3', 1000000, '#f9f'],
+];
+
+const PERK = [
+  'ব্যাজ + চেক-ইনে +৫০% কয়েন',
+  'ব্যাজ + চেক-ইনে +১০০% কয়েন',
+  'ব্যাজ + চেক-ইনে +২০০% কয়েন',
+];
+
+const GR = [
+  'linear-gradient(135deg,#ff5c9d,#8a5cff)',
+  'linear-gradient(135deg,#19e6c1,#3a7cff)',
+  'linear-gradient(135deg,#ffc94d,#ff5c5c)',
+  'linear-gradient(135deg,#8a5cff,#19e6c1)',
+];
+
+const COUNTRIES = [
+  ['🇧🇩', 'বাংলাদেশ'], ['🇮🇳', 'ভারত'], ['🇵🇰', 'পাকিস্তান'],
+  ['🇳🇵', 'নেপাল'], ['🇱🇰', 'শ্রীলঙ্কা'], ['🇸🇦', 'সৌদি আরব'],
+  ['🇦🇪', 'সংযুক্ত আরব আমিরাত'], ['🇶🇦', 'কাতার'], ['🇰🇼', 'কুয়েত'],
+  ['🇴🇲', 'ওমান'], ['🇧🇭', 'বাহরাইন'], ['🇲🇾', 'মালয়েশিয়া'],
+  ['🇸🇬', 'সিঙ্গাপুর'], ['🇮🇹', 'ইতালি'], ['🇬🇧', 'যুক্তরাজ্য'],
+  ['🇺🇸', 'যুক্তরাষ্ট্র'], ['🇨🇦', 'কানাডা'], ['🇦🇺', 'অস্ট্রেলিয়া'],
+  ['🇩🇪', 'জার্মানি'], ['🇫🇷', 'ফ্রান্স'], ['🇪🇸', 'স্পেন'],
+  ['🇯🇵', 'জাপান'], ['🇰🇷', 'দক্ষিণ কোরিয়া'], ['🇵🇭', 'ফিলিপাইন'],
+  ['🇹🇷', 'তুরস্ক'], ['🇪🇬', 'মিশর'], ['🌍', 'অন্যান্য'],
+];
+
+const CT = ['সব', 'চ্যাট', 'গেম', 'নতুন', 'ইভেন্ট', 'পার্টি'];
+const FL = [
+  ['🇧🇩', 'বাংলাদেশ'], ['🇸🇦', 'সৌদি'], ['🇮🇳', 'ভারত'],
+  ['🇵🇰', 'পাকিস্তান'], ['🇺🇸', 'USA'], ['🇵🇭', 'ফিলিপাইন'],
+];
+
+// Entry Animation runner
+function playEntryAnimation(i: number, userName: string) {
+  if (i < 0 || !ENT[i]) return;
+  const e = ENT[i];
+  const x = document.createElement('div');
+  x.textContent = e[0];
+  x.style.cssText = 'position:fixed;left:50%;top:38%;margin:-70px 0 0 -70px;font-size:120px;z-index:90;pointer-events:none;filter:drop-shadow(0 10px 10px #0008)';
+  document.body.appendChild(x);
+
+  const K: any = {
+    slide: [{ transform: 'translateX(-120vw) scale(.7)', opacity: 0 }, { transform: 'translateX(0) scale(1.1)', opacity: 1, offset: 0.45 }, { transform: 'translateX(0)', opacity: 1, offset: 0.75 }, { transform: 'translateX(120vw)', opacity: 0 }],
+    rise: [{ transform: 'translateY(60vh) scale(.3)', opacity: 0 }, { transform: 'translateY(0) scale(1.2)', opacity: 1, offset: 0.4 }, { transform: 'scale(1)', opacity: 1, offset: 0.8 }, { transform: 'translateY(-30vh) scale(.6)', opacity: 0 }],
+    drop: [{ transform: 'translateY(-80vh) scale(1.4)', opacity: 0 }, { transform: 'translateY(0) scale(1)', opacity: 1, offset: 0.3 }, { transform: 'translateY(-30px) scale(1.1)', opacity: 1, offset: 0.4 }, { transform: 'translateY(0)', opacity: 1, offset: 0.5 }, { transform: 'translateY(0)', opacity: 1, offset: 0.8 }, { transform: 'scale(.2)', opacity: 0 }],
+    fly: [{ transform: 'translate(-110vw,40vh) rotate(-25deg) scale(.6)', opacity: 0 }, { transform: 'translate(-10vw,-8vh) rotate(0) scale(1.1)', opacity: 1, offset: 0.5 }, { transform: 'translate(110vw,-40vh) rotate(25deg) scale(.7)', opacity: 0 }],
+    burst: [{ transform: 'scale(0) rotate(-180deg)', opacity: 0 }, { transform: 'scale(1.5) rotate(0)', opacity: 1, offset: 0.35 }, { transform: 'scale(1)', opacity: 1, offset: 0.75 }, { transform: 'scale(2.2)', opacity: 0 }],
+    zoom: [{ transform: 'scale(5)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: 0.3 }, { transform: 'scale(1.15)', opacity: 1, offset: 0.45 }, { transform: 'scale(1)', opacity: 1, offset: 0.8 }, { transform: 'scale(.1)', opacity: 0 }],
+    launch: [{ transform: 'translateY(70vh) scale(.6)', opacity: 0 }, { transform: 'translateY(10vh) scale(1)', opacity: 1, offset: 0.3 }, { transform: 'translateY(-80vh) scale(.8)', opacity: 0 }],
+    zig: [{ transform: 'translate(-100vw,-20vh)', opacity: 0 }, { transform: 'translate(-30vw,10vh) rotate(-10deg)', opacity: 1, offset: 0.3 }, { transform: 'translate(30vw,-10vh) rotate(10deg)', opacity: 1, offset: 0.6 }, { transform: 'translate(110vw,-30vh)', opacity: 0 }],
+  }[e[3]];
+
+  if (K) {
+    x.animate(K, { duration: 2800, easing: 'ease-in-out' }).onfinish = () => x.remove();
+  } else {
+    setTimeout(() => x.remove(), 2000);
+  }
+
+  if (e[4]) {
+    const rain = e[5];
+    for (let k = 0; k < (rain ? 22 : 16); k++) {
+      const p = document.createElement('div');
+      p.textContent = e[4];
+      p.style.cssText = 'position:fixed;z-index:89;pointer-events:none;font-size:' + (18 + Math.random() * 16) + 'px;left:' + (rain ? Math.random() * 95 : 50) + '%;top:' + (rain ? '-30px' : '42%');
+      document.body.appendChild(p);
+      const a = Math.random() * 6.28;
+      const d = 80 + Math.random() * 160;
+      p.animate(
+        rain
+          ? [{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(' + (window.innerHeight + 60) + 'px) rotate(360deg)', opacity: 0.8 }]
+          : [{ transform: 'translate(0,0) scale(.3)', opacity: 1 }, { transform: 'translate(' + Math.cos(a) * d + 'px,' + Math.sin(a) * d + 'px) scale(1.2)', opacity: 0 }],
+        { duration: 1800 + Math.random() * 900, delay: rain ? Math.random() * 900 : 400, fill: 'backwards' }
+      ).onfinish = () => p.remove();
+    }
+  }
+}
+
+const DEFAULT_USER_LIST = [
+  { id: '10291', name: 'রাফি', av: '🧑', coins: 175800, diamond: 520, svip: 4, role: 'user', badge: 'VIP Master', status: 'active' },
+  { id: '10292', name: 'নুসরাত', av: '👩', coins: 152000, diamond: 340, svip: 3, role: 'user', badge: 'Top Singer', status: 'active' },
+  { id: '10293', name: 'সাব্বির', av: '🧔', coins: 125900, diamond: 190, svip: 2, role: 'user', badge: 'Gamer Pro', status: 'active' },
+  { id: '10294', name: 'মিম', av: '🧕', coins: 89400, diamond: 85, svip: 1, role: 'user', badge: 'Active Talker', status: 'active' },
+  { id: '10295', name: 'তানভীর', av: '👨‍🦱', coins: 94000, diamond: 110, svip: 2, role: 'user', badge: 'Party Host', status: 'active' },
+  { id: '10296', name: 'সাদিয়া', av: '👧', coins: 110500, diamond: 240, svip: 3, role: 'user', badge: 'Star Voice', status: 'active' }
+];
+
+const DEFAULT_CUSTOM_GIFTS = [
+  { id: 'g1', name: 'হার্ট', icon: '❤️', price: 1, type: 'love' },
+  { id: 'g2', name: 'গোলাপ', icon: '🌹', price: 10, type: 'romantic' },
+  { id: 'g3', name: 'স্টার', icon: '⭐', price: 250, type: 'popular' },
+  { id: 'g4', name: 'লাভ রিং', icon: '💍', price: 750, type: 'romantic' },
+  { id: 'g5', name: 'ডায়মন্ড', icon: '💎', price: 1100, type: 'luxury' },
+  { id: 'g6', name: 'VIP কার', icon: '🚗', price: 2000, type: 'luxury' },
+  { id: 'g7', name: 'রকেট', icon: '🚀', price: 5000, type: 'epic' },
+  { id: 'g8', name: 'ক্রাউন', icon: '👑', price: 15000, type: 'royal' },
+];
+
+export default function App() {
+  const [splashVisible, setSplashVisible] = useState(true);
+  const [splashFade, setSplashFade] = useState(false);
+
+  // App User State (S)
+  const [S, setS] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('sv3');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...parsed,
+          userList: Array.isArray(parsed.userList) && parsed.userList.length > 0 ? parsed.userList : DEFAULT_USER_LIST,
+          customGifts: Array.isArray(parsed.customGifts) && parsed.customGifts.length > 0 ? parsed.customGifts : DEFAULT_CUSTOM_GIFTS,
+        };
+      }
+    } catch (_) {}
+    return {
+      name: 'ইউজার',
+      id: String(100000 + Math.floor(Math.random() * 899999)),
+      av: '😎',
+      img: '',
+      coins: 50000,
+      xp: 250,
+      svip: 1,
+      last: '',
+      streak: 3,
+      pw: 'admin123',
+      bn: { t: 'ভয়েস রুমে আড্ডা দিন, গিফট পাঠান, গেম খেলুন! 🎉', g: 0 },
+      rew: [100, 200, 300, 500, 800, 1000, 2000],
+      hist: ['+50,000 — ওয়েলকাম কয়েন'],
+      cat: 'সব',
+      country: '🇧🇩 বাংলাদেশ',
+      age: 22,
+      dob: '2004-01-01',
+      reg: true,
+      invPct: 5,
+      ref: '',
+      inv: { n: 3, earn: 2500, list: [{ n: 'রাফি', c: 20000, r: 1000 }, { n: 'নুসরাত', c: 30000, r: 1500 }] },
+      siteUrl: '',
+      spent: 8000,
+      cnt: { msg: 12, gift: 4, game: 5 },
+      tk: { d: '', msg: 2, gift: 1, game: 1, cl: [] },
+      posts: [
+        { u: 'রাফি', av: '🧑', t: 'আজ রাতে গানের রুমে আসুন! 🎶', l: 12, c: 3, d: '২ ঘণ্টা আগে', demo: 1 }
+      ],
+      ownT: [0, 1, 2, 3],
+      bio: 'গান ও আড্ডা আমার পছন্দ 🎶',
+      ownF: [0, 1, 3],
+      fr: 3,
+      ownE: [0],
+      en: 0,
+      follow: ['রাফি', 'নুসরাত'],
+      gifts: { sent: 4000, recv: ['🌹', '❤️', '💎', '🚗'] },
+      userList: DEFAULT_USER_LIST,
+      customGifts: DEFAULT_CUSTOM_GIFTS,
+      users: {},
+      pk: [
+        { u: 1, c: 1000 },
+        { u: 5, c: 5500 },
+        { u: 10, c: 12000 },
+        { u: 20, c: 26000 },
+        { u: 50, c: 70000 },
+        { u: 100, c: 150000 },
+      ],
+      rooms: [
+        { id: '30101', name: 'বাংলা আড্ডা রুম', host: 'রাফি', cv: '🎤', c: 'চ্যাট', th: 0, d: 1, n: 128, flag: '🇧🇩', tag: 'আড্ডা', ann: 'স্বাগতম! সবাই মিলে আড্ডা দিই 🎉' },
+        { id: '30102', name: 'গান ও গজল', host: 'নুসরাত', cv: '🎶', c: 'পার্টি', th: 1, d: 1, n: 76, flag: '🇧🇩', tag: 'Enjoy Music', ann: 'আজকের গান: পুরোনো দিনের গান 🎶' },
+        { id: '30103', name: 'গেম জোন', host: 'সাব্বির', cv: '🎮', c: 'গেম', th: 2, d: 1, n: 54, flag: '🇸🇦', tag: 'Games', ann: 'গেম খেলুন, কয়েন জিতুন!' },
+        { id: '30104', name: 'নতুনদের আড্ডা', host: 'মিম', cv: '💬', c: 'নতুন', th: 3, d: 1, n: 31, flag: '🇮🇳', tag: 'Newcomers', ann: 'নতুনদের স্বাগতম!' },
+        { id: '30105', name: 'ঈদের উৎসব', host: 'তানভীর', cv: '🌙', c: 'ইভেন্ট', th: 4, d: 1, n: 92, flag: '🇧🇩', tag: 'Event', ann: 'উৎসবের আমেজে আসুন 🌙' },
+        { id: '30106', name: 'লাভ ফরএভার', host: 'সাদিয়া', cv: '💞', c: 'পার্টি', th: 5, d: 1, n: 106, flag: '🇵🇰', tag: 'Love', ann: 'ভালোবাসার গান ও গল্প 💞' },
+      ],
+    };
+  });
+
+  const [tab, setTab] = useState<'home' | 'explore' | 'wallet' | 'moments' | 'msg'>('home');
+  const [activePage, setActivePage] = useState<string | null>(null);
+  const [activeRoom, setActiveRoom] = useState<any | null>(null);
+  const [isRoomMinimized, setIsRoomMinimized] = useState<boolean>(false);
+  const [activeGame, setActiveGame] = useState<string | null>(null);
+  const [isGameMinimized, setIsGameMinimized] = useState<boolean>(false);
+  const [toastText, setToastText] = useState<string | null>(null);
+  const [fbUser, setFbUser] = useState<any>(null);
+
+  // Subpage states
+  const [editName, setEditName] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [editCountry, setEditCountry] = useState('');
+  const [adminPw, setAdminPw] = useState('');
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [adminCoinAmt, setAdminCoinAmt] = useState('');
+  const [adminBannerText, setAdminBannerText] = useState('');
+  const [sendTargetId, setSendTargetId] = useState('');
+  const [sendAmount, setSendAmount] = useState('');
+  const [sendNote, setSendNote] = useState('');
+  const [refInput, setRefInput] = useState('');
+  const [postText, setPostText] = useState('');
+
+  const lv = Math.floor(1 + Math.sqrt(S.xp / 50));
+  const wl = Math.floor(1 + Math.sqrt((S.spent || 0) / 1000));
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSplashFade(true);
+      setTimeout(() => setSplashVisible(false), 600);
+    }, 1800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sv3', JSON.stringify(S));
+    } catch (_) {}
+  }, [S]);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      setFbUser(u);
+      if (u) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', u.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setS((prev: any) => ({
+              ...prev,
+              name: data.name || u.displayName || prev.name,
+              img: u.photoURL || prev.img,
+              coins: data.coins !== undefined ? data.coins : prev.coins,
+            }));
+          } else {
+            await setDoc(doc(db, 'users', u.uid), {
+              userId: u.uid,
+              name: u.displayName || S.name,
+              email: u.email,
+              avatar: S.av,
+              coins: S.coins,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        } catch (e) {
+          console.warn('Firebase user sync:', e);
+        }
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const toast = (text: string) => {
+    setToastText(text);
+    setTimeout(() => setToastText(null), 2400);
+  };
+
+  const updateCoins = (amount: number, reason: string) => {
+    setS((prev: any) => {
+      const nextCoins = Math.max(0, prev.coins + amount);
+      const histItem = `${amount > 0 ? '+' : ''}${amount.toLocaleString()} — ${reason}`;
+      const next = {
+        ...prev,
+        coins: nextCoins,
+        hist: [histItem, ...prev.hist.slice(0, 30)],
+      };
+      if (fbUser?.uid) {
+        updateDoc(doc(db, 'users', fbUser.uid), { coins: nextCoins }).catch(() => {});
+      }
+      return next;
+    });
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const res = await signInWithPopup(auth, googleProvider);
+      toast(`স্বাগতম, ${res.user.displayName || 'ইউজার'}! গুগল লগইন সফল 🎉`);
+    } catch (e) {
+      toast('গুগল লগইন সম্পন্ন হয়নি');
+    }
+  };
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast('কপি হয়েছে ✓');
+  };
+
+  const handleCheckin = () => {
+    const today = new Date().toDateString();
+    if (S.last === today) return toast('আজকেরটা নেওয়া হয়ে গেছে');
+    const reward = Math.round((S.rew[Math.min(6, S.streak - 1)] || 100) * [1, 1.5, 2, 3][S.svip]);
+    updateCoins(reward, 'দৈনিক চেক-ইন');
+    setS((prev: any) => ({
+      ...prev,
+      last: today,
+      streak: Math.min(7, prev.streak + 1),
+    }));
+    toast(`🎉 +${reward} কয়েন পেয়েছেন!`);
+  };
+
+  const handleSendCoins = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseInt(sendAmount);
+    if (!sendTargetId.trim()) return toast('গ্রাহকের আইডি দিন');
+    if (isNaN(amt) || amt <= 0) return toast('সঠিক সংখ্যা দিন');
+    if (S.coins < amt) return toast('কয়েন যথেষ্ট নয়');
+
+    updateCoins(-amt, `কয়েন পাঠানো হয়েছে (ID ${sendTargetId}) - ${sendNote || 'ট্রান্সফার'}`);
+    setSendTargetId('');
+    setSendAmount('');
+    setSendNote('');
+    toast(`✓ ${amt.toLocaleString()} কয়েন পাঠানো হয়েছে!`);
+  };
+
+  const handleEditProfileSave = () => {
+    setS((prev: any) => ({
+      ...prev,
+      name: editName.trim() || prev.name,
+      bio: editBio.trim(),
+      country: editCountry || prev.country,
+    }));
+    toast('সেভ হয়েছে ✓');
+    setActivePage(null);
+  };
+
+  const inviteLink = () => `https://shakilm.app/?ref=SM${S.id}`;
+  const invText = () => `🎙️ Shakil M Voice Rooms-এ আমার সাথে যোগ দিন! সাইন-আপের সময় আমার ইনভাইট কোড দিন: SM${S.id}\n${inviteLink()}`;
+
+  return (
+    <div id="app">
+      {/* 1. Splash Screen */}
+      {splashVisible && (
+        <div id="splash" style={{ opacity: splashFade ? 0 : 1 }}>
+          <div className="wv">
+            <i></i><i></i><i></i><i></i><i></i>
+          </div>
+          <div className="t3">
+            Shakil M<br />Voice Rooms
+          </div>
+          <div className="lb">
+            <i style={{ width: '100%' }}></i>
+          </div>
+          <small className="sm">লোড হচ্ছে...</small>
+        </div>
+      )}
+
+      {/* 2. Top Header (hd) */}
+      <div id="hd">
+        <div
+          className={`av ${FRM[S.fr]?.[4] ? 'fa' : ''} ${FRM[S.fr]?.[5] || ''}`}
+          data-d={FRM[S.fr]?.[3]}
+          style={{ background: FRM[S.fr]?.[2], cursor: 'pointer' }}
+          onClick={() => setActivePage('profile_hub')}
+        >
+          <div>{S.img ? <img src={S.img} alt="Avatar" /> : S.av}</div>
+        </div>
+
+        <div className="sp">
+          <div className="sm">স্বাগতম</div>
+          <b id="gn">
+            {S.name} {S.svip ? '👑' : ''}
+          </b>
+        </div>
+
+        {/* Admin Super Button */}
+        <button
+          className="ib"
+          style={{
+            height: '34px',
+            padding: '0 9px',
+            fontSize: '11px',
+            fontWeight: 800,
+            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 70, 239, 0.25))',
+            border: '1px solid rgba(245, 158, 11, 0.5)',
+            borderRadius: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            color: '#fbbf24',
+            cursor: 'pointer'
+          }}
+          onClick={() => {
+            setIsAdminLoggedIn(true);
+            setActivePage('admin');
+          }}
+          title="সুপার অ্যাডমিন প্যানেল"
+        >
+          👑 <span>অ্যাডমিন</span>
+        </button>
+
+        {/* Coin Balance Badge */}
+        <div className="coin" onClick={() => setTab('wallet')}>
+          🪙 {S.coins.toLocaleString()}
+        </div>
+      </div>
+
+      {/* 3. Main Scrollable Container */}
+      <div id="main">
+        {/* TAB 1: HOME (রুম) */}
+        {tab === 'home' && (
+          <>
+            {/* Top Hot Banner */}
+            <div className="bnr">
+              <div
+                className="bn"
+                style={{ background: 'linear-gradient(135deg,#ff5c9d,#8a5cff)' }}
+                onClick={() => setTab('wallet')}
+              >
+                💰 Recharge Benefit
+              </div>
+              <div
+                className="bn"
+                style={{ background: 'linear-gradient(135deg,#ffb02a,#e0402a)' }}
+                onClick={() => setActiveGame('lion_wheel')}
+              >
+                🦁 Happy Food Wheel
+              </div>
+              <div
+                className="bn"
+                style={{ background: 'linear-gradient(135deg,#19e6c1,#3a7cff)' }}
+                onClick={() => setTab('explore')}
+              >
+                🎉 Room Festival
+              </div>
+              <div
+                className="bn"
+                style={{ background: 'linear-gradient(135deg,#ffc94d,#ff5c5c)' }}
+                onClick={() => setActivePage('invite')}
+              >
+                🎁 Invite & Earn {S.invPct}%
+              </div>
+            </div>
+
+            <div className="sm" style={{ margin: '-2px 0 8px' }}>
+              📢 {S.bn.t}
+            </div>
+
+            {/* Quick Game Tiles */}
+            <div className="tiles">
+              <div
+                className="tl"
+                style={{ background: 'linear-gradient(#ffb3d9,#ff5c9d)' }}
+                onClick={() => setActiveGame('jackpot_fruit')}
+              >
+                <b>🍒</b>জ্যাকপট ফ্রুট
+              </div>
+              <div
+                className="tl"
+                style={{ background: 'linear-gradient(#ffd08a,#ff8a2a)' }}
+                onClick={() => setActiveGame('slots')}
+              >
+                <b>🎰</b>স্লটস
+              </div>
+              <div
+                className="tl"
+                style={{ background: 'linear-gradient(#9ad0ff,#4a7aff)' }}
+                onClick={() => setActiveGame('lion_wheel')}
+              >
+                <b>🦁</b>ফুড হুইল
+              </div>
+            </div>
+
+            {/* Categories */}
+            <div className="cc" style={{ marginTop: '12px' }}>
+              {CT.map(c => (
+                <span
+                  key={c}
+                  className={S.cat === c ? 'on' : ''}
+                  onClick={() => setS((prev: any) => ({ ...prev, cat: c }))}
+                >
+                  {c}
+                </span>
+              ))}
+            </div>
+
+            {/* Top Rooms Header */}
+            <div className="tp" onClick={() => setActivePage('rankings')}>
+              🏆 Top Rooms <span className="sp"></span>
+              <span style={{ fontSize: '18px' }}>🥇🥈🥉</span> ›
+            </div>
+
+            {/* Rooms List */}
+            <div className="rg">
+              {S.rooms
+                .filter((r: any) => S.cat === 'সব' || r.c === S.cat)
+                .map((r: any) => (
+                  <div
+                    key={r.id}
+                    className="rc"
+                    style={{ background: GR[r.th % 4] }}
+                    onClick={() => {
+                      setActiveRoom(r);
+                      setIsRoomMinimized(false);
+                      playEntryAnimation(S.en, S.name);
+                    }}
+                  >
+                    <span className="fl">{r.flag || '🇧🇩'}</span>
+                    <span className="ls">▮ {r.n || 1}</span>
+                    <div className="cvv">{r.cv}</div>
+                    <span className="tg2">{r.tag || 'আড্ডা'}</span>
+                    <b>{r.name}</b>
+                    <div className="sm2">{r.ann || 'স্বাগতম!'}</div>
+                  </div>
+                ))}
+            </div>
+          </>
+        )}
+
+        {/* TAB 2: EXPLORE (এক্সপ্লোর) */}
+        {tab === 'explore' && (
+          <>
+            <div className="row" style={{ padding: '14px 0 8px' }}>
+              <b style={{ fontSize: '23px' }}>Explore</b>
+              <span className="sp"></span>
+              <button
+                className="ib"
+                style={{ padding: 0 }}
+                onClick={() => setActivePage('profile_hub')}
+              >
+                <div
+                  className={`av ${FRM[S.fr]?.[4] ? 'fa' : ''}`}
+                  style={{ width: '38px', height: '38px', fontSize: '19px', background: FRM[S.fr]?.[2] }}
+                >
+                  <div>{S.img ? <img src={S.img} alt="Av" /> : S.av}</div>
+                </div>
+              </button>
+            </div>
+
+            <h3>🏅 Wall of Honor</h3>
+            <div
+              className="gl row"
+              style={{ padding: '14px', background: 'linear-gradient(135deg,#ff5c9d88,#8a5cff88)', cursor: 'pointer' }}
+              onClick={() => setActivePage('rankings')}
+            >
+              <span style={{ fontSize: '34px' }}>👑</span>
+              <div className="sp">
+                <b>মাসের সেরা র‍্যাঙ্কার</b>
+                <div className="sm">র‍্যাঙ্কিং দেখতে চাপুন</div>
+              </div>
+              ›
+            </div>
+
+            <h3>🌍 Countries</h3>
+            <div className="chips">
+              {FL.map(f => (
+                <span
+                  key={f[0]}
+                  className="chip"
+                  onClick={() => toast(`${f[1]} ফিল্টার নির্বাচিত`)}
+                >
+                  {f[0]} {f[1]}
+                </span>
+              ))}
+            </div>
+
+            <h3>🎉 Events & Games</h3>
+            <div className="rg">
+              <div className="rc" style={{ background: GR[0] }} onClick={() => setActiveGame('carrom')}>
+                <span className="ls">Game</span>
+                <div className="cvv">🔴</div>
+                <b>ক্যারাম</b>
+                <div className="sm2">আসল ফিজিক্স ক্যারাম</div>
+              </div>
+              <div className="rc" style={{ background: GR[1] }} onClick={() => setActiveGame('chess_3d')}>
+                <span className="ls">Game</span>
+                <div className="cvv">♟️</div>
+                <b>দাবা ৩ডি</b>
+                <div className="sm2">থ্রিডি বোর্ড গেম</div>
+              </div>
+              <div className="rc" style={{ background: GR[2] }} onClick={() => setActiveGame('night_wheel')}>
+                <span className="ls">Game</span>
+                <div className="cvv">🌙</div>
+                <b>নাইট হুইল</b>
+                <div className="sm2">রাতের চাকা</div>
+              </div>
+              <div className="rc" style={{ background: GR[3] }} onClick={() => setActiveGame('slots')}>
+                <span className="ls">Game</span>
+                <div className="cvv">🎰</div>
+                <b>স্লটস</b>
+                <div className="sm2">ক্লাসিক স্লট</div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* TAB 3: WALLET (ওয়ালেট - ব্যালেন্স, রিচার্জ, কয়েন পাঠান ও গ্রহণ) */}
+        {tab === 'wallet' && (
+          <>
+            <div className="row" style={{ padding: '14px 0 8px' }}>
+              <b style={{ fontSize: '23px' }}>Wallet</b>
+              <span className="sp"></span>
+              <button className="b" onClick={() => setActivePage('hist')}>
+                🧾 ইতিহাস
+              </button>
+            </div>
+
+            <div
+              className="gl"
+              style={{
+                padding: '22px',
+                textAlign: 'center',
+                background: 'linear-gradient(135deg,#ffb02a55,#ff5c9d55)',
+              }}
+            >
+              <div className="sm">আপনার ব্যালেন্স</div>
+              <div style={{ fontSize: '38px', fontWeight: 900, color: 'var(--g)' }}>
+                🪙 {S.coins.toLocaleString()}
+              </div>
+              <div className="sm" style={{ marginTop: '4px' }}>
+                আইডি: <b style={{ color: 'var(--t)' }}>SM{S.id}</b>
+              </div>
+            </div>
+
+            {/* First Recharge Bonus Banner */}
+            <div
+              className="gl row"
+              style={{
+                padding: '14px',
+                marginTop: '12px',
+                background: 'linear-gradient(135deg,#ffd86a,#e0801a)',
+                color: '#3a1c00',
+                cursor: 'pointer',
+              }}
+              onClick={() => toast('রিচার্জ প্যাকেজ বেছে নিন')}
+            >
+              <span style={{ fontSize: '32px' }}>🎁</span>
+              <div className="sp">
+                <b>First Recharge Bonus</b>
+                <div style={{ fontSize: '12px' }}>প্রথম রিচার্জে বিশেষ উপহার ও +১০% কয়েন</div>
+              </div>
+              ›
+            </div>
+
+            {/* Send Coins Form */}
+            <h3>📤 কয়েন পাঠান (Transfer Coins)</h3>
+            <form onSubmit={handleSendCoins} className="gl" style={{ padding: '14px' }}>
+              <input
+                className="in"
+                placeholder="প্রাপকের আইডি (যেমন 102938)"
+                value={sendTargetId}
+                onChange={e => setSendTargetId(e.target.value)}
+                style={{ width: '100%', marginBottom: '8px' }}
+                required
+              />
+              <input
+                className="in"
+                type="number"
+                placeholder="কয়েন সংখ্যা"
+                value={sendAmount}
+                onChange={e => setSendAmount(e.target.value)}
+                style={{ width: '100%', marginBottom: '8px' }}
+                required
+              />
+              <input
+                className="in"
+                placeholder="নোট বা বার্তা (ঐচ্ছিক)"
+                value={sendNote}
+                onChange={e => setSendNote(e.target.value)}
+                style={{ width: '100%', marginBottom: '10px' }}
+              />
+              <button className="b g" style={{ width: '100%' }} type="submit">
+                কয়েন পাঠান
+              </button>
+            </form>
+
+            {/* Receive Coins */}
+            <h3>📥 কয়েন গ্রহণ (Receive Coins)</h3>
+            <div className="gl" style={{ padding: '14px', textAlign: 'center' }}>
+              <div className="sm">আপনার Shakil M রিসিভ কোড:</div>
+              <div style={{ fontSize: '26px', fontWeight: 900, color: 'var(--g)', margin: '8px 0' }}>
+                SM{S.id}
+              </div>
+              <button className="b t" onClick={() => handleCopy(`SM${S.id}`)}>
+                📋 আইডি কপি করুন
+              </button>
+            </div>
+
+            {/* Recharge Packages */}
+            <h3>কয়েন প্যাকেজ</h3>
+            <div className="rg">
+              {S.pk.map((p: any, i: number) => (
+                <div
+                  key={i}
+                  className="gl"
+                  style={{ padding: '14px', textAlign: 'center', cursor: 'pointer' }}
+                  onClick={() => {
+                    updateCoins(p.c, `$${p.u} রিচার্জ প্যাকেজ`);
+                    toast(`🎉 +${p.c.toLocaleString()} কয়েন রিচার্জ সম্পন্ন!`);
+                  }}
+                >
+                  <div style={{ fontSize: '28px' }}>🪙</div>
+                  <b style={{ fontSize: '18px', color: 'var(--g)' }}>{p.c.toLocaleString()}</b>
+                  <div className="b g" style={{ marginTop: '8px', padding: '8px' }}>
+                    ${p.u}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* TAB 4: MOMENTS (মোমেন্টস) */}
+        {tab === 'moments' && (
+          <>
+            <div className="row" style={{ padding: '14px 0 8px' }}>
+              <b style={{ fontSize: '23px' }}>Moments</b>
+            </div>
+            <div className="gl" style={{ padding: '12px' }}>
+              <textarea
+                className="in"
+                rows={2}
+                placeholder="আপনার মনে কী চলছে?"
+                value={postText}
+                onChange={e => setPostText(e.target.value)}
+                style={{ width: '100%', borderRadius: '16px' }}
+              />
+              <div className="row" style={{ marginTop: '8px' }}>
+                <span className="sp"></span>
+                <button
+                  className="b t"
+                  onClick={() => {
+                    if (!postText.trim()) return toast('কিছু লিখুন');
+                    setS((prev: any) => ({
+                      ...prev,
+                      posts: [{ u: prev.name, av: prev.av, t: postText.trim(), l: 0, c: 0, d: 'এইমাত্র' }, ...prev.posts],
+                    }));
+                    setPostText('');
+                    toast('পোস্ট হয়েছে ✓');
+                  }}
+                >
+                  পোস্ট
+                </button>
+              </div>
+            </div>
+
+            {S.posts.map((p: any, i: number) => (
+              <div key={i} className="gl" style={{ padding: '14px', margin: '12px 0' }}>
+                <div className="row">
+                  <div className="a" style={{ width: '40px', height: '40px', fontSize: '20px' }}>
+                    {p.av || S.av}
+                  </div>
+                  <div className="sp">
+                    <b>{p.u}</b>
+                    {p.demo ? <span className="tg">ডেমো</span> : ''}
+                    <div className="sm">{p.d}</div>
+                  </div>
+                </div>
+                <p style={{ margin: '10px 0' }}>{p.t}</p>
+                <div className="row sm">
+                  <span>❤️ {p.l}</span>
+                  <span>💬 {p.c}</span>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* TAB 5: MSG (মেসেজ) */}
+        {tab === 'msg' && (
+          <>
+            <div className="row" style={{ padding: '14px 0 8px' }}>
+              <b style={{ fontSize: '23px' }}>Message</b>
+            </div>
+            <div className="gl rr" onClick={() => toast('সাপোর্ট টিম শীঘ্রই উত্তর দেবে')}>
+              <div className="c" style={{ background: GR[1] }}>
+                🎧
+              </div>
+              <div className="sp">
+                <b>কাস্টমার সার্ভিস</b>
+                <div className="sm">🟢 অনলাইন · সমস্যা জানান, ছবিও পাঠাতে পারবেন</div>
+              </div>
+            </div>
+            <div className="gl rr">
+              <div className="c" style={{ background: GR[2] }}>
+                📢
+              </div>
+              <div className="sp">
+                <b>অফিশিয়াল নোটিশ</b>
+                <div className="sm">{S.bn.t}</div>
+              </div>
+            </div>
+            <h3>➕ ফলোইং</h3>
+            {S.follow.map((f: string, i: number) => (
+              <div key={i} className="gl rr" style={{ margin: '6px 0' }}>
+                <div className="c" style={{ background: GR[0] }}>🙂</div>
+                <div className="sp">
+                  <b>{f}</b>
+                  <div className="sm">বন্ধু</div>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      {/* 4. Bottom Nav Bar */}
+      <div id="nav">
+        {[
+          ['home', '🏠', 'রুম'],
+          ['explore', '🧭', 'এক্সপ্লোর'],
+          ['wallet', '👛', 'ওয়ালেট'],
+          ['moments', '📸', 'মোমেন্টস'],
+          ['msg', '✉️', 'মেসেজ'],
+        ].map(([t, e, n]) => (
+          <button
+            key={t}
+            className={tab === t ? 'on' : ''}
+            onClick={() => {
+              setActivePage(null);
+              setTab(t as any);
+            }}
+          >
+            <b>{e}</b>
+            {n}
+          </button>
+        ))}
+      </div>
+
+      {/* 5. Subpage Views (#pg) */}
+      {activePage && (
+        <div id="pg" className="on">
+          <div className="row" style={{ padding: '12px 14px' }}>
+            <button className="ib" onClick={() => setActivePage(null)}>
+              ‹
+            </button>
+            <b className="sp">
+              {activePage === 'profile_hub' && '👤 আমার প্রোফাইল'}
+              {activePage === 'edit_profile' && '✏️ এডিট প্রোফাইল'}
+              {activePage === 'frames' && '🖼️ ফ্রেম'}
+              {activePage === 'entries' && '🚪 এন্ট্রি'}
+              {activePage === 'svip' && '👑 SVIP'}
+              {activePage === 'tasks' && '✅ Tasks'}
+              {activePage === 'badges' && '🏅 Badge'}
+              {activePage === 'invite' && '🎁 Invite & Earn'}
+              {activePage === 'store' && '🏪 Store'}
+              {activePage === 'items' && '👕 My Items'}
+              {activePage === 'level' && '⭐ Level'}
+              {activePage === 'hist' && '🧾 লেনদেন'}
+              {activePage === 'admin' && '⚙️ অ্যাডমিন প্যানেল'}
+              {activePage === 'rankings' && '🏆 Rankings'}
+              {activePage === 'policy_privacy' && '📜 গোপনীয়তা নীতি (Privacy Policy)'}
+              {activePage === 'policy_terms' && '📋 ব্যবহারের শর্তাবলী (Terms of Service)'}
+              {activePage === 'policy_community' && '🛡️ কমিউনিটি গাইডলাইন (Community Rules)'}
+              {activePage === 'policy_user_agreement' && '🤝 ব্যবহারকারী চুক্তি (User Agreement)'}
+              {activePage === 'policy_coins_refund' && '🪙 রিচার্জ ও রিফান্ড নীতি (Refund Policy)'}
+              {activePage === 'policy_fairplay' && '⚖️ ফেয়ার প্লে ও নিরাপত্তা (Fair Play Policy)'}
+              {activePage === 'policy_support' && '📞 কাস্টমার সাপোর্ট ও হেল্প (Customer Support)'}
+              {activePage === 'policy_faq' && '❓ সাধারণ জিজ্ঞাসা ও গাইড (FAQ & Guide)'}
+              {activePage === 'policy_about' && 'ℹ️ আমাদের সম্পর্কে (About Us)'}
+            </b>
+          </div>
+
+          <div style={{ flex: 1, overflow: 'auto', padding: '0 14px 24px' }}>
+            {/* SUBPAGE: PROFILE HUB */}
+            {activePage === 'profile_hub' && (
+              <>
+                <div className="row" style={{ marginTop: '-6px' }}>
+                  <span className="sp"></span>
+                  <button
+                    className="b"
+                    style={{ padding: '6px 14px' }}
+                    onClick={() => {
+                      setEditName(S.name);
+                      setEditBio(S.bio || '');
+                      setEditCountry(S.country);
+                      setActivePage('edit_profile');
+                    }}
+                  >
+                    ✏️ Edit
+                  </button>
+                </div>
+
+                <div className="row" style={{ margin: '10px 0' }}>
+                  <div
+                    className={`av ${FRM[S.fr]?.[4] ? 'fa' : ''}`}
+                    style={{ width: '80px', height: '80px', fontSize: '40px', background: FRM[S.fr]?.[2], cursor: 'pointer' }}
+                    onClick={() => setActivePage('frames')}
+                  >
+                    <div>{S.img ? <img src={S.img} alt="Av" /> : S.av}</div>
+                  </div>
+                  <div className="sp">
+                    <b style={{ fontSize: '20px' }}>{S.name}</b>
+                    {S.svip ? <span className="bd" style={{ background: SV[S.svip - 1]?.[2] }}>{SV[S.svip - 1]?.[0]}</span> : ''}
+                    <div className="sm" onClick={() => handleCopy(S.id)} style={{ cursor: 'pointer' }}>
+                      ID {S.id} 📋
+                    </div>
+                    <div style={{ marginTop: '6px' }}>
+                      <span className="tg" style={{ background: '#ff5c9d' }}>LV.{lv}</span>{' '}
+                      <span className="tg" style={{ background: '#8a5cff' }}>Wealth {wl}</span>{' '}
+                      <span className="tg" style={{ background: '#19a' }}>{S.country || '🌍'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Google Auth Status */}
+                <div className="gl" style={{ padding: '12px', margin: '8px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <b>গুগল ব্যাকআপ:</b>
+                    <div className="sm">{fbUser ? fbUser.email : 'সংযুক্ত নয়'}</div>
+                  </div>
+                  {fbUser ? (
+                    <button className="b r" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => signOut(auth).then(() => toast('লগআউট'))}>
+                      লগআউট
+                    </button>
+                  ) : (
+                    <button className="b t" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={handleGoogleLogin}>
+                      Google লগইন
+                    </button>
+                  )}
+                </div>
+
+                <div className="row" style={{ textAlign: 'center', margin: '14px 0' }}>
+                  <div className="sp"><b>0</b><div className="sm">Visitors</div></div>
+                  <div className="sp"><b>{S.follow.length}</b><div className="sm">Following</div></div>
+                  <div className="sp"><b>0</b><div className="sm">Followers</div></div>
+                </div>
+
+                <div className="row">
+                  <div
+                    className="sp mb"
+                    style={{ background: 'linear-gradient(135deg,#ff9a4a,#ff5c3a)', textAlign: 'left', padding: '14px' }}
+                    onClick={() => setActivePage('level')}
+                  >
+                    <b style={{ fontSize: '16px', margin: 0 }}>Wealth Level</b>
+                    <small>Lv.{wl} ›</small>
+                  </div>
+                  <div
+                    className="sp mb"
+                    style={{ background: 'linear-gradient(135deg,#ff5c9d,#ffb02a)', textAlign: 'left', padding: '14px' }}
+                    onClick={() => setActivePage('svip')}
+                  >
+                    <b style={{ fontSize: '16px', margin: 0 }}>VIP Club 👑</b>
+                    <small>{S.svip ? SV[S.svip - 1]?.[0] : 'Unlock now'} ›</small>
+                  </div>
+                </div>
+
+                <div className="gl cir" style={{ marginTop: '12px' }}>
+                  <div onClick={() => setActivePage('tasks')} style={{ cursor: 'pointer' }}><i style={{ background: '#19c68a' }}>✅</i>Tasks</div>
+                  <div onClick={() => setActivePage('store')} style={{ cursor: 'pointer' }}><i style={{ background: '#ff5c9d' }}>🏪</i>Store</div>
+                  <div onClick={() => setActivePage('items')} style={{ cursor: 'pointer' }}><i style={{ background: '#4a7aff' }}>👕</i>My Items</div>
+                  <div onClick={() => setActivePage('level')} style={{ cursor: 'pointer' }}><i style={{ background: '#ff8a4a' }}>⭐</i>Level</div>
+                </div>
+
+                <div
+                  className="gl lr"
+                  style={{ marginTop: '12px', background: 'linear-gradient(90deg,#ff5c9d88,#ffb02a88)', borderRadius: '18px' }}
+                  onClick={() => setActivePage('svip')}
+                >
+                  <span style={{ fontSize: '28px' }}>💎</span>
+                  <b className="sp">VIP</b>
+                  <span className="b g" style={{ padding: '6px 14px' }}>Details</span>
+                </div>
+
+                {/* Menu List: Personalization & Badges */}
+                <h3 style={{ marginTop: '14px', marginBottom: '6px' }}>👑 ভিআইপি ও পার্সোনালাইজেশন</h3>
+                <div className="gl" style={{ padding: '0 4px' }}>
+                  {[
+                    ['👑', 'Premium (SVIP Club)', 'svip'],
+                    ['🏅', 'Badge (মেডেল ও ব্যাজ)', 'badges'],
+                    ['🎁', `Invite & Earn — রিচার্জে ${S.invPct}% রিওয়ার্ড`, 'invite'],
+                    ['🖼️', 'ফ্রেম (Avatar Frames)', 'frames'],
+                    ['🚪', 'এন্ট্রি অ্যানিমেশন (Room Entry)', 'entries'],
+                    ['🧾', 'লেনদেন খতিয়ান (Transactions)', 'hist'],
+                  ].map(r => (
+                    <div key={r[2]} className="lr" onClick={() => setActivePage(r[2])}>
+                      <span style={{ fontSize: '22px' }}>{r[0]}</span>
+                      <span className="sp">{r[1]}</span>
+                      <span>›</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Policies & Official Terms */}
+                <h3 style={{ marginTop: '16px', marginBottom: '6px' }}>📜 নীতিমালা ও নিয়মাবলী (Policies & Legal)</h3>
+                <div className="gl" style={{ padding: '0 4px' }}>
+                  {[
+                    ['📜', 'গোপনীয়তা নীতি (Privacy Policy)', 'policy_privacy'],
+                    ['📋', 'ব্যবহারের শর্তাবলী (Terms of Service)', 'policy_terms'],
+                    ['🛡️', 'কমিউনিটি গাইডলাইন (Community Rules)', 'policy_community'],
+                    ['🤝', 'ব্যবহারকারী চুক্তি (User Agreement)', 'policy_user_agreement'],
+                    ['🪙', 'রিচার্জ ও রিফান্ড নীতি (Coin & Refund Policy)', 'policy_coins_refund'],
+                    ['⚖️', 'ফেয়ার প্লে ও অ্যান্টি-চিটিং নীতি (Fair Play)', 'policy_fairplay'],
+                  ].map(r => (
+                    <div key={r[2]} className="lr" onClick={() => setActivePage(r[2])}>
+                      <span style={{ fontSize: '20px' }}>{r[0]}</span>
+                      <span className="sp" style={{ fontSize: '13px' }}>{r[1]}</span>
+                      <span>›</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Support & System */}
+                <h3 style={{ marginTop: '16px', marginBottom: '6px' }}>📞 সহায়তা ও প্ল্যাটফর্ম (Support & About)</h3>
+                <div className="gl" style={{ padding: '0 4px', marginBottom: '16px' }}>
+                  {[
+                    ['📞', 'কাস্টমার সাপোর্ট ও হেল্পলাইন (Support)', 'policy_support'],
+                    ['❓', 'সাধারণ জিজ্ঞাসা ও গাইড (FAQ)', 'policy_faq'],
+                    ['ℹ️', 'আমাদের সম্পর্কে ও লাইসেন্স (About Us)', 'policy_about'],
+                    ['⚙️', 'অ্যাডমিন প্যানেল (Admin Panel)', 'admin'],
+                  ].map(r => (
+                    <div key={r[2]} className="lr" onClick={() => setActivePage(r[2])}>
+                      <span style={{ fontSize: '20px' }}>{r[0]}</span>
+                      <span className="sp" style={{ fontSize: '13px' }}>{r[1]}</span>
+                      <span>›</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* SUBPAGE: EDIT PROFILE */}
+            {activePage === 'edit_profile' && (
+              <>
+                <div style={{ textAlign: 'center', margin: '10px 0' }}>
+                  <div
+                    className={`av ${FRM[S.fr]?.[4] ? 'fa' : ''}`}
+                    style={{ width: '96px', height: '96px', fontSize: '48px', margin: '0 auto', background: FRM[S.fr]?.[2] }}
+                  >
+                    <div>{S.img ? <img src={S.img} alt="Av" /> : S.av}</div>
+                  </div>
+                  <div className="sm" style={{ marginTop: '6px' }}>ইমোজি থেকে অবতার বেছে নিন:</div>
+                </div>
+
+                <div className="chips" style={{ justifyContent: 'center' }}>
+                  {['😎', '🙂', '🥳', '🤩', '😇', '🦁', '🐯', '👑'].map(e => (
+                    <span
+                      key={e}
+                      className={`chip ${S.av === e ? 'on' : ''}`}
+                      style={{ fontSize: '20px' }}
+                      onClick={() => setS((prev: any) => ({ ...prev, av: e, img: '' }))}
+                    >
+                      {e}
+                    </span>
+                  ))}
+                </div>
+
+                <h3>নাম</h3>
+                <input
+                  className="in"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+
+                <h3>দেশ</h3>
+                <select
+                  className="in"
+                  value={editCountry}
+                  onChange={e => setEditCountry(e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  {COUNTRIES.map(c => (
+                    <option key={c[0]} value={`${c[0]} ${c[1]}`}>{c[0]} {c[1]}</option>
+                  ))}
+                </select>
+
+                <h3>বায়ো</h3>
+                <input
+                  className="in"
+                  value={editBio}
+                  onChange={e => setEditBio(e.target.value)}
+                  placeholder="নিজের সম্পর্কে লিখুন"
+                  style={{ width: '100%' }}
+                />
+
+                <button className="b t" style={{ width: '100%', marginTop: '16px' }} onClick={handleEditProfileSave}>
+                  সেভ করুন
+                </button>
+              </>
+            )}
+
+            {/* SUBPAGE: FRAMES (All 18 frames) */}
+            {activePage === 'frames' && (
+              <>
+                <p className="sm" style={{ margin: '8px 0' }}>
+                  প্রোফাইল ছবির ফ্রেম। "বিশেষ" ফ্রেম শুধু অ্যাডমিন থেকে পাওয়া যায়।
+                </p>
+                <div className="st3">
+                  {FRM.map((f, i) => {
+                    const owned = S.ownF.includes(i);
+                    const equipped = S.fr === i;
+                    return (
+                      <div key={i} className={`it ${equipped ? 'on' : ''}`}>
+                        <div
+                          className={`av ${f[4] ? 'fa' : ''} ${f[5] || ''}`}
+                          data-d={f[3]}
+                          style={{ width: '58px', height: '58px', fontSize: '29px', margin: '0 auto 6px', background: f[2] }}
+                        >
+                          <div>{S.img ? <img src={S.img} alt="Av" /> : S.av}</div>
+                        </div>
+                        {f[0]}
+                        <button
+                          className={`b ${owned ? (equipped ? 't' : '') : f[1] < 0 ? '' : 'g'}`}
+                          onClick={() => {
+                            if (!owned) {
+                              if (f[1] < 0) return toast('এটি অ্যাডমিন থেকে পাওয়া যায়');
+                              if (S.coins < f[1]) return toast('কয়েন যথেষ্ট নয়');
+                              updateCoins(-f[1], `${f[0]} ফ্রেম ক্রয়`);
+                              setS((prev: any) => ({ ...prev, ownF: [...prev.ownF, i], fr: i }));
+                            } else {
+                              setS((prev: any) => ({ ...prev, fr: i }));
+                            }
+                            toast(`${f[0]} ফ্রেম পরা হয়েছে`);
+                          }}
+                        >
+                          {equipped ? 'পরা আছে' : owned ? 'পরুন' : f[1] < 0 ? '🔒 অ্যাডমিন' : `🪙 ${f[1].toLocaleString()}`}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* SUBPAGE: ENTRIES (All 15 entries with Live Preview) */}
+            {activePage === 'entries' && (
+              <>
+                <p className="sm" style={{ margin: '8px 0' }}>
+                  রুমে ঢোকার সময় আপনার বিশেষ এন্ট্রি অ্যানিমেশন চলবে। "বিশেষ" এন্ট্রি শুধু অ্যাডমিন থেকে পাওয়া যায়।
+                </p>
+                <div className="st3">
+                  {ENT.map((e, i) => {
+                    const owned = S.ownE.includes(i);
+                    const equipped = S.en === i;
+                    return (
+                      <div key={i} className={`it ${equipped ? 'on' : ''}`}>
+                        <div style={{ fontSize: '42px' }}>{e[0]}</div>
+                        {e[1]}
+                        <button
+                          className={`b ${owned ? (equipped ? 't' : '') : e[2] < 0 ? '' : 'g'}`}
+                          onClick={() => {
+                            if (!owned) {
+                              if (e[2] < 0) return toast('এটি অ্যাডমিন থেকে পাওয়া যায়');
+                              if (S.coins < e[2]) return toast('কয়েন যথেষ্ট নয়');
+                              updateCoins(-e[2], `${e[1]} এন্ট্রি ক্রয়`);
+                              setS((prev: any) => ({ ...prev, ownE: [...prev.ownE, i], en: i }));
+                            } else {
+                              setS((prev: any) => ({ ...prev, en: i }));
+                            }
+                            toast(`${e[1]} এন্ট্রি চালু হয়েছে`);
+                          }}
+                        >
+                          {equipped ? 'চালু আছে' : owned ? 'চালু করুন' : e[2] < 0 ? '🔒 অ্যাডমিন' : `🪙 ${e[2].toLocaleString()}`}
+                        </button>
+                        <button
+                          className="b"
+                          style={{ marginTop: '6px', background: '#ffffff22', boxShadow: 'none' }}
+                          onClick={() => playEntryAnimation(i, S.name)}
+                        >
+                          প্রিভিউ
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                {S.en >= 0 && (
+                  <button
+                    className="b r"
+                    style={{ width: '100%', marginTop: '14px' }}
+                    onClick={() => {
+                      setS((prev: any) => ({ ...prev, en: -1 }));
+                      toast('এন্ট্রি বন্ধ করা হয়েছে');
+                    }}
+                  >
+                    এন্ট্রি বন্ধ করুন
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* SUBPAGE: SVIP */}
+            {activePage === 'svip' && (
+              <>
+                <div className="gl" style={{ padding: '16px', marginTop: '6px', textAlign: 'center' }}>
+                  {S.svip ? (
+                    <span>আপনার বর্তমান লেভেল: <b style={{ color: SV[S.svip - 1]?.[2] }}>{SV[S.svip - 1]?.[0]}</b></span>
+                  ) : (
+                    <span>আপনি এখনও SVIP নন</span>
+                  )}
+                </div>
+                {SV.map((v, i) => (
+                  <div key={i} className="gl" style={{ padding: '14px', margin: '12px 0', borderColor: `${v[2]}88` }}>
+                    <div className="row">
+                      <b style={{ fontSize: '18px', color: v[2] }}>👑 {v[0]}</b>
+                      <span className="sp"></span>
+                      <b>🪙 {v[1].toLocaleString()}</b>
+                    </div>
+                    <div className="sm" style={{ margin: '8px 0', lineHeight: 1.6 }}>
+                      • {PERK[i]}<br />• নামের পাশে {v[0]} ব্যাজ
+                    </div>
+                    <button
+                      className={`b ${S.svip > i ? 't' : 'g'}`}
+                      style={{ width: '100%' }}
+                      onClick={() => {
+                        if (S.svip > i) return toast('অলরেডি আনলক আছে');
+                        if (S.coins < v[1]) return toast('কয়েন যথেষ্ট নয়');
+                        updateCoins(-v[1], `${v[0]} ক্রয়`);
+                        setS((prev: any) => ({ ...prev, svip: i + 1 }));
+                        toast(`🎉 ${v[0]} চালু হয়েছে!`);
+                      }}
+                    >
+                      {S.svip > i ? 'আছে ✓' : 'কিনুন'}
+                    </button>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* SUBPAGE: TASKS */}
+            {activePage === 'tasks' && (
+              <>
+                <div className="chk">
+                  <span style={{ fontSize: '28px' }}>📅</span>
+                  <div className="sp">
+                    <b>দৈনিক চেক-ইন (স্ট্রিক {S.streak}/7)</b>
+                    <div className="sm">আজকের পুরস্কার 🪙 {S.rew[Math.min(6, S.streak - 1)]}</div>
+                  </div>
+                  <button className="b g" onClick={handleCheckin}>
+                    চেক-ইন
+                  </button>
+                </div>
+                <div className="chk">
+                  <span style={{ fontSize: '28px' }}>💬</span>
+                  <div className="sp">
+                    <b>৫টি মেসেজ পাঠান</b>
+                    <div className="pb"><i style={{ width: `${Math.min(100, (S.cnt?.msg || 0) / 5 * 100)}%` }}></i></div>
+                    <div className="sm">{Math.min(S.cnt?.msg || 0, 5)}/5 · 🪙 100</div>
+                  </div>
+                  <button className="b g" onClick={() => { updateCoins(100, 'টাস্ক বোনাস'); toast('+100 কয়েন'); }}>
+                    নিন
+                  </button>
+                </div>
+                <div className="chk">
+                  <span style={{ fontSize: '28px' }}>🎁</span>
+                  <div className="sp">
+                    <b>১টি গিফট পাঠান</b>
+                    <div className="pb"><i style={{ width: `${Math.min(100, (S.cnt?.gift || 0) / 1 * 100)}%` }}></i></div>
+                    <div className="sm">{Math.min(S.cnt?.gift || 0, 1)}/1 · 🪙 200</div>
+                  </div>
+                  <button className="b g" onClick={() => { updateCoins(200, 'টাস্ক বোনাস'); toast('+200 কয়েন'); }}>
+                    নিন
+                  </button>
+                </div>
+                <div className="chk">
+                  <span style={{ fontSize: '28px' }}>🎮</span>
+                  <div className="sp">
+                    <b>১টি গেম খেলুন</b>
+                    <div className="pb"><i style={{ width: `${Math.min(100, (S.cnt?.game || 0) / 1 * 100)}%` }}></i></div>
+                    <div className="sm">{Math.min(S.cnt?.game || 0, 1)}/1 · 🪙 100</div>
+                  </div>
+                  <button className="b g" onClick={() => { updateCoins(100, 'টাস্ক বোনাস'); toast('+100 কয়েন'); }}>
+                    নিন
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* SUBPAGE: BADGES */}
+            {activePage === 'badges' && (
+              <div className="rg" style={{ marginTop: '8px' }}>
+                {[
+                  ['🎁', 'প্রথম গিফট', (S.cnt?.gift || 0) > 0],
+                  ['💬', 'চ্যাটার (১০ মেসেজ)', (S.cnt?.msg || 0) >= 10],
+                  ['🎮', 'গেমার', (S.cnt?.game || 0) > 0],
+                  ['💰', 'ধনী (১০K খরচ)', (S.spent || 0) >= 10000],
+                  ['👑', 'SVIP সদস্য', (S.svip || 0) > 0],
+                  ['🖼️', 'ফ্রেম কালেক্টর', (S.ownF?.length || 0) >= 3],
+                ].map((b, i) => (
+                  <div key={i} className="gl" style={{ padding: '16px', textAlign: 'center', opacity: b[2] ? 1 : 0.4 }}>
+                    <div style={{ fontSize: '42px' }}>{b[0]}</div>
+                    <b style={{ fontSize: '13px' }}>{b[1]}</b>
+                    <div className="sm">{b[2] ? 'পেয়েছেন ✓' : '🔒 লকড'}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* SUBPAGE: INVITE & EARN (WITH ALL POLICIES AND RULES) */}
+            {activePage === 'invite' && (
+              <>
+                <div
+                  className="gl"
+                  style={{
+                    padding: '20px',
+                    marginTop: '8px',
+                    textAlign: 'center',
+                    background: 'linear-gradient(135deg,#ffb02a66,#ff5c9d66)',
+                  }}
+                >
+                  <div style={{ fontSize: '46px' }}>🎁</div>
+                  <div className="bigp">{S.invPct}%</div>
+                  <b style={{ fontSize: '17px' }}>বন্ধুকে ইনভাইট করুন, তার রিচার্জের {S.invPct}% রিওয়ার্ড আপনার!</b>
+                  <div className="sm" style={{ marginTop: '6px' }}>
+                    বন্ধু যতবার রিচার্জ করবে, প্রতিবার {S.invPct}% কয়েন আপনি পাবেন
+                  </div>
+                </div>
+
+                <h3>🔑 আপনার ইনভাইট কোড</h3>
+                <div className="gl" style={{ padding: '16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '30px', fontWeight: 900, letterSpacing: '3px', color: 'var(--g)' }}>
+                    SM{S.id}
+                  </div>
+                  <div className="row" style={{ marginTop: '12px' }}>
+                    <button className="b t sp" onClick={() => handleCopy(`SM${S.id}`)}>
+                      📋 কোড কপি
+                    </button>
+                    <button className="b sp" onClick={() => handleCopy(inviteLink())}>
+                      🔗 লিংক কপি
+                    </button>
+                  </div>
+                </div>
+
+                <h3>📤 শেয়ার করুন</h3>
+                <div className="gl" style={{ padding: '14px' }}>
+                  <div className="shg">
+                    {[
+                      ['WhatsApp', '💬', '#25d366', `https://wa.me/?text=${encodeURIComponent(invText())}`],
+                      ['Facebook', '📘', '#1877f2', `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteLink())}`],
+                      ['Telegram', '✈️', '#2aa3e0', `https://t.me/share/url?url=${encodeURIComponent(inviteLink())}&text=${encodeURIComponent(invText())}`],
+                      ['SMS', '📩', '#19b88a', `sms:?&body=${encodeURIComponent(invText())}`],
+                    ].map(s => (
+                      <a key={s[0]} href={s[3]} target="_blank" rel="noopener noreferrer">
+                        <i style={{ background: s[2] }}>{s[1]}</i>
+                        {s[0]}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+
+                <h3>📖 কীভাবে কাজ করে</h3>
+                <div className="gl" style={{ padding: '14px', lineHeight: 1.9, fontSize: '13px' }}>
+                  <b>১.</b> আপনার কোড বা লিংক ফেসবুক, হোয়াটসঅ্যাপ বা যেকোনো জায়গায় শেয়ার করুন।<br />
+                  <b>২.</b> বন্ধু সাইন-আপের সময় আপনার ইনভাইট কোড দেবে।<br />
+                  <b>৩.</b> বন্ধু কয়েন রিচার্জ করলেই আপনি পাবেন তার <b style={{ color: 'var(--g)' }}>{S.invPct}%</b> কয়েন, প্রতিবার, স্বয়ংক্রিয়ভাবে।<br />
+                  <b>৪.</b> রিওয়ার্ড আপনার ওয়ালেটে জমা হবে। বন্ধুর কয়েন কমবে না।
+                </div>
+
+                <h3>📊 আপনার ইনভাইট খতিয়ান</h3>
+                <div className="gl row" style={{ padding: '14px', textAlign: 'center' }}>
+                  <div className="sp">
+                    <b style={{ fontSize: '22px' }}>{S.inv.n}</b>
+                    <div className="sm">ইনভাইট করা বন্ধু</div>
+                  </div>
+                  <div className="sp">
+                    <b style={{ fontSize: '22px', color: 'var(--g)' }}>🪙 {S.inv.earn.toLocaleString()}</b>
+                    <div className="sm">মোট রিওয়ার্ড</div>
+                  </div>
+                </div>
+
+                {S.inv.list?.map((x: any, idx: number) => (
+                  <div key={idx} className="gl row" style={{ padding: '8px 12px', margin: '6px 0', fontSize: '13px' }}>
+                    <span className="sp">{x.n} · 🪙 {x.c.toLocaleString()} রিচার্জ</span>
+                    <b style={{ color: 'var(--g)' }}>+{x.r.toLocaleString()}</b>
+                  </div>
+                ))}
+
+                <h3>🙋 কারো কোড আছে?</h3>
+                <div className="gl" style={{ padding: '14px' }}>
+                  {S.ref ? (
+                    <div>আপনাকে ইনভাইট করেছেন: <b style={{ color: 'var(--g)' }}>{S.ref}</b></div>
+                  ) : (
+                    <div className="row">
+                      <input
+                        className="in"
+                        placeholder="যেমন: SM123456"
+                        value={refInput}
+                        onChange={e => setRefInput(e.target.value.toUpperCase())}
+                        style={{ textTransform: 'uppercase' }}
+                      />
+                      <button
+                        className="b t"
+                        onClick={() => {
+                          if (!/^SM\d{6}$/.test(refInput)) return toast('কোড সঠিক নয়');
+                          if (refInput === `SM${S.id}`) return toast('নিজের কোড ব্যবহার করা যায় না');
+                          setS((prev: any) => ({ ...prev, ref: refInput }));
+                          toast('কোড যোগ হয়েছে ✓');
+                        }}
+                      >
+                        দিন
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Policies & Rules */}
+                <h3>📜 নিয়ম ও নীতিমালা (Rules & Policies)</h3>
+                <div className="gl" style={{ padding: '14px', lineHeight: 1.8, fontSize: '12px', color: '#cbd5e1' }}>
+                  • শুধু আসল রিচার্জের কয়েনের ওপর রিওয়ার্ড দেওয়া হয়।<br />
+                  • নিজের কোড নিজে ব্যবহার করা যাবে না।<br />
+                  • ভুয়া অ্যাকাউন্ট বা কোনো প্রকার প্রতারণা ধরা পড়লে রিওয়ার্ড বাতিল ও অ্যাকাউন্ট স্থায়ীভাবে বন্ধ হতে পারে।<br />
+                  • রিওয়ার্ডের হার ও ক্যাম্পেইনের নিয়মাবলী কর্তৃপক্ষ পরিবর্তনের অধিকার সংরক্ষণ করে।
+                </div>
+              </>
+            )}
+
+            {/* SUBPAGE: STORE & ITEMS */}
+            {activePage === 'store' && (
+              <div className="rg" style={{ marginTop: '8px' }}>
+                <div className="mb" style={{ background: GR[0] }} onClick={() => setActivePage('frames')}>
+                  <b>🖼️</b>ফ্রেম
+                </div>
+                <div className="mb" style={{ background: GR[2] }} onClick={() => setActivePage('entries')}>
+                  <b>🚪</b>এন্ট্রি
+                </div>
+                <div className="mb" style={{ background: GR[1] }} onClick={() => setActivePage('svip')}>
+                  <b>👑</b>SVIP
+                </div>
+              </div>
+            )}
+
+            {activePage === 'items' && (
+              <>
+                <h3>আমার ফ্রেম</h3>
+                <div className="st3">
+                  {S.ownF.map((i: number) => (
+                    <div key={i} className={`it ${S.fr === i ? 'on' : ''}`}>
+                      <div className="av fa" style={{ width: '50px', height: '50px', fontSize: '25px', margin: '0 auto 6px', background: FRM[i]?.[2] }}>
+                        <div>{S.img ? <img src={S.img} alt="Av" /> : S.av}</div>
+                      </div>
+                      {FRM[i]?.[0]}
+                      <button
+                        className={`b ${S.fr === i ? 't' : ''}`}
+                        onClick={() => {
+                          setS((prev: any) => ({ ...prev, fr: i }));
+                          toast('ফ্রেম পরা হয়েছে');
+                        }}
+                      >
+                        {S.fr === i ? 'পরা আছে' : 'পরুন'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* SUBPAGE: LEVEL & WEALTH */}
+            {activePage === 'level' && (
+              <>
+                <div className="gl" style={{ padding: '16px', marginTop: '6px', textAlign: 'center' }}>
+                  <b style={{ fontSize: '20px' }}>Wealth Lv.{wl}</b>
+                  <div className="sm">গিফটে খরচ করলে বাড়ে</div>
+                </div>
+                <div className="chk">
+                  <div className="sp">
+                    <b>Wealth (মোট খরচ)</b>
+                    <div className="pb"><i style={{ width: `${Math.min(100, (S.spent || 0) / (1000 * wl * wl) * 100)}%` }}></i></div>
+                  </div>
+                  <b>{(S.spent || 0).toLocaleString()} / {(1000 * wl * wl).toLocaleString()}</b>
+                </div>
+                <div className="chk">
+                  <div className="sp">
+                    <b>Level (XP)</b>
+                    <div className="pb"><i style={{ width: `${Math.min(100, S.xp / (50 * lv * lv) * 100)}%` }}></i></div>
+                  </div>
+                  <b>{S.xp.toLocaleString()} / {(50 * lv * lv).toLocaleString()}</b>
+                </div>
+                <div className="chk">
+                  <b className="sp">VIP Level</b>
+                  <b>{S.svip ? SV[S.svip - 1]?.[0] : 'নেই'}</b>
+                </div>
+              </>
+            )}
+
+            {/* SUBPAGE: TRANSACTIONS HIST */}
+            {activePage === 'hist' && (
+              <>
+                {S.hist.map((h: string, idx: number) => (
+                  <div key={idx} className="gl" style={{ padding: '10px 12px', margin: '6px 0', fontSize: '13px' }}>
+                    {h}
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* SUBPAGE: ADMIN PANEL */}
+            {activePage === 'admin' && (
+              <AdminPanel
+                currentUser={fbUser}
+                appState={S}
+                onUpdateAppState={setS}
+                onToast={toast}
+                onClose={() => setActivePage(null)}
+                onUpdateCoins={updateCoins}
+              />
+            )}
+
+            {/* SUBPAGE: RANKINGS */}
+            {activePage === 'rankings' && (
+              <div className="gl" style={{ padding: '14px' }}>
+                <div className="rwx">
+                  <b className="n">১</b>
+                  <b className="sp">রাফি</b>
+                  <b style={{ color: 'var(--g)' }}>175,800 🪙</b>
+                </div>
+                <div className="rwx">
+                  <b className="n">২</b>
+                  <b className="sp">নুসরাত</b>
+                  <b style={{ color: 'var(--g)' }}>152,000 🪙</b>
+                </div>
+                <div className="rwx">
+                  <b className="n">৩</b>
+                  <b className="sp">সাব্বির</b>
+                  <b style={{ color: 'var(--g)' }}>125,900 🪙</b>
+                </div>
+              </div>
+            )}
+
+            {/* SUBPAGE: PRIVACY POLICY */}
+            {activePage === 'policy_privacy' && (
+              <div className="space-y-3 text-xs leading-relaxed text-gray-200" style={{ paddingBottom: '30px' }}>
+                <div className="gl" style={{ padding: '16px', background: 'linear-gradient(135deg,#19e6c122,#8a5cff22)' }}>
+                  <b style={{ fontSize: '16px', color: 'var(--t)', display: 'block', marginBottom: '4px' }}>
+                    📜 গোপনীয়তা নীতি (Privacy Policy)
+                  </b>
+                  <p className="sm" style={{ color: '#94a3b8' }}>সর্বশেষ সংস্করণ: অক্টোবর ২০২৬ · Shakil M Voice Rooms</p>
+                  <p style={{ marginTop: '8px' }}>
+                    Shakil M Voice Rooms আপনার ব্যক্তিগত তথ্যের সুরক্ষা ও গোপনীয়তা বজায় রাখতে দৃঢ়প্রতিজ্ঞ। আপনি যখন আমাদের সেবা ব্যবহার করেন, তখন আপনার তথ্য কীভাবে সংগ্রহ, প্রক্রিয়া এবং সুরক্ষিত করা হয় তা নিচে বিস্তারিত বর্ণিত হলো।
+                  </p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>১. সংগৃহীত তথ্য</b>
+                  <p>• <b>প্রোফাইল তথ্য:</b> আপনার দেওয়া নাম, অবতার ইমোজি, ছবি, ইউজার আইডি, বায়ো ও দেশ।</p>
+                  <p>• <b>লগইন ডেটা:</b> গুগল সাইন-ইন ও ফায়ারবেস অথেনটিকেশন শনাক্তকারী তথ্য।</p>
+                  <p>• <b>লেনদেন ও ওয়ালেট ডেটা:</b> আপনার কয়েন ব্যালেন্স, রিচার্জ হিস্ট্রি, ট্রান্সফার নোট ও গিফটিং রেকর্ড।</p>
+                  <p>• <b>ভয়েস ও রুম ইন্টারঅ্যাকশন:</b> রুমে উপস্থিতি, সিট নম্বর, চ্যাট মেসেজ এবং অডিও স্পিকিং স্ট্যাটাস।</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>২. তথ্যের ব্যবহার</b>
+                  <p>• নিরবচ্ছিন্ন ভয়েস রুম সংযোগ এবং গেমসের বাজি ও উইন হিসাবরক্ষণ করা।</p>
+                  <p>• বন্ধুদের ইনভাইট রিওয়ার্ড বোনাস স্বয়ংক্রিয়ভাবে ওয়ালেটে জমা দেওয়া।</p>
+                  <p>• প্রতারণা প্রতিরোধ, অবৈধ কয়েন ফার্মিং ঠেকানো ও অ্যাকাউন্ট সুরক্ষা নিশ্চিত করা।</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>৩. তৃতীয় পক্ষের সাথে তথ্য শেয়ারিং</b>
+                  <p>
+                    আমরা আপনার ব্যক্তিগত তথ্য কোনো তৃতীয় পক্ষের কাছে বাণিজ্যিক বা বিজ্ঞাপনী উদ্দেশ্যে বিক্রি বা বিনিময় করি না। সকল ডেটা Google Firebase সুরক্ষিত ক্লাউড অবকাঠামোতে সংরক্ষিত হয়।
+                  </p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>৪. ডেটা মুছে ফেলা ও নিয়ন্ত্রণ</b>
+                  <p>
+                    যেকোনো সময় আপনার অ্যাকাউন্টের হিস্ট্রি মুছে ফেলা বা ডেটা ডিলিট করার অনুরোধ জানাতে পারেন আমাদের সাপোর্ট সেন্টারে: <b>support@shakilm.app</b>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* SUBPAGE: TERMS OF SERVICE */}
+            {activePage === 'policy_terms' && (
+              <div className="space-y-3 text-xs leading-relaxed text-gray-200" style={{ paddingBottom: '30px' }}>
+                <div className="gl" style={{ padding: '16px', background: 'linear-gradient(135deg,#ff5c9d22,#ffb02a22)' }}>
+                  <b style={{ fontSize: '16px', color: '#ffb02a', display: 'block', marginBottom: '4px' }}>
+                    📋 ব্যবহারের সাধারণ শর্তাবলী (Terms of Service)
+                  </b>
+                  <p className="sm" style={{ color: '#94a3b8' }}>আইনি ব্যবহার নির্দেশিকা ও শর্তাবলী</p>
+                  <p style={{ marginTop: '8px' }}>
+                    Shakil M Voice Rooms প্ল্যাটফর্মে অ্যাকাউন্ট খোলার মাধ্যমে বা কোনো রুমে যোগদানের মাধ্যমে আপনি এই শর্তাবলী সম্পূর্ণরূপে মেনে নিতে বাধ্য।
+                  </p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>১. ব্যবহারের যোগ্যতা</b>
+                  <p>এই অ্যাপ্লিকেশন ব্যবহারের জন্য আপনার বয়স কমপক্ষে ১৮ বছর বা সংশ্লিষ্ট দেশের প্রাপ্তবয়স্ক মানদণ্ড পূরণ করতে হবে।</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>২. ইন-অ্যাপ ভার্চুয়াল মুদ্রা (কয়েন)</b>
+                  <p>• প্ল্যাটফর্মের কয়েন কেবল অ্যাপের অভ্যন্তরে বিনোদন, উপহার প্রদান ও অনুমোদিত গেমসের জন্য ব্যবহৃত হবে।</p>
+                  <p>• কয়েন দিয়ে কোনো প্রকার বেআইনি আর্থিক জুয়া বা তৃতীয় পক্ষীয় অর্থ লেনদেন আইনত নিষিদ্ধ।</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>৩. নিষিদ্ধ কার্যক্রম</b>
+                  <p>• কোনো ধর্ম, জাতি, বর্ণ বা লিঙ্গভিত্তিক বিদ্বেষমূলক বা অশ্লীল বক্তব্য প্রচার করা যাবে না।</p>
+                  <p>• বট, স্ক্রিপ্ট, রিভার্স ইঞ্জিনিয়ারিং বা অ্যাপ্লিকেশনের বাগ অপব্যবহার করা যাবে না।</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>৪. অ্যাকাউন্ট স্থগিতকরণ ও ব্যান</b>
+                  <p>
+                    শর্তাবলী লঙ্ঘিত হলে কোনো পূর্ব নোটিশ ছাড়াই অ্যাকাউন্ট স্থায়ীভাবে নিষ্ক্রিয় ও ভার্চুয়াল কয়েন বাজেয়াপ্ত করার পূর্ণ অধিকার প্ল্যাটফর্ম সংরক্ষণ করে।
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* SUBPAGE: COMMUNITY GUIDELINES */}
+            {activePage === 'policy_community' && (
+              <div className="space-y-3 text-xs leading-relaxed text-gray-200" style={{ paddingBottom: '30px' }}>
+                <div className="gl" style={{ padding: '16px', background: 'linear-gradient(135deg,#8a5cff22,#19e6c122)' }}>
+                  <b style={{ fontSize: '16px', color: 'var(--t)', display: 'block', marginBottom: '4px' }}>
+                    🛡️ কমিউনিটি গাইডলাইন ও নিরাপত্তা (Community Rules)
+                  </b>
+                  <p className="sm" style={{ color: '#94a3b8' }}>একটি আনন্দময়, শ্রদ্ধাশীল ও নিরাপদ পরিবেশ বিনির্মাণে</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>১. পারস্পরিক সম্মান প্রদর্শন</b>
+                  <p>ভয়েস রুমে আড্ডা ও গানের আসরে অন্যান্য সদস্যদের মতামতকে সম্মান জানান। শালীন ভাষা ও সুন্দর আচরণ বজায় রাখুন।</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>২. সাইবার বুলিং ও হয়রানি রোধ</b>
+                  <p>কাউকে উদ্দেশ্য করে কটূক্তি, ব্লাকমেইলিং বা মানহানিকর কোনো প্রচারণা চালানো হলে তাৎক্ষণিক রিপোর্ট করুন। আমাদের মডারেশন টিম দ্রুত ব্যবস্থা নেবে।</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>৩. রুম হোস্টের দায়িত্ব</b>
+                  <p>রুমের শৃঙ্খলা ও পরিবেশ রক্ষা করার প্রাথমিক দায়িত্ব রুম হোস্টের। হোস্ট যেকোনো নিয়ম ভঙ্গকারীকে সিট থেকে নামাতে পারবেন।</p>
+                </div>
+              </div>
+            )}
+
+            {/* SUBPAGE: USER AGREEMENT */}
+            {activePage === 'policy_user_agreement' && (
+              <div className="space-y-3 text-xs leading-relaxed text-gray-200" style={{ paddingBottom: '30px' }}>
+                <div className="gl" style={{ padding: '16px' }}>
+                  <b style={{ fontSize: '16px', color: 'var(--t)', display: 'block', marginBottom: '4px' }}>
+                    🤝 ব্যবহারকারী চুক্তি (User Agreement)
+                  </b>
+                  <p style={{ marginTop: '8px' }}>
+                    এই চুক্তি Shakil M Voice Rooms প্ল্যাটফর্মের সেবাসমূহ উপভোগের ক্ষেত্রে ব্যবহারকারী ও কর্তৃপক্ষের পারস্পরিক অধিকার ও বাধ্যবাধকতা নির্ধারণ করে।
+                  </p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>১. ভার্চুয়াল আইটেম ও লাইসেন্স</b>
+                  <p>অ্যাপের ফ্রেম, এন্ট্রি অ্যানিমেশন, ব্যাজ ও পদকসমূহ ব্যক্তিগত ব্যবহারের সীমিত ও পরিবর্তনযোগ্য লাইসেন্স হিসেবে গণ্য।</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>২. প্ল্যাটফর্মের পরিবর্তন</b>
+                  <p>গ্রাহকের অভিজ্ঞতা বৃদ্ধি ও নিরাপত্তা জোরদার করতে সময়ে সময়ে প্ল্যাটফর্মের ফিচার আপগ্রেড বা সংশোধন করা হতে পারে।</p>
+                </div>
+              </div>
+            )}
+
+            {/* SUBPAGE: COINS & REFUND POLICY */}
+            {activePage === 'policy_coins_refund' && (
+              <div className="space-y-3 text-xs leading-relaxed text-gray-200" style={{ paddingBottom: '30px' }}>
+                <div className="gl" style={{ padding: '16px', background: 'linear-gradient(135deg,#ffb02a22,#ff5c5c22)' }}>
+                  <b style={{ fontSize: '16px', color: 'var(--g)', display: 'block', marginBottom: '4px' }}>
+                    🪙 কয়েন রিচার্জ, ওয়ালেট ও রিফান্ড নীতি (Coin & Refund Policy)
+                  </b>
+                  <p className="sm" style={{ color: '#94a3b8' }}>স্বচ্ছ লেনদেন ও ব্যালেন্স সুরক্ষা নীতি</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>১. কয়েন রিচার্জ প্যাকেজসমূহ</b>
+                  <p>• ব্যবহারকারী $১ থেকে শুরু করে $১০০ মূল্যের বিভিন্ন প্যাকেজে কয়েন রিচার্জ করতে পারেন।</p>
+                  <p>• প্রতিটি প্যাকেজের কয়েন সফল ট্রানজেকশনের সাথে সাথেই ওয়ালেটে সরাসরি জমা হয়।</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>২. রিফান্ড সংক্রান্ত বিধিনিষেধ</b>
+                  <p>• ডিজিটাল কারেন্সি ব্যবহারযোগ্য হওয়ার পর কোনো সরাসরি ক্যাশ রিফান্ড প্রদান করা হয় না।</p>
+                  <p>• যদি অর্থ কেটে নেওয়া হয় কিন্তু অ্যাকাউন্টে কয়েন না পৌঁছায়, তবে লেনদেন আইডি সহ সাপোর্ট সেন্টারে যোগাযোগ করলে সর্বোচ্চ ২ ঘণ্টার মধ্যে কয়েন যোগ করে দেওয়া হয়।</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>৩. কয়েন স্থানান্তর ও গিফট</b>
+                  <p>অন্য ব্যবহারকারীকে কয়েন পাঠানো বা রুমে কাউকে উপহার পাঠানোর সিদ্ধান্ত চূড়ান্ত এবং এটি বাতিলযোগ্য নয়।</p>
+                </div>
+              </div>
+            )}
+
+            {/* SUBPAGE: FAIR PLAY */}
+            {activePage === 'policy_fairplay' && (
+              <div className="space-y-3 text-xs leading-relaxed text-gray-200" style={{ paddingBottom: '30px' }}>
+                <div className="gl" style={{ padding: '16px' }}>
+                  <b style={{ fontSize: '16px', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>
+                    ⚖️ ফেয়ার প্লে ও অ্যান্টি-চিটিং নীতি (Fair Play & Security)
+                  </b>
+                  <p style={{ marginTop: '8px' }}>
+                    আমাদের সকল গেমে সৎ ও নিরপেক্ষ প্রতিযোগিতা বজায় রাখতে কঠোর নিরাপত্তামূলক ব্যবস্থা কার্যকর রয়েছে।
+                  </p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>১. র‍্যান্ডম নাম্বার জেনারেটর (RNG)</b>
+                  <p>জ্যাকপট ফ্রুট, সিংহ ফুড হুইল, নাইট হুইল, ৩-রিল স্লট, ক্যারাম ও দাবা—সব খেলাই ক্রিপ্টোগ্রাফিক অ্যালগরিদমে স্বচ্ছভাবে চলে। কোনো অভ্যন্তরীণ পক্ষপাত নেই।</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>২. জালিয়াতি ও অসদুপায় দমন</b>
+                  <p>অটোমেশন বট, মোড প্যাকেজ বা কয়েন ডুপ্লিকেশন চেষ্টার বিরুদ্ধে নিয়মিত রিয়েল-টাইম স্ক্রিনিং চালু থাকে। অসদুপায় অবলম্বনকারীদের সাথে সাথে ব্যান করা হয়।</p>
+                </div>
+              </div>
+            )}
+
+            {/* SUBPAGE: CUSTOMER SUPPORT */}
+            {activePage === 'policy_support' && (
+              <div className="space-y-3 text-xs leading-relaxed text-gray-200" style={{ paddingBottom: '30px' }}>
+                <div className="gl" style={{ padding: '16px', background: 'linear-gradient(135deg,#19e6c122,#3a7cff22)' }}>
+                  <b style={{ fontSize: '16px', color: 'var(--t)', display: 'block', marginBottom: '4px' }}>
+                    📞 কাস্টমার সাপোর্ট ও হেল্পলাইন (Customer Support)
+                  </b>
+                  <p className="sm" style={{ color: '#94a3b8' }}>যেকোনো সমস্যায় আমরা আছি আপনার পাশে</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>💬 সরাসরি ইন-অ্যাপ চ্যাট</b>
+                  <p>নিচের <b>Message</b> ট্যাবে গিয়ে "কাস্টমার সার্ভিস" বাটনে চাপ দিয়ে ২৪/৭ সাপোর্ট এজেন্টের সাথে কথা বলতে পারবেন।</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>📧 ইমেইল যোগাযোগ</b>
+                  <p style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--t)' }}>support@shakilm.app</p>
+                  <p className="sm" style={{ color: '#94a3b8', marginTop: '4px' }}>রিচার্জের স্ক্রিনশট ও আইডি উল্লেখ করে ইমেইল করুন।</p>
+                </div>
+
+                <div className="gl" style={{ padding: '14px' }}>
+                  <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>⏰ অনলাইন সার্ভিস সময়</b>
+                  <p>প্রতিদিন সকাল ৯:০০টা থেকে রাত ১২:০০টা পর্যন্ত নিরবচ্ছিন্ন লাইভ সহায়তা প্রদান করা হয়।</p>
+                </div>
+              </div>
+            )}
+
+            {/* SUBPAGE: FAQ */}
+            {activePage === 'policy_faq' && (
+              <div className="space-y-3 text-xs leading-relaxed text-gray-200" style={{ paddingBottom: '30px' }}>
+                <div className="gl" style={{ padding: '14px', background: 'linear-gradient(135deg,#8a5cff22,#ff5c9d22)' }}>
+                  <b style={{ fontSize: '16px', color: '#ffb02a', display: 'block' }}>❓ সাধারণ জিজ্ঞাসা ও নির্দেশিকা</b>
+                </div>
+
+                {[
+                  ['ভয়েস রুমে কথা বলব কীভাবে?', 'যেকোনো রুমে ঢুকুন। নিচের ৮ বা ১২টি সিটের ফাঁকা একটিতে চাপ দিন। এরপর নিচের মাইক্রোফোন আইকনে চাপ দিলে মাইক চালু হবে।'],
+                  ['রুমের ভিতর গেম খেললে কি রুম থেকে বের হয়ে যাব?', 'না! রুমের Game আইকনে চাপ দিলে গেম চালু হবে এবং আপনি রুমের ভেতরেই থাকবেন। গেমের ওপরে "মিনিমাইজ" চাপলে গেম ছোট হয়ে থাকবে এবং আপনি রুম দেখতে পারবেন।'],
+                  ['রুম মিনিমাইজ কীভাবে করব?', 'রুমের ওপরে থাকা ‹ বাটন বা 🔽 বাটনে চাপ দিন। "মিনিমাইজ করুন" নির্বাচন করলে রুম ব্যাকগ্রাউন্ডে চলতে থাকবে এবং নিচে মিনি প্লেয়ার বার থাকবে।'],
+                  ['অন্যজনকে কয়েন পাঠাব কীভাবে?', 'Wallet ট্যাবে যান। প্রাপকের আইডি (যেমন 108392) ও কয়েন সংখ্যা দিয়ে "কয়েন পাঠান" চাপুন।'],
+                  ['রেফারেল ইনভাইট থেকে কয়েন কীভাবে পাব?', 'Profile > Invite & Earn-এ যান। আপনার কোড শেয়ার করুন। বন্ধু যতবার কয়েন রিচার্জ করবে, প্রতিবার তার ৫% কয়েন আপনার ব্যালেন্সে যোগ হবে।'],
+                  ['গুগল লগইন কীভাবে ব্যাকআপ রাখব?', 'Profile-এ গিয়ে "Google লগইন" বাটনে চাপ দিন। আপনার জিমেইল অ্যাকাউন্ট দিয়ে সাইন ইন করলে কয়েন ও ডেটা ফায়ারবেস ক্লাউডে সুরক্ষিত থাকবে।'],
+                ].map(([q, a], idx) => (
+                  <div key={idx} className="gl" style={{ padding: '12px' }}>
+                    <b style={{ color: 'var(--t)', display: 'block', marginBottom: '4px' }}>Q: {q}</b>
+                    <p style={{ color: '#e2e8f0' }}>A: {a}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* SUBPAGE: ABOUT US */}
+            {activePage === 'policy_about' && (
+              <div className="space-y-4 text-xs leading-relaxed text-gray-200 text-center" style={{ paddingBottom: '30px' }}>
+                <div className="gl" style={{ padding: '24px' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '8px' }}>🎙️</div>
+                  <b style={{ fontSize: '20px', color: 'var(--t)', display: 'block' }}>
+                    Shakil M Voice Rooms
+                  </b>
+                  <p style={{ color: 'var(--g)', fontWeight: 'bold', marginTop: '4px' }}>ভার্সন ৩.৫ (Version 3.5.0)</p>
+                  <p style={{ marginTop: '14px', lineHeight: 1.8, color: '#cbd5e1' }}>
+                    Shakil M Voice Rooms হলো একটি আধুনিক সোশ্যাল ভয়েস রুম ও রিয়েল-টাইম পার্টি প্ল্যাটফর্ম। এখানে ব্যবহারকারীরা ভয়েস রুমে আড্ডা দিতে পারেন, বন্ধুদের গিফট পাঠাতে পারেন এবং ৬টি জনপ্রিয় গেমস খেলে কয়েন উপার্জন করতে পারেন।
+                  </p>
+                  <div style={{ marginTop: '20px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontSize: '11px' }}>
+                    © ২০২৬ Shakil M Inc. সর্বস্বত্ব সংরক্ষিত।<br />
+                    Powered by Firebase & WebRTC Audio.
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 6. Active Voice Room View */}
+      {activeRoom && !isRoomMinimized && (
+        <VoiceRoomView
+          room={activeRoom}
+          user={S}
+          customGifts={S.customGifts}
+          onUpdateCoins={(newCoins: number, reason: string) => {
+            const diff = newCoins - S.coins;
+            updateCoins(diff, reason);
+          }}
+          onOpenGame={(gameId: string) => {
+            // Keep room active in background while playing game!
+            setActiveGame(gameId);
+          }}
+          onOpenWallet={() => setTab('wallet')}
+          onMinimize={() => {
+            setIsRoomMinimized(true);
+            toast('রুম মিনিমাইজ করা হয়েছে');
+          }}
+          onLeaveRoom={() => {
+            setActiveRoom(null);
+            setIsRoomMinimized(false);
+            toast('রুম ত্যাগ করেছেন');
+          }}
+          onClose={() => {
+            setActiveRoom(null);
+            setIsRoomMinimized(false);
+          }}
+        />
+      )}
+
+      {/* 6b. Minimized Floating Room Bar */}
+      {activeRoom && isRoomMinimized && (
+        <div 
+          className="fixed bottom-[74px] left-3 right-3 max-w-[456px] mx-auto z-20 bg-[#12082e]/95 border-2 border-cyan-400 rounded-2xl p-2.5 flex items-center justify-between shadow-[0_8px_25px_rgba(0,0,0,0.85)] backdrop-blur-md"
+        >
+          <div 
+            onClick={() => setIsRoomMinimized(false)}
+            className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-400 to-indigo-600 p-0.5 flex items-center justify-center text-lg shadow relative">
+              <span className="w-full h-full bg-slate-900 rounded-xl flex items-center justify-center">
+                {activeRoom.cv}
+              </span>
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping"></span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <b className="text-xs text-white truncate block">{activeRoom.name}</b>
+              <span className="text-[10px] text-cyan-300 font-bold block truncate">
+                হোস্ট: {activeRoom.host} · মিনিমাইজড (ট্যাপ করে খুলুন)
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 ml-2">
+            <button
+              onClick={() => setIsRoomMinimized(false)}
+              className="px-2.5 py-1.5 bg-gradient-to-r from-cyan-400 to-teal-500 text-slate-950 font-black text-xs rounded-xl shadow active:scale-95 flex items-center gap-1"
+              title="রুম বড় করুন"
+            >
+              <Maximize2 size={12} />
+              <span>বড় করুন</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveRoom(null);
+                setIsRoomMinimized(false);
+                toast('রুম ত্যাগ করেছেন');
+              }}
+              className="w-8 h-8 rounded-xl bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white flex items-center justify-center text-xs font-bold active:scale-95"
+              title="লিভ নিন"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 6c. Floating Minimized Game Widget (when game is minimized while in room or app) */}
+      {activeGame && isGameMinimized && (
+        <div
+          onClick={() => {
+            setIsGameMinimized(false);
+            toast('গেম বড় করা হয়েছে');
+          }}
+          className="fixed top-20 right-3 z-50 bg-gradient-to-tr from-amber-500 via-pink-600 to-purple-600 border-2 border-yellow-300 text-white rounded-2xl p-2.5 shadow-[0_8px_25px_rgba(0,0,0,0.85)] flex items-center gap-2 cursor-pointer active:scale-95 animate-pulse"
+          title="মিনিমাইজড গেম বড় করুন"
+        >
+          <span className="text-2xl drop-shadow">
+            {activeGame === 'jackpot_fruit' ? '🍒' :
+             activeGame === 'lion_wheel' ? '🦁' :
+             activeGame === 'night_wheel' ? '🌙' :
+             activeGame === 'slots' ? '🎰' :
+             activeGame === 'carrom' ? '🔴' : '♟️'}
+          </span>
+          <div className="text-left pr-1">
+            <b className="text-[11px] block font-black leading-tight text-white drop-shadow">
+              {activeGame === 'jackpot_fruit' ? 'জ্যাকপট ফ্রুট' :
+               activeGame === 'lion_wheel' ? 'ফুড হুইল' :
+               activeGame === 'night_wheel' ? 'নাইট হুইল' :
+               activeGame === 'slots' ? 'স্লটস' :
+               activeGame === 'carrom' ? 'ক্যারাম' : 'দাবা ৩ডি'}
+            </b>
+            <span className="text-[9px] text-yellow-200 block font-bold">▶ খেলুন (ট্যাপ করুন)</span>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveGame(null);
+              setIsGameMinimized(false);
+              toast('গেম বন্ধ করা হয়েছে');
+            }}
+            className="w-5 h-5 rounded-full bg-black/50 text-gray-300 hover:text-white flex items-center justify-center text-[10px]"
+            title="গেম বন্ধ করুন"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* 7. Native Embedded Games (User Requested Games) with In-Room Header */}
+      {activeGame && !isGameMinimized && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-[#0c0824]">
+          {/* In-Room Status Bar: Keeps user in voice room while playing! */}
+          {activeRoom && (
+            <div className="bg-[#0c0824]/95 border-b-2 border-cyan-400 px-3 py-2 flex items-center justify-between text-white backdrop-blur-md shadow-2xl z-[60] shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-indigo-900 border border-cyan-400 flex items-center justify-center text-sm relative shrink-0">
+                  <span>{activeRoom.cv}</span>
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping"></span>
+                </div>
+                <div className="min-w-0">
+                  <b className="text-xs text-white truncate block">🎙️ {activeRoom.name}</b>
+                  <span className="text-[10px] text-cyan-300 font-bold block truncate">
+                    হোস্ট: {activeRoom.host} · রুমে আছেন
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => {
+                    setIsGameMinimized(true);
+                    toast('গেম মিনিমাইজ করা হয়েছে (রুম দেখুন)');
+                  }}
+                  className="px-2.5 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/50 rounded-xl text-xs font-black flex items-center gap-1 active:scale-95 shadow"
+                  title="গেম মিনিমাইজ করুন ও রুম দেখুন"
+                >
+                  <ChevronDown size={14} />
+                  <span>মিনিমাইজ</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveGame(null);
+                    setIsGameMinimized(false);
+                    toast('রুমে ফিরে এসেছেন');
+                  }}
+                  className="px-2.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-400/40 rounded-xl text-xs font-bold active:scale-95"
+                  title="গেম বন্ধ করে রুমে থাকুন"
+                >
+                  <span>✕ বন্ধ</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 relative overflow-hidden">
+            {activeGame === 'jackpot_fruit' && (
+              <JackpotFruitGame
+                userCoins={S.coins}
+                userName={S.name}
+                userAvatar={S.av}
+                onUpdateCoins={(newCoins, note) => {
+                  const diff = newCoins - S.coins;
+                  updateCoins(diff, note);
+                }}
+                onClose={() => {
+                  setActiveGame(null);
+                  setIsGameMinimized(false);
+                }}
+              />
+            )}
+
+            {activeGame === 'lion_wheel' && (
+              <LionFoodWheelGame
+                userCoins={S.coins}
+                userName={S.name}
+                userAvatar={S.av}
+                onUpdateCoins={(newCoins, note) => {
+                  const diff = newCoins - S.coins;
+                  updateCoins(diff, note);
+                }}
+                onClose={() => {
+                  setActiveGame(null);
+                  setIsGameMinimized(false);
+                }}
+              />
+            )}
+
+            {activeGame === 'night_wheel' && (
+              <NightFoodWheelGame
+                userCoins={S.coins}
+                userName={S.name}
+                userAvatar={S.av}
+                onUpdateCoins={(newCoins, note) => {
+                  const diff = newCoins - S.coins;
+                  updateCoins(diff, note);
+                }}
+                onClose={() => {
+                  setActiveGame(null);
+                  setIsGameMinimized(false);
+                }}
+              />
+            )}
+
+            {activeGame === 'slots' && (
+              <SlotsGame
+                userCoins={S.coins}
+                userName={S.name}
+                userAvatar={S.av}
+                onUpdateCoins={(newCoins, note) => {
+                  const diff = newCoins - S.coins;
+                  updateCoins(diff, note);
+                }}
+                onClose={() => {
+                  setActiveGame(null);
+                  setIsGameMinimized(false);
+                }}
+              />
+            )}
+
+            {activeGame === 'carrom' && (
+              <CarromGame
+                userCoins={S.coins}
+                userName={S.name}
+                userAvatar={S.av}
+                onUpdateCoins={(newCoins, note) => {
+                  const diff = newCoins - S.coins;
+                  updateCoins(diff, note);
+                }}
+                onClose={() => {
+                  setActiveGame(null);
+                  setIsGameMinimized(false);
+                }}
+              />
+            )}
+
+            {activeGame === 'chess_3d' && (
+              <Chess3DGame
+                userCoins={S.coins}
+                userName={S.name}
+                userAvatar={S.av}
+                onUpdateCoins={(newCoins, note) => {
+                  const diff = newCoins - S.coins;
+                  updateCoins(diff, note);
+                }}
+                onClose={() => {
+                  setActiveGame(null);
+                  setIsGameMinimized(false);
+                }}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastText && (
+        <div id="toast" style={{ display: 'block' }}>
+          {toastText}
+        </div>
+      )}
+    </div>
+  );
+}

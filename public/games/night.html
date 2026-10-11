@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>নাইট ফুড হুইল</title><style>
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}body{background:radial-gradient(circle at 50% 30%,#4a1450,#120620 70%);color:#fff;font-family:system-ui,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);display:flex;flex-direction:column;align-items:center;user-select:none}
+#top{width:100%;max-width:480px;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-weight:700}
+#top span{background:#0005;border-radius:20px;padding:6px 14px}#top button{background:#2c2;border:0;border-radius:50%;width:28px;height:28px;color:#fff;font-size:18px;margin-left:6px}
+#wheel{position:relative;width:min(92vw,440px);aspect-ratio:1;margin:4px auto}
+.it{position:absolute;width:24%;aspect-ratio:1;transform:translate(-50%,-50%);background:#e9f7e6;border:3px solid #7bd8a0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:#222;transition:.15s}
+.it b{font-size:clamp(26px,9vw,42px);font-weight:400}.it i{font-weight:800;font-size:15px}.it u{position:absolute;bottom:-9px;background:#e33;color:#fff;font-size:11px;padding:1px 6px;border-radius:9px;text-decoration:none}
+.it u:empty{display:none}.hl{background:#ffd23f;transform:translate(-50%,-50%) scale(1.15);box-shadow:0 0 22px #ffd23f;z-index:2}
+#ctr{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:30%;aspect-ratio:1;border-radius:50%;background:radial-gradient(#ff9a4a,#c0392b);border:5px solid gold;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800}
+#t{font-size:clamp(28px,10vw,44px);color:gold}#ctr small{font-size:11px}
+#msg{height:24px;font-weight:700;color:gold;opacity:0;transition:.3s;text-align:center}
+#hist{display:flex;gap:6px;background:#0004;padding:6px 10px;border-radius:30px;min-height:46px;align-items:center}#hist span{background:#fff;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:20px}
+#chips{display:flex;gap:10px;margin:12px 0}#chips button{width:72px;height:56px;border-radius:14px;border:3px solid #fff6;background:#fff2;color:#fff;font-weight:800;font-size:16px}#chips .on{background:gold;color:#222;border-color:#fff;transform:translateY(-4px)}
+#foot{font-weight:700;margin-top:4px}
+#grp{display:flex;gap:12px;margin:6px 0 2px}.g{position:relative;background:#fff;color:#222;border:3px solid gold;border-radius:16px;padding:8px 16px;font-weight:800;font-size:15px}.g u{position:absolute;top:-10px;right:-6px;background:#e33;color:#fff;font-size:11px;padding:1px 6px;border-radius:9px;text-decoration:none}.g u:empty{display:none}#act{display:flex;gap:10px;align-items:center;margin-top:6px}#act button{border:0;border-radius:22px;padding:10px 18px;font-weight:800;font-size:16px;background:#2c2;color:#fff}#act button.off{background:#555}#load{position:fixed;inset:0;z-index:9;background:radial-gradient(circle at 50% 35%,#5a1a6e,#0d0418 75%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:20px}#load h1{font-size:30px;color:gold;text-shadow:0 0 18px #f90}#load .e{font-size:64px;animation:sp 2s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}#lb{width:70%;max-width:320px;height:12px;background:#fff3;border-radius:8px;overflow:hidden}#lbar{height:100%;width:0;background:linear-gradient(90deg,gold,#f60);transition:width 1s linear}#av{width:40px;height:40px;border-radius:50%;background:#fff3;border:2px solid gold;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:22px;cursor:pointer}#av img,.wa img{width:100%;height:100%;object-fit:cover}#win{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(0);z-index:8;background:linear-gradient(#ffd23f,#ff8a00);color:#3a1500;border-radius:24px;padding:20px 30px;text-align:center;font-weight:800;transition:.3s;box-shadow:0 0 40px #ffb300;border:4px solid #fff}#win.show{transform:translate(-50%,-50%) scale(1)}.wa{width:84px;height:84px;border-radius:50%;margin:0 auto 8px;border:4px solid #fff;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;font-size:44px}.wm{font-size:28px}#wheel{transform-style:preserve-3d;transform:perspective(1000px) rotateX(16deg);margin:8px auto 22px}
+#wheel::after{content:"";position:absolute;left:8%;right:8%;bottom:-4%;height:12%;background:radial-gradient(#0009,transparent 70%);transform:translateZ(-30px);filter:blur(6px);pointer-events:none}
+.it{transform-style:preserve-3d;box-shadow:0 8px 0 rgba(0,0,0,.38),0 16px 20px rgba(0,0,0,.45),inset 0 4px 8px #fffa,inset 0 -6px 10px rgba(0,0,0,.18)}
+.it:active{transform:translate(-50%,-44%);box-shadow:0 3px 0 rgba(0,0,0,.38),0 6px 10px rgba(0,0,0,.4)}
+.it b{filter:drop-shadow(0 6px 4px rgba(0,0,0,.5));transform:translateZ(30px)}
+.hl{transform:translate3d(-50%,-58%,50px) scale(1.15)!important;box-shadow:0 14px 0 rgba(0,0,0,.35),0 0 30px #ffd23f,0 22px 28px #0008}
+#ctr{box-shadow:0 10px 0 rgba(0,0,0,.4),0 18px 26px #000a,inset 0 8px 14px #fff9,inset 0 -10px 16px rgba(0,0,0,.35);transform:translate3d(-50%,-50%,40px);animation:fl 3s ease-in-out infinite}
+@keyframes fl{50%{transform:translate3d(-50%,-56%,60px)}}
+#chips button{box-shadow:0 7px 0 rgba(0,0,0,.4),0 12px 14px #0007,inset 0 3px 6px #fff8;border-radius:50%;width:70px;height:70px}
+#chips button:active,#chips .on{transform:translateY(4px);box-shadow:0 3px 0 rgba(0,0,0,.4),0 6px 8px #0007,inset 0 3px 6px #fff8}
+.g{box-shadow:0 6px 0 #b8860b,0 12px 14px #0007,inset 0 3px 5px #fff}.g:active{transform:translateY(4px);box-shadow:0 2px 0 #b8860b}
+#act button{box-shadow:0 6px 0 rgba(0,0,0,.4),0 10px 12px #0006}#act button:active{transform:translateY(4px)}
+#top span,#hist{box-shadow:0 5px 0 rgba(0,0,0,.3),0 10px 14px #0005}
+#hist span{box-shadow:0 3px 0 rgba(0,0,0,.35),inset 0 2px 4px #fff}
+#win{box-shadow:0 12px 0 #b85c00,0 0 50px #ffb300,0 24px 40px #000a}
+#hist{min-width:min(86vw,360px);justify-content:center}#act{margin-top:12px}#foot{margin:14px 0 20px;background:#0004;padding:6px 16px;border-radius:20px}#chips{margin:16px 0 8px}</style></head><body><div id="load" style="--bg:radial-gradient(circle at 50% 35%,#4a1450,#0d0418 80%)"><div class="ld-top">🎮 SHAKIL M GAMES</div><div class="ld-hero"><div class="ld-stage"><div class="wh" style="--rim:#7bd8a0"><i class="leg" style="--r:24deg"></i><i class="leg" style="--r:-24deg"></i><div class="rim"></div><div class="sp"><b style="--a:0deg"></b><b style="--a:45deg"></b><b style="--a:90deg"></b><b style="--a:135deg"></b><i style="--a:0deg"><span>🌭</span></i><i style="--a:45deg"><span>🍢</span></i><i style="--a:90deg"><span>🍗</span></i><i style="--a:135deg"><span>🥩</span></i><i style="--a:180deg"><span>🥕</span></i><i style="--a:225deg"><span>🌽</span></i><i style="--a:270deg"><span>🥬</span></i><i style="--a:315deg"><span>🍅</span></i></div><div class="hub">🌙</div></div></div></div><div class="ld-bot"><div class="ld-rb">SHAKIL M GADDY GAME</div><div class="ld-tt">নাইট ফুড হুইল</div><div class="ld-pb"><div id="ldf"><i>⭐</i></div><span id="ldp">0%</span></div><div class="ld-tp" id="ldt">রাতের চাকা ঘুরছে 🌙</div></div><div id="lb" style="display:none"><div id="lbar"></div></div><div id="lsub" style="display:none"></div></div><div id="win"></div>
+<div id="top"><label id="av"><span>👤</span><input type="file" accept="image/*" hidden></label><span>🪙 <b id="bal"></b><button id="add">+</button></span><span>রাউন্ড <b id="rnd"></b></span></div>
+<div id="wheel"><div id="ctr"><small>সময়</small><div id="t"></div></div></div>
+<div id="grp"><button class="g" data-g="8">🥗 সালাদ x1.2<u></u></button><button class="g" data-g="9">🍕 পিজা x4<u></u></button></div><div id="msg"></div><div id="hist"></div><div id="chips"></div>
+<div id="act"><button id="auto" class="off">▶ অটো প্লে</button><button id="snd">🔊</button></div><div id="foot">আজকের জয়: 🪙 <span id="today">0</span></div>
+<script>
+const C={"key": "g_night", "round": 7, "chips": [10000, 100000, 500000, 1000000], "items": [["🌭", 10], ["🍢", 15], ["🍗", 25], ["🥩", 45], ["🥕", 5], ["🌽", 5], ["🥬", 5], ["🍅", 5]]};const $=s=>document.querySelector(s);
+const fmt=n=>n>=1e6?+(n/1e6).toFixed(2)+'M':n>=1e3?+(n/1e3).toFixed(1)+'K':n;
+let bal=1000000;try{bal=+localStorage.getItem(C.key)||1000000}catch(e){}
+let on=true,auto=false,last=null,ac;function snd(f,d){if(!on)return;try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;g.gain.value=.08;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+let chip=C.chips[0],bets=Array(10).fill(0),hist=[],t=20,phase='load',today=0,busy=false;
+const w=$('#wheel');
+C.items.forEach((it,i)=>{const a=(i*45-90)*Math.PI/180,d=document.createElement('div');d.className='it';
+d.style.left=(50+37*Math.cos(a))+'%';d.style.top=(50+37*Math.sin(a))+'%';
+d.innerHTML=`<b>${it[0]}</b><i>x${it[1]}</i><u></u>`;d.onclick=()=>bet(i);w.appendChild(d)});
+const its=[...document.querySelectorAll('.it')];
+$('#chips').innerHTML=C.chips.map((c,i)=>`<button class="${i?'':'on'}" data-c="${c}">${fmt(c)}</button>`).join('');
+document.querySelectorAll('#chips button').forEach(b=>b.onclick=()=>{chip=+b.dataset.c;document.querySelectorAll('#chips button').forEach(x=>x.classList.toggle('on',x==b))});
+document.querySelectorAll('.g').forEach(b=>b.onclick=()=>bet(+b.dataset.g));$('#snd').onclick=()=>{on=!on;$('#snd').textContent=on?'🔊':'🔇'};$('#auto').onclick=()=>{auto=!auto;$('#auto').classList.toggle('off',!auto);$('#auto').textContent=auto?'⏸ অটো চালু':'▶ অটো প্লে';if(auto&&phase=='bet'&&!bets.some(x=>x))rebet()};
+let av='',nm='আপনি';const avH=()=>av?`<img src="${av}">`:'👤';
+function setAv(s){av=s;$('#av span').innerHTML=avH()}
+$('#av input').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>setAv(r.result);r.readAsDataURL(f)};
+function showWin(g){const w=$('#win');w.innerHTML=`<div class="wa">${avH()}</div><div>${nm}</div><div>🎉 জিতেছেন</div><div class="wm">🪙 ${g.toLocaleString()}</div>`;w.classList.add('show');setTimeout(()=>w.classList.remove('show'),3000)}
+function rebet(){if(!last)return;last.forEach((v,i)=>{if(v&&bal>=v){bal-=v;bets[i]=v}});ui()}
+window.addEventListener('message',e=>{if(e.data&&e.data.type=='setBalance'){bal=+e.data.balance;ui()}if(e.data&&e.data.type=='setUser'){if(e.data.name)nm=e.data.name;if(e.data.avatar)setAv(e.data.avatar)}});
+function ui(){document.querySelectorAll('.g').forEach(b=>{const v=bets[b.dataset.g];b.querySelector('u').textContent=v?fmt(v):''});try{parent.postMessage({type:'wallet',balance:bal},'*')}catch(e){}$('#bal').textContent=bal.toLocaleString();$('#today').textContent=today.toLocaleString();$('#rnd').textContent=C.round;
+$('#t').textContent=phase=='bet'?t:'🎡';its.forEach((e,i)=>e.querySelector('u').textContent=bets[i]?fmt(bets[i]):'');
+$('#hist').innerHTML=hist.map(i=>`<span>${C.items[i][0]}</span>`).join('');try{localStorage.setItem(C.key,bal)}catch(e){}}
+function bet(i){if(phase!='bet'){msg('বেট বন্ধ, অপেক্ষা করুন');return}if(bal<chip){msg('কয়েন যথেষ্ট নয়');return}bal-=chip;bets[i]+=chip;snd(520,.06);ui()}
+function msg(s){const m=$('#msg');m.textContent=s;m.style.opacity=1;clearTimeout(msg.h);msg.h=setTimeout(()=>m.style.opacity=0,2200)}
+function pick(){const ws=C.items.map(x=>1/x[1]),s=ws.reduce((a,b)=>a+b);let r=Math.random()*s;for(let i=0;i<8;i++){if((r-=ws[i])<0)return i}return 7}
+function spin(){phase='spin';ui();const r=pick();let p=Math.floor(Math.random()*8),n=24+((r-p+8)%8);
+const h=setInterval(()=>{its.forEach(e=>e.classList.remove('hl'));its[p%8].classList.add('hl');if(n--<=0){clearInterval(h);end(r)}p++;snd(300,.03)},90)}
+function end(r){last=bets.slice();const g=Math.floor(bets[r]*C.items[r][1]+(C.items[r][1]==5?bets[8]*1.2:bets[9]*4));if(g>0){snd(880,.4);showWin(g)}bal+=g;today+=g;C.round++;hist.unshift(r);hist=hist.slice(0,8);
+msg(g?`🎉 আপনি জিতেছেন ${g.toLocaleString()}`:(bets.some(x=>x)?'এবার হারলেন 😅':'ফলাফল: '+C.items[r][0]));
+setTimeout(()=>{bets=Array(10).fill(0);its.forEach(e=>e.classList.remove('hl'));phase='bet';t=20;if(auto)rebet();ui()},2500);ui()}
+setInterval(()=>{if(phase=='bet'){t--;if(t<=5&&t>0)snd(660,.08);if(t<=0)spin();ui()}},1000);
+$('#add').onclick=()=>{bal+=1000000;ui();msg('+১০ লক্ষ ডেমো কয়েন')};ui();$('#lsub').textContent=document.title;setTimeout(()=>$('#lbar').style.width='10%',50);let lp=0;const lh=setInterval(()=>{lp++;$('#lbar').style.width=(lp+1)*10+'%';if(lp>=10){clearInterval(lh);$('#load').remove();phase='bet';t=20;ui()}},1000);</script></body></html>

@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "user": {
+      "title": "User Profile",
+      "description": "User profile with balance, level, and identity",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string" },
+        "avatar": { "type": "string" },
+        "coins": { "type": "number" },
+        "xp": { "type": "number" },
+        "svip": { "type": "number" },
+        "role": { "type": "string", "enum": ["user", "admin", "moderator"] },
+        "isBanned": { "type": "boolean" },
+        "bio": { "type": "string", "maxLength": 500 },
+        "country": { "type": "string", "maxLength": 50 },
+        "age": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "name", "coins"]
+    },
+    "transaction": {
+      "title": "Wallet Transaction",
+      "description": "Financial ledger record of coin recharges, transfers, game outcomes and gifts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["recharge", "transfer_sent", "transfer_received", "game_win", "game_bet", "gift_sent", "gift_received", "checkin", "task", "admin_grant", "admin_deduct"] },
+        "amount": { "type": "number" },
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "description": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "type", "amount"]
+    },
+    "room": {
+      "title": "Voice Room",
+      "description": "Audio party room configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "host": { "type": "string" },
+        "hostId": { "type": "string" },
+        "category": { "type": "string" },
+        "cover": { "type": "string" },
+        "theme": { "type": "number" },
+        "announcement": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "hostId"]
+    },
+    "systemConfig": {
+      "title": "System Configuration",
+      "description": "Global app settings, notice banners, coin packages, store items and business params",
+      "type": "object",
+      "properties": {
+        "bannerText": { "type": "string", "maxLength": 300 },
+        "welcomeCoins": { "type": "number" },
+        "inviteRewardPct": { "type": "number" },
+        "dailyBonusBase": { "type": "number" },
+        "maintenanceMode": { "type": "boolean" },
+        "supportContact": { "type": "string", "maxLength": 100 },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["bannerText"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profiles and wallet balances"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "transaction",
+      "description": "Immutable ledger of coin events"
+    },
+    "/rooms/{roomId}": {
+      "schema": "room",
+      "description": "Public voice rooms"
+    },
+    "/system/{configId}": {
+      "schema": "systemConfig",
+      "description": "Global application config documents managed by admin"
+    }
+  }
+}

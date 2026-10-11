@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="bn"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>দাবা ৩ডি</title>
+<style>
+body{margin:0;background:#15191a;color:#fff;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:10px}
+#st{font-size:1.1rem;font-weight:800;background:#0006;padding:4px 20px;border-radius:999px;margin-bottom:8px}
+#cv{width:min(90vw,440px);height:min(55vh,400px);position:relative;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px #0008}
+#cv canvas{display:block;width:100%!important;height:100%!important}
+.row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+button{font:inherit;font-weight:800;padding:8px 14px;color:#fff;border:0;border-radius:12px;background:linear-gradient(#ffb347,#ff8c1a);cursor:pointer}
+button:active{transform:translateY(2px)}
+</style></head><body>
+<h2>দাবা ৩ডি</h2>
+<div id="st">সাদার চাল</div>
+<div id="cv"></div>
+<div class="row">
+  <button id="v0">সাদার দিক</button>
+  <button id="v1">কালোর দিক</button>
+  <button id="rs">নতুন খেলা</button>
+  <button id="ex" style="background:#a22">✖ এক্সিট</button>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const cv=document.getElementById('cv');
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(45,cv.clientWidth/cv.clientHeight,0.1,100);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(cv.clientWidth,cv.clientHeight);
+cv.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x444455,0.9));
+const dir=new THREE.DirectionalLight(0xffffff,0.8);dir.position.set(5,10,7);scene.add(dir);
+
+const boardGeo=new THREE.BoxGeometry(9.6,0.3,9.6);
+const boardMat=new THREE.MeshStandardMaterial({color:0x5a3a22});
+const boardMesh=new THREE.Mesh(boardGeo,boardMat);
+boardMesh.position.y=-0.16;scene.add(boardMesh);
+
+for(let i=0;i<64;i++){
+  const isLight=((i>>3)+(i&7))%2===0;
+  const sq=new THREE.Mesh(new THREE.BoxGeometry(1,0.15,1),new THREE.MeshStandardMaterial({color:isLight?0xfef3c7:0x78350f}));
+  sq.position.set((i&7)-3.5,-0.075,(i>>3)-3.5);scene.add(sq);
+}
+
+const pieces=new THREE.Group();scene.add(pieces);
+const initial=('rnbqkbnr'+'pppppppp'+' '.repeat(32)+'PPPPPPPP'+'RNBQKBNR').split('');
+initial.forEach((p,i)=>{
+  if(p===' ')return;
+  const isW=p===p.toUpperCase();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.35,p.toLowerCase()==='p'?0.6:0.9,16),new THREE.MeshStandardMaterial({color:isW?0xfffdf6:0x222}));
+  m.position.set((i&7)-3.5,0.35,(i>>3)-3.5);pieces.add(m);
+});
+
+let az=0;function cam(){camera.position.set(14*Math.sin(az),10,14*Math.cos(az));camera.lookAt(0,0,0)}cam();
+document.getElementById('v0').onclick=()=>{az=0;cam()};
+document.getElementById('v1').onclick=()=>{az=Math.PI;cam()};
+document.getElementById('rs').onclick=()=>{location.reload()};
+document.getElementById('ex').onclick=()=>{parent.postMessage({type:'exit'},'*')};
+(function loop(){requestAnimationFrame(loop);renderer.render(scene,camera)})();
+</script></body></html>
