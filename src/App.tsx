@@ -11,7 +11,8 @@ import {
   setDoc,
   updateDoc
 } from './firebase';
-import { runTransaction, onSnapshot } from 'firebase/firestore';
+import { UploadedDesign } from './components/UploadedDesign';
+import { collection, query, where, getDocs, runTransaction, onSnapshot } from 'firebase/firestore';
 import { JackpotFruitGame } from './games/JackpotFruitGame';
 import { LionFoodWheelGame } from './games/LionFoodWheelGame';
 import { NightFoodWheelGame } from './games/NightFoodWheelGame';
@@ -360,6 +361,15 @@ export default function App() {
     } catch (_) {}
   }, [S]);
 
+  const makePublicId = async () => {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const id = String(100000000 + crypto.getRandomValues(new Uint32Array(1))[0] % 900000000);
+      const matches = await getDocs(query(collection(db, 'users'), where('id', '==', id)));
+      if (matches.empty) return id;
+    }
+    throw new Error('Could not allocate user ID');
+  };
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setFbUser(u);
@@ -371,15 +381,21 @@ export default function App() {
           const userDoc = await getDoc(doc(db, 'users', u.uid));
           if (userDoc.exists()) {
             const data = userDoc.data();
+            const publicId = data.id ? String(data.id) : await makePublicId();
+            if (!data.id) await updateDoc(doc(db, 'users', u.uid), { id: publicId });
             setS((prev: any) => ({
               ...prev,
+              id: publicId, uid: u.uid,
               name: data.name || u.displayName || prev.name,
               img: u.photoURL || prev.img,
               coins: data.coins !== undefined ? data.coins : prev.coins,
               role: isOwnerEmail ? 'admin' : 'user',
             }));
           } else {
+            const publicId = await makePublicId();
+            setS((prev: any) => ({ ...prev, id: publicId, uid: u.uid }));
             await setDoc(doc(db, 'users', u.uid), {
+              id: publicId,
               userId: u.uid,
               name: u.displayName || S.name,
               email: u.email,
@@ -407,7 +423,9 @@ export default function App() {
     if (!fbUser?.uid) return;
     return onSnapshot(doc(db, 'users', fbUser.uid), snapshot => {
       if (!snapshot.exists()) return;
-      const coins = snapshot.data().coins;
+      const data = snapshot.data();
+      if (data.id) setS((prev: any) => ({...prev, id: String(data.id), uid: fbUser.uid }));
+      const coins = data.coins;
       if (Number.isSafeInteger(coins) && coins >= 0) setS((prev: any) => ({ ...prev, coins }));
     }, () => setToastText('লাইভ ব্যালেন্স লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
   }, [fbUser?.uid]);
@@ -551,6 +569,21 @@ export default function App() {
 
   return (
     <div id="app">
+      {isAuthenticated && <UploadedDesign state={S} admin={isSuperAdmin}
+        visible={!activePage && !activeRoom && !activeGame && tab === 'home' && !showCreateRoomModal && !splashVisible}
+        onAction={(action, value) => {
+          if (action === 'admin' && isSuperAdmin) setActivePage('admin');
+          if (action === 'page' && ['edit_profile','hist','frames','entries','svip','tasks','invite','store','items'].includes(value || '')) setActivePage(value!);
+          if (action === 'nav' && ['wallet','msg','moments'].includes(value || '')) setTab(value as any);
+          if (action === 'create-room') setShowCreateRoomModal(true);
+          if (action === 'checkin') handleCheckin();
+          if (action === 'room') { const room = S.rooms.find((r: any) => String(r.id) === value); if (room) { setActiveRoom(room); setIsRoomMinimized(false); } }
+          if (action === 'game') {
+            if (['lion_wheel','night_wheel','jackpot_fruit','slots','carrom','chess_3d'].includes(value || '')) { setActiveGame(value!); setIsGameMinimized(false); }
+            else { setTab('explore'); toast('গেম তালিকা থেকে চালু গেম বেছে নিন।'); }
+          }
+        }} />}
+
       {/* 1. Splash Screen */}
       {splashVisible && (
         <div id="splash" style={{ opacity: splashFade ? 0 : 1 }}>

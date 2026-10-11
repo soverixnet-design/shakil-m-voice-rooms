@@ -68,6 +68,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // Quick Coin Give State for Specific User
   const [coinModalUser, setCoinModalUser] = useState<any | null>(null);
+  const [rechargeId, setRechargeId] = useState('');
+  const [rechargeAmount, setRechargeAmount] = useState('');
   const [customCoinAmount, setCustomCoinAmount] = useState('');
   const [customCoinAction, setCustomCoinAction] = useState<'add' | 'deduct' | 'set'>('add');
   const [customCoinReason, setCustomCoinReason] = useState('অ্যাডমিন কয়েন পুরস্কার');
@@ -492,7 +494,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <div className="grid grid-cols-4 gap-2 pt-2 border-t border-white/10 text-center">
           <div className="bg-white/5 p-2 rounded-xl border border-white/5">
             <span className="text-[10px] text-gray-400 block">মোট ইউজার</span>
-            <b className="text-cyan-300 text-xs">{userList.length + 1} জন</b>
+            <b className="text-cyan-300 text-xs">{userList.length} জন</b>
           </div>
           <div className="bg-white/5 p-2 rounded-xl border border-white/5">
             <span className="text-[10px] text-gray-400 block">একটিভ রুম</span>
@@ -553,6 +555,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* ======================================================== */}
       {activeTab === 'users' && (
         <div className="space-y-3">
+          <form className="gl p-4 space-y-3" onSubmit={async e => {
+            e.preventDefault();
+            const id = rechargeId.trim();
+            if (!/^\d+$/.test(id)) { onToast('ইউজারের সংখ্যার ID লিখুন।'); return; }
+            const matches = userList.filter(u => String(u.id) === id);
+            if (matches.length !== 1) { onToast(matches.length ? 'এই ID একাধিক অ্যাকাউন্টে আছে। রিচার্জ বন্ধ রাখা হয়েছে।' : 'এই ID-তে নিবন্ধিত ইউজার পাওয়া যায়নি।'); return; }
+            const amount = Number(rechargeAmount);
+            if (!Number.isSafeInteger(amount) || amount <= 0) { onToast('সঠিক পূর্ণ কয়েন সংখ্যা লিখুন।'); return; }
+            const ok = await handleGiveCoinsToUser(matches[0], amount, 'add', 'ID দিয়ে অ্যাডমিন রিচার্জ');
+            if (ok) setRechargeAmount('');
+          }}>
+            <h3 className="font-bold text-amber-300">⚡ শুধু ID দিয়ে কয়েন রিচার্জ</h3>
+            <p className="text-gray-400">ইউজারের প্রোফাইলে দেখানো ID লিখুন। নাম লাগবে না।</p>
+            <label className="block">ইউজার ID<input className="in w-full mt-1" inputMode="numeric" value={rechargeId} onChange={e => setRechargeId(e.target.value)} placeholder="ইউজারের ID নম্বর" required /></label>
+            <label className="block">কয়েনের পরিমাণ<input className="in w-full mt-1" inputMode="numeric" value={rechargeAmount} onChange={e => setRechargeAmount(e.target.value)} placeholder="যেমন 100000" required /></label>
+            <button type="submit" disabled={savingCoins || usersLoading || Boolean(usersError)} className="b g w-full disabled:opacity-50">{savingCoins ? 'সেভ হচ্ছে…' : '🪙 রিচার্জ দিন'}</button>
+          </form>
           {/* Top User Actions & Search Bar */}
           <div className="gl p-3.5 space-y-3">
             <div className="flex items-center justify-between">
