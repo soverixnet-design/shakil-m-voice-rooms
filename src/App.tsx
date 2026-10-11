@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   auth, 
   googleProvider, 
@@ -11,6 +11,7 @@ import {
   setDoc,
   updateDoc
 } from './firebase';
+import { runTransaction } from 'firebase/firestore';
 import { JackpotFruitGame } from './games/JackpotFruitGame';
 import { LionFoodWheelGame } from './games/LionFoodWheelGame';
 import { NightFoodWheelGame } from './games/NightFoodWheelGame';
@@ -407,20 +408,33 @@ export default function App() {
     setTimeout(() => setToastText(null), 2400);
   };
 
-  const updateCoins = (amount: number, reason: string) => {
-    setS((prev: any) => {
-      const nextCoins = Math.max(0, prev.coins + amount);
-      const histItem = `${amount > 0 ? '+' : ''}${amount.toLocaleString()} — ${reason}`;
-      const next = {
-        ...prev,
-        coins: nextCoins,
-        hist: [histItem, ...prev.hist.slice(0, 30)],
-      };
-      if (fbUser?.uid) {
-        updateDoc(doc(db, 'users', fbUser.uid), { coins: nextCoins }).catch(() => {});
+  const coinsRef = useRef(S.coins);
+  coinsRef.current = S.coins;
+  const walletQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const updateCoins = (amount: number, reason: string): Promise<boolean> => {
+    const uid = fbUser?.uid;
+    const task = walletQueue.current.then(async () => {
+      if (!Number.isSafeInteger(amount)) throw new Error('Invalid coin amount');
+      let balance = coinsRef.current + amount;
+      if (uid) {
+        balance = await runTransaction(db, async transaction => {
+          const ref = doc(db, 'users', uid);
+          const snapshot = await transaction.get(ref);
+          if (!snapshot.exists()) throw new Error('User profile missing');
+          const next = Number(snapshot.data().coins || 0) + amount;
+          if (!Number.isSafeInteger(next) || next < 0) throw new Error('Insufficient coins');
+          transaction.update(ref, { coins: next });
+          return next;
+        });
       }
-      return next;
-    });
+      if (!Number.isSafeInteger(balance) || balance < 0) throw new Error('Insufficient coins');
+      coinsRef.current = balance;
+      setS((prev: any) => ({ ...prev, coins: balance,
+        hist: [`${amount > 0 ? '+' : ''}${amount.toLocaleString()} — ${reason}`, ...prev.hist.slice(0, 30)] }));
+      return true;
+    }).catch(() => { toast('কয়েন সেভ হয়নি। সংযোগ ও Firebase অনুমতি পরীক্ষা করুন।'); return false; });
+    walletQueue.current = task;
+    return task;
   };
 
   const handleGoogleLogin = async () => {
@@ -2563,13 +2577,11 @@ export default function App() {
           <div className="flex-1 relative overflow-hidden">
             {activeGame === 'jackpot_fruit' && (
               <JackpotFruitGame
+                getBalance={() => coinsRef.current}
                 userCoins={S.coins}
                 userName={S.name}
                 userAvatar={S.av}
-                onUpdateCoins={(newCoins, note) => {
-                  const diff = newCoins - S.coins;
-                  updateCoins(diff, note);
-                }}
+                onUpdateCoins={updateCoins}
                 onClose={() => {
                   setActiveGame(null);
                   setIsGameMinimized(false);

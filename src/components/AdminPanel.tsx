@@ -32,7 +32,7 @@ interface AdminPanelProps {
   onUpdateAppState: (updater: (prev: any) => any) => void;
   onToast: (msg: string) => void;
   onClose: () => void;
-  onUpdateCoins: (amount: number, reason: string) => void;
+  onUpdateCoins: (amount: number, reason: string) => Promise<boolean>;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -1074,12 +1074,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             {/* Unlimited Coins Button */}
             <button
               onClick={() => {
-                onUpdateAppState((prev: any) => ({
-                  ...prev,
-                  coins: 99999999,
-                  hist: ['🪙 অ্যাডমিন আনলিমিটেড কয়েন মোড (৯৯,৯৯৯,৯৯৯)', ...(prev.hist || []).slice(0, 30)]
-                }));
-                onToast('আনলিমিটেড ৯৯ মিলিয়ন কয়েন সক্রিয় করা হয়েছে! 👑');
+                void onUpdateCoins(99999999 - appState.coins, 'অ্যাডমিন ব্যালেন্স সেট').then(ok => { if (ok) onToast('ব্যালেন্স সেভ হয়েছে ✓'); });
               }}
               className="w-full py-2.5 bg-gradient-to-r from-amber-400 via-orange-500 to-pink-600 rounded-xl font-black text-slate-950 text-xs shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
             >
@@ -1105,13 +1100,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     onToast('সঠিক সংখ্যা লিখুন!');
                     return;
                   }
-                  onUpdateAppState((prev: any) => ({
-                    ...prev,
-                    coins: val,
-                    hist: [`🪙 অ্যাডমিন সরাসরি ব্যালেন্স সেট: ${val.toLocaleString()}`, ...(prev.hist || []).slice(0, 30)]
-                  }));
-                  onToast(`ব্যালেন্স সরাসরি ${val.toLocaleString()} কয়েনে সেট করা হয়েছে! ✓`);
-                  setExactAdminCoins('');
+                  void onUpdateCoins(val - appState.coins, 'অ্যাডমিন ব্যালেন্স সেট').then(ok => { if (ok) { onToast('ব্যালেন্স সেভ হয়েছে ✓'); setExactAdminCoins(''); } });
                 }}
                 className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs active:scale-95"
               >
