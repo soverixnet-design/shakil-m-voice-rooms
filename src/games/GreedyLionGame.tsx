@@ -27,8 +27,10 @@ export const GreedyLionGame: React.FC<Props> = props => {
       else if (data.type === 'gl-wallet' && initialized.current && !busy.current) {
         if (!Number.isSafeInteger(data.delta) || data.delta === 0) return;
         busy.current = true;
-        const ok = await current.current.onUpdateCoins(data.delta, 'Greedy Lion');
-        busy.current = false;
+        let ok = false;
+        try { ok = await current.current.onUpdateCoins(data.delta, 'Greedy Lion'); }
+        catch { ok = false; }
+        finally { busy.current = false; }
         if (ok) {
           // React commits the saved account balance before acknowledgement.
           send({ type: 'gl-saved', balance: current.current.getBalance() });
