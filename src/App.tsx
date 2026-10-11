@@ -192,6 +192,7 @@ export default function App() {
         const parsed = JSON.parse(saved);
         return {
           ...parsed,
+          role: 'user',
           userList: Array.isArray(parsed.userList) && parsed.userList.length > 0 ? parsed.userList : DEFAULT_USER_LIST,
           customGifts: Array.isArray(parsed.customGifts) && parsed.customGifts.length > 0 ? parsed.customGifts : DEFAULT_CUSTOM_GIFTS,
           rechargeRequests: Array.isArray(parsed.rechargeRequests) ? parsed.rechargeRequests : [],
@@ -287,31 +288,22 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
       const session = localStorage.getItem('sv_auth_session');
-      return Boolean(session);
-    } catch {
-      return false;
-    }
-  });
-
-  // Shakil Admin Authorization with Security PIN (admin123)
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
-    try {
-      const session = localStorage.getItem('sv_auth_session');
-      if (session) {
-        const parsed = JSON.parse(session);
-        return parsed.role === 'admin' || parsed.pin === 'admin123';
+      if (!session) return false;
+      const parsed = JSON.parse(session);
+      if (parsed.pin || parsed.role === 'admin') {
+        localStorage.removeItem('sv_auth_session');
+        return false;
       }
-      return false;
+      return parsed.role === 'user';
     } catch {
       return false;
     }
   });
 
-  const [adminPinInput, setAdminPinInput] = useState<string>('admin123');
-  const [loginTab, setLoginTab] = useState<'shakil_admin' | 'google' | 'user'>('shakil_admin');
-  const [loginUserName, setLoginUserName] = useState<string>('শাকিল');
-  const [loginUserPhone, setLoginUserPhone] = useState<string>('01712345678');
-  const [loginUserAvatar, setLoginUserAvatar] = useState<string>('👑');
+  const [loginTab, setLoginTab] = useState<'google' | 'user'>('google');
+  const [loginUserName, setLoginUserName] = useState<string>('');
+  const [loginUserPhone, setLoginUserPhone] = useState<string>('');
+  const [loginUserAvatar, setLoginUserAvatar] = useState<string>('😎');
 
   const [adminCoinAmt, setAdminCoinAmt] = useState('');
   const [adminBannerText, setAdminBannerText] = useState('');
@@ -336,13 +328,10 @@ export default function App() {
   const lv = Math.floor(1 + Math.sqrt(S.xp / 50));
   const wl = Math.floor(1 + Math.sqrt((S.spent || 0) / 1000));
 
-  // Determine if current logged-in user is Super Admin (Shakil Admin & Owner)
+  // Only the verified Firebase owner account can access administration.
   const isSuperAdmin = Boolean(
-    (fbUser && fbUser.email && ADMIN_EMAILS.includes(fbUser.email.toLowerCase())) ||
-    S.role === 'admin' ||
-    isAdminLoggedIn ||
-    S.name?.toLowerCase().includes('shakil') ||
-    S.name?.includes('শাকিল')
+    fbUser?.emailVerified && fbUser?.email &&
+    ADMIN_EMAILS.includes(fbUser.email.toLowerCase())
   );
 
   useEffect(() => {
@@ -375,10 +364,8 @@ export default function App() {
       setFbUser(u);
       if (u) {
         setIsAuthenticated(true);
-        const isOwnerEmail = Boolean(u.email && ADMIN_EMAILS.includes(u.email.toLowerCase()));
-        if (isOwnerEmail) {
-          setIsAdminLoggedIn(true);
-        }
+        const isOwnerEmail = Boolean(u.emailVerified && u.email && ADMIN_EMAILS.includes(u.email.toLowerCase()));
+        setS((prev: any) => ({ ...prev, role: isOwnerEmail ? 'admin' : 'user' }));
         try {
           const userDoc = await getDoc(doc(db, 'users', u.uid));
           if (userDoc.exists()) {
@@ -388,7 +375,7 @@ export default function App() {
               name: data.name || u.displayName || prev.name,
               img: u.photoURL || prev.img,
               coins: data.coins !== undefined ? data.coins : prev.coins,
-              role: isOwnerEmail ? 'admin' : (data.role || prev.role),
+              role: isOwnerEmail ? 'admin' : 'user',
             }));
           } else {
             await setDoc(doc(db, 'users', u.uid), {
@@ -439,10 +426,8 @@ export default function App() {
   const handleGoogleLogin = async () => {
     try {
       const res = await signInWithPopup(auth, googleProvider);
-      const isOwnerEmail = Boolean(res.user.email && ADMIN_EMAILS.includes(res.user.email.toLowerCase()));
-      if (isOwnerEmail) {
-        setIsAdminLoggedIn(true);
-      }
+      const isOwnerEmail = Boolean(res.user.emailVerified && res.user.email && ADMIN_EMAILS.includes(res.user.email.toLowerCase()));
+      setS((prev: any) => ({ ...prev, role: isOwnerEmail ? 'admin' : 'user' }));
       setIsAuthenticated(true);
       localStorage.setItem('sv_auth_session', JSON.stringify({
         uid: res.user.uid,
@@ -456,33 +441,6 @@ export default function App() {
     }
   };
 
-  // Shakil Admin Login with Security PIN (admin123) - কোনো এডমিন পাসওয়ার্ডের প্রয়োজন নেই
-  const handleShakilAdminPinLogin = (pinVal?: string) => {
-    const entered = (pinVal !== undefined ? pinVal : adminPinInput).trim();
-    if (entered === 'admin123') {
-      setIsAdminLoggedIn(true);
-      setIsAuthenticated(true);
-      setS((prev: any) => ({
-        ...prev,
-        name: 'শাকিল (সুপার অ্যাডমিন)',
-        id: '857392',
-        role: 'admin',
-        av: '👑',
-        svip: 3,
-        coins: Math.max(prev.coins || 0, 10000000),
-      }));
-      localStorage.setItem('sv_auth_session', JSON.stringify({
-        name: 'শাকিল (সুপার অ্যাডমিন)',
-        role: 'admin',
-        pin: 'admin123',
-        id: '857392',
-      }));
-      toast('👑 স্বাগতম Shakil Admin! সিকিউরিটি পিন (admin123) ভেরিফাইড!');
-    } else {
-      toast('❌ ভুল সিকিউরিটি পিন! সঠিক পিন: admin123');
-    }
-  };
-
   // User Quick Login with Name & Phone/ID
   const handleUserQuickLogin = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -493,7 +451,10 @@ export default function App() {
       name,
       id,
       av: loginUserAvatar,
+      role: 'user',
     }));
+    signOut(auth).catch(() => {});
+    setFbUser(null);
     setIsAuthenticated(true);
     localStorage.setItem('sv_auth_session', JSON.stringify({
       name,
@@ -511,7 +472,7 @@ export default function App() {
     } catch (_) {}
     localStorage.removeItem('sv_auth_session');
     setFbUser(null);
-    setIsAdminLoggedIn(false);
+    setS((prev: any) => ({ ...prev, role: 'user' }));
     setIsAuthenticated(false);
     setActivePage(null);
     setActiveRoom(null);
@@ -655,22 +616,6 @@ export default function App() {
             }}
           >
             <button
-              onClick={() => setLoginTab('shakil_admin')}
-              style={{
-                flex: 1,
-                padding: '8px 4px',
-                borderRadius: '12px',
-                fontSize: '11px',
-                fontWeight: 800,
-                background: loginTab === 'shakil_admin' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
-                color: loginTab === 'shakil_admin' ? '#0f172a' : '#94a3b8',
-                transition: 'all 0.2s',
-                cursor: 'pointer'
-              }}
-            >
-              👑 Shakil Admin
-            </button>
-            <button
               onClick={() => setLoginTab('google')}
               style={{
                 flex: 1,
@@ -704,124 +649,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* TAB 1: SHAKIL ADMIN WITH SECURITY PIN (admin123) */}
-          {loginTab === 'shakil_admin' && (
-            <div
-              style={{
-                width: '100%',
-                maxWidth: '380px',
-                background: 'linear-gradient(180deg, rgba(245, 158, 11, 0.15) 0%, rgba(20, 10, 40, 0.85) 100%)',
-                border: '1.5px solid rgba(245, 158, 11, 0.5)',
-                borderRadius: '24px',
-                padding: '20px',
-                boxShadow: '0 12px 30px rgba(0, 0, 0, 0.5)'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '22px' }}>👑</span>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 900, color: '#fbbf24' }}>
-                    Shakil Admin স্পেশাল এক্সেস
-                  </h3>
-                  <span style={{ fontSize: '10px', color: '#cbd5e1' }}>
-                    সিকিউরিটি পিন (admin123) সুবিধা • নো পাসওয়ার্ড
-                  </span>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  background: 'rgba(0, 0, 0, 0.35)',
-                  borderRadius: '14px',
-                  padding: '10px 12px',
-                  fontSize: '11px',
-                  color: '#e2e8f0',
-                  lineHeight: 1.5,
-                  marginBottom: '14px',
-                  border: '1px solid rgba(255, 255, 255, 0.08)'
-                }}
-              >
-                🔑 কোনো জটিল এডমিন পাসওয়ার্ডের প্রয়োজন নেই। শুধুমাত্র সিকিউরিটি পিন <b style={{ color: '#fbbf24' }}>admin123</b> দিয়ে সরাসরি সুপার অ্যাডমিন মোডে প্রবেশ করুন।
-              </div>
-
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleShakilAdminPinLogin();
-                }}
-              >
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#fbbf24', marginBottom: '6px' }}>
-                  সিকিউরিটি পিন (Security PIN):
-                </label>
-                <div style={{ position: 'relative', marginBottom: '12px' }}>
-                  <input
-                    type="text"
-                    className="in"
-                    value={adminPinInput}
-                    onChange={(e) => setAdminPinInput(e.target.value)}
-                    placeholder="admin123"
-                    style={{
-                      width: '100%',
-                      textAlign: 'center',
-                      fontFamily: 'monospace',
-                      fontSize: '16px',
-                      fontWeight: 900,
-                      letterSpacing: '2px',
-                      color: '#fbbf24',
-                      background: 'rgba(0,0,0,0.5)',
-                      borderColor: 'rgba(245, 158, 11, 0.5)'
-                    }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <button
-                    type="submit"
-                    className="b"
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                      color: '#0f172a',
-                      fontWeight: 900,
-                      fontSize: '13px',
-                      boxShadow: '0 6px 16px rgba(245, 158, 11, 0.35)'
-                    }}
-                  >
-                    🔓 পিন যাচাই করে অ্যাডমিন হিসেবে প্রবেশ করুন
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAdminPinInput('admin123');
-                      handleShakilAdminPinLogin('admin123');
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      borderRadius: '14px',
-                      background: 'rgba(245, 158, 11, 0.18)',
-                      border: '1px solid rgba(245, 158, 11, 0.4)',
-                      color: '#fef08a',
-                      fontWeight: 800,
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    ⚡ এক ক্লিকে Shakil Admin (admin123) আনলক
-                  </button>
-                </div>
-              </form>
-
-              <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block', textAlign: 'center' }}>
-                  প্রিভিলেজ: সুপার অ্যাডমিন প্যানেল • ১ কোটি কয়েন • SVIP 3 ক্রাউন
-                </span>
-              </div>
-            </div>
-          )}
-
           {/* TAB 2: GOOGLE LOGIN */}
           {loginTab === 'google' && (
             <div
@@ -841,7 +668,7 @@ export default function App() {
                 গুগল ক্লাউড অ্যাকাউন্ট লগইন
               </h3>
               <p style={{ fontSize: '11px', color: '#94a3b8', margin: '8px 0 16px', lineHeight: 1.5 }}>
-                Firebase ক্লাউড অথেনটিকেশনের মাধ্যমে এক ক্লিকে নিরাপদে সাইন ইন করুন। ওনার ইমেইল ({ADMIN_EMAILS[0]}) স্বয়ংক্রিয় সুপার অ্যাডমিন পাবে।
+                আপনার Google অ্যাকাউন্ট দিয়ে নিরাপদে লগইন করুন।
               </p>
 
               <button
@@ -1019,7 +846,6 @@ export default function App() {
                   cursor: 'pointer'
                 }}
                 onClick={() => {
-                  setIsAdminLoggedIn(true);
                   setActivePage('admin');
                 }}
                 title="সুপার অ্যাডমিন প্যানেল"
@@ -1783,7 +1609,7 @@ export default function App() {
                     ['ℹ️', 'আমাদের সম্পর্কে ও লাইসেন্স (About Us)', 'policy_about'],
                     ['⚙️', 'অ্যাডমিন প্যানেল (Shakil Admin)', 'admin'],
                     ['🚪', 'অ্যাপ থেকে লগআউট (Logout)', 'logout'],
-                  ].map(r => (
+                  ].filter(r => r[2] !== 'admin' || isSuperAdmin).map(r => (
                     <div
                       key={r[2]}
                       className="lr"
@@ -2280,88 +2106,9 @@ export default function App() {
                   onUpdateCoins={updateCoins}
                 />
               ) : (
-                <div className="gl" style={{ padding: '28px 20px', textAlign: 'center', margin: '20px 0', border: '1.5px solid rgba(245, 158, 11, 0.4)' }}>
-                  <div style={{ fontSize: '48px', marginBottom: '12px' }}>👑</div>
-                  <b style={{ fontSize: '18px', color: '#fbbf24', display: 'block', marginBottom: '8px' }}>
-                    Shakil Admin সিকিউরিটি পিন (admin123)
-                  </b>
-                  <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: 1.6, marginBottom: '18px' }}>
-                    এডমিন পাসওয়ার্ডের প্রয়োজন নেই। শুধুমাত্র সিকিউরিটি পিন <strong style={{ color: '#fbbf24' }}>admin123</strong> দিয়ে সরাসরি সুপার অ্যাডমিন প্যানেল আনলক করুন।
-                  </p>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleShakilAdminPinLogin();
-                    }}
-                    style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '300px', margin: '0 auto' }}
-                  >
-                    <input
-                      type="text"
-                      className="in"
-                      value={adminPinInput}
-                      onChange={(e) => setAdminPinInput(e.target.value)}
-                      placeholder="admin123"
-                      style={{
-                        textAlign: 'center',
-                        fontFamily: 'monospace',
-                        fontSize: '16px',
-                        fontWeight: 900,
-                        letterSpacing: '2px',
-                        color: '#fbbf24',
-                        background: 'rgba(0,0,0,0.5)',
-                        borderColor: 'rgba(245, 158, 11, 0.5)'
-                      }}
-                    />
-                    <button
-                      type="submit"
-                      className="b"
-                      style={{
-                        padding: '11px 16px',
-                        fontSize: '13px',
-                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                        color: '#0f172a',
-                        fontWeight: 900,
-                        boxShadow: '0 6px 16px rgba(245, 158, 11, 0.35)'
-                      }}
-                    >
-                      🔓 সিকিউরিটি পিন (admin123) দিয়ে আনলক করুন
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAdminPinInput('admin123');
-                        handleShakilAdminPinLogin('admin123');
-                      }}
-                      style={{
-                        padding: '9px 14px',
-                        fontSize: '12px',
-                        borderRadius: '12px',
-                        background: 'rgba(245, 158, 11, 0.18)',
-                        border: '1px solid rgba(245, 158, 11, 0.4)',
-                        color: '#fef08a',
-                        fontWeight: 800,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ⚡ এক ক্লিকে Shakil Admin আনলক
-                    </button>
-                    <button
-                      type="button"
-                      className="b t"
-                      style={{ padding: '9px 16px', fontSize: '12px' }}
-                      onClick={handleGoogleLogin}
-                    >
-                      Google অ্যাডমিন লগইন ({ADMIN_EMAILS[0]})
-                    </button>
-                    <button
-                      type="button"
-                      className="b"
-                      style={{ padding: '8px 16px', fontSize: '12px', background: 'rgba(255,255,255,0.1)' }}
-                      onClick={() => setActivePage(null)}
-                    >
-                      ফিরে যান
-                    </button>
-                  </form>
+                <div className="gl" style={{ padding: '28px 20px', textAlign: 'center' }}>
+                  <p>এই পেজে প্রবেশের অনুমতি নেই।</p>
+                  <button className="b" onClick={() => setActivePage(null)}>ফিরে যান</button>
                 </div>
               )
             )}

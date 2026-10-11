@@ -495,7 +495,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-sm font-black text-amber-300">Shakil Admin — সুপার অ্যাডমিন প্যানেল</h2>
                 <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] border border-amber-500/40">
-                  👑 পিন: admin123
+                  👑 যাচাইকৃত ওনার
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/40 animate-pulse">
                   লাইভ সিস্টেম
@@ -1468,26 +1468,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <Settings size={16} /> প্ল্যাটফর্ম ব্যবসা ও সিস্টেম সেটিংস
           </h3>
           <p className="text-[11px] text-gray-300">
-            রেফারেল কমিশন, ওয়েলকাম রিওয়ার্ড, হেল্পলাইন ও Shakil Admin সিকিউরিটি পিন (admin123)
+            রেফারেল কমিশন, ওয়েলকাম রিওয়ার্ড ও হেল্পলাইন
           </p>
 
           <div className="space-y-3 bg-black/30 p-3 rounded-xl border border-white/10">
-            {/* Security PIN Section */}
-            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-400/30">
-              <label className="block text-amber-300 font-black text-xs mb-1">
-                👑 Shakil Admin সিকিউরিটি পিন সুবিধা:
-              </label>
-              <div className="flex items-center gap-2">
-                <div className="px-3 py-1 rounded-lg bg-amber-500/25 border border-amber-300/50 text-amber-200 font-mono font-black text-xs tracking-wider">
-                  admin123
-                </div>
-                <span className="text-[11px] text-emerald-400 font-bold">✓ সক্রিয় (পাসওয়ার্ড ছাড়া সরাসরি পিন দিয়ে এক্সেস)</span>
-              </div>
-              <p className="text-[10px] text-gray-300 mt-1.5">
-                এডমিন পাসওয়ার্ডের ঝামেলা কেটে শুধুমাত্র সিকিউরিটি পিন (admin123) চালু রাখা হয়েছে।
-              </p>
-            </div>
-
             <div>
               <label className="block text-gray-300 font-bold mb-1">
                 ইনভাইট ফ্রেন্ডস কমিশন পার্সেন্টেজ (%):
