@@ -17,6 +17,8 @@ import {
   LogOut,
   Maximize2
 } from 'lucide-react';
+import { auth, db } from '../firebase';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { VoiceRoom, UserProfile } from '../types';
 
 interface Props {
@@ -29,6 +31,7 @@ interface Props {
   onMinimize: () => void;
   onLeaveRoom: () => void;
   onClose?: () => void;
+  onOpenUsers: () => void;
 }
 
 const GIFTS = [
@@ -63,6 +66,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   onMinimize,
   onLeaveRoom,
   onClose,
+  onOpenUsers,
 }) => {
   const seatCount = room.sc || (room.d ? 12 : 8);
   const isCurrentUserHost = Boolean(room.host === user.name || (room.hostId && (room.hostId === user.id || room.hostId === user.uid)));
@@ -103,6 +107,12 @@ export const VoiceRoomView: React.FC<Props> = ({
     }
     return arr;
   });
+
+  const [liveMembers,setLiveMembers] = useState<any[]>([]);
+  useEffect(()=>{
+    if(!auth.currentUser)return;
+    return onSnapshot(query(collection(db,'users'),where('currentRoomId','==',room.id)),snapshot=>setLiveMembers(snapshot.docs.map(d=>({...d.data(),uid:d.id})).filter((u:any)=>u.online&&Date.now()-(u.lastSeen?.toMillis?.()||0)<90000)),()=>{});
+  },[room.id]);
 
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -277,6 +287,7 @@ export const VoiceRoomView: React.FC<Props> = ({
 
       {/* Center Seats Grid (.sg3, .s3w, .s3, .nm3, .sc3) */}
       <div className="relative z-10 flex-1 overflow-y-auto px-2 py-2 flex flex-col justify-between">
+        <div className="flex gap-2 overflow-x-auto pb-3">{liveMembers.map(member=><button key={member.uid} className="gl p-2 shrink-0 text-center" onClick={onOpenUsers}><span className="text-2xl">{member.avatar||'👤'}</span><b className="block">{member.name}</b><small className="block">ID {member.id} · 🟢 অনলাইন</small><small>🎁 {member.giftReceivedCount||0}টি · 🪙 {Number(member.giftReceivedCoins||0).toLocaleString()}</small></button>)}</div>
         <div className="sg3" style={{ gridTemplateColumns: `repeat(${seatCount <= 8 ? 4 : 4}, 1fr)`, margin: 'auto 0' }}>
           {seats.map((seat, idx) => {
             const isUserSeatedHere = seatedIndex === idx;
@@ -292,7 +303,7 @@ export const VoiceRoomView: React.FC<Props> = ({
                 <div className="nm3" style={{ color: isUserSeatedHere ? 'var(--t)' : '#fff' }}>
                   {seat ? seat.name : `সিট ${idx + 1}`}
                 </div>
-                <span className="sc3">🪙 {seat ? '1.2k' : '০'}</span>
+                <span className="sc3">🪙 {isUserSeatedHere ? Number((user as any).giftReceivedCoins || 0).toLocaleString() : '০'}</span>
               </div>
             );
           })}
@@ -332,7 +343,7 @@ export const VoiceRoomView: React.FC<Props> = ({
       <div className="fb">
         <button onClick={() => setShowGameDrawer(true)} title="রুমের ভেতর গেমস">🎮</button>
         <button onClick={onOpenWallet} title="ওয়ালেট">👛</button>
-        <button onClick={() => setShowGiftModal(true)} title="গিফট" style={{ animation: 'bounce 1.5s infinite' }}>🎁</button>
+        <button onClick={onOpenUsers} title="গিফট" style={{ animation: 'bounce 1.5s infinite' }}>🎁</button>
         <button onClick={() => setShowReactionModal(!showReactionModal)} title="রিঅ্যাকশন">😊</button>
       </div>
 

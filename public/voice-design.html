@@ -371,6 +371,7 @@ showAdmin=openAdmin;
 openGame=i=>hostSend('game',['lion_wheel','night_wheel','jackpot_fruit','slots','carrom','chess_3d'][i]);
 openRoom=id=>hostSend('room',String(id));
 createRoom3=()=>hostSend('create-room');
+search3=()=>hostSend('users');
 pEdit=()=>hostSend('page','edit_profile');
 pWallet=()=>hostSend('nav','wallet');
 pHist=()=>hostSend('page','hist');
@@ -395,7 +396,7 @@ addEventListener('message',e=>{
  if(!$('#pg')?.classList.contains('on'))render();
  else if($('#pg').dataset.profile==='on')profile3();
 });
-const oldProfile=profile3;profile3=function(){oldProfile();$('[data-a=admin]').forEach(e=>e.style.display=hostAdmin?'':'none');$('#pg').dataset.profile='on'};
+const oldProfile=profile3;profile3=function(){oldProfile();const summary=document.createElement('div');summary.className='gl';summary.style.cssText='padding:14px;margin:10px 14px';summary.textContent=`🎁 পাঠানো: ${S.giftSentCount||0}টি · পাওয়া: ${S.giftReceivedCount||0}টি · পাওয়া গিফটের মূল্য: 🪙 ${fm(S.giftReceivedCoins||0)}`;$('#pg').appendChild(summary);$$('[data-a=admin]').forEach(e=>e.style.display=hostAdmin?'':'none');$('#pg').dataset.profile='on'};
 const oldClose=closePage;closePage=function(){delete $('#pg').dataset.profile;oldClose()};
 document.addEventListener('click',e=>{if(e.target.closest('[data-a=logout]')){e.preventDefault();e.stopImmediatePropagation();hostSend('logout')}},true);
 parent.postMessage({type:'design-ready'},hostOrigin);

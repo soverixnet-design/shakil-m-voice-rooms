@@ -11,8 +11,9 @@ import {
   setDoc,
   updateDoc
 } from './firebase';
+import { UserDirectory } from './components/UserDirectory';
 import { UploadedDesign } from './components/UploadedDesign';
-import { collection, query, where, getDocs, runTransaction, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, runTransaction, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { JackpotFruitGame } from './games/JackpotFruitGame';
 import { LionFoodWheelGame } from './games/LionFoodWheelGame';
 import { NightFoodWheelGame } from './games/NightFoodWheelGame';
@@ -273,6 +274,8 @@ export default function App() {
   });
 
   const [tab, setTab] = useState<'home' | 'explore' | 'wallet' | 'moments' | 'msg'>('home');
+  const [showUserDirectory, setShowUserDirectory] = useState(false);
+  const [incomingGift, setIncomingGift] = useState<any>(null);
   const [activePage, setActivePage] = useState<string | null>(null);
   const [activeRoom, setActiveRoom] = useState<any | null>(null);
   const [isRoomMinimized, setIsRoomMinimized] = useState<boolean>(false);
@@ -382,7 +385,7 @@ export default function App() {
           if (userDoc.exists()) {
             const data = userDoc.data();
             const publicId = data.id ? String(data.id) : await makePublicId();
-            if (!data.id) await updateDoc(doc(db, 'users', u.uid), { id: publicId });
+            await updateDoc(doc(db, 'users', u.uid), { id: publicId, online:true, lastSeen:serverTimestamp() });
             setS((prev: any) => ({
               ...prev,
               id: publicId, uid: u.uid,
@@ -395,7 +398,7 @@ export default function App() {
             const publicId = await makePublicId();
             setS((prev: any) => ({ ...prev, id: publicId, uid: u.uid }));
             await setDoc(doc(db, 'users', u.uid), {
-              id: publicId,
+              id: publicId, online:true, lastSeen:serverTimestamp(),
               userId: u.uid,
               name: u.displayName || S.name,
               email: u.email,
@@ -425,9 +428,42 @@ export default function App() {
       if (!snapshot.exists()) return;
       const data = snapshot.data();
       if (data.id) setS((prev: any) => ({...prev, id: String(data.id), uid: fbUser.uid }));
+      if (data.giftSentCount !== undefined) setS((prev:any)=>({...prev,giftSentCount:data.giftSentCount,giftSentCoins:data.giftSentCoins,gifts:{...prev.gifts,sent:data.giftSentCoins||0}}));
       const coins = data.coins;
       if (Number.isSafeInteger(coins) && coins >= 0) setS((prev: any) => ({ ...prev, coins }));
     }, () => setToastText('লাইভ ব্যালেন্স লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
+  }, [fbUser?.uid]);
+
+  useEffect(() => {
+    if (!fbUser?.uid) return;
+    const ref = doc(db, 'users', fbUser.uid);
+    const room = activeRoom ? {id:activeRoom.id,name:activeRoom.name,host:activeRoom.host||'',hostId:activeRoom.hostId||'',cv:activeRoom.cv||'🎙️',c:activeRoom.c||'চ্যাট',th:activeRoom.th||0,sc:activeRoom.sc||8,d:activeRoom.d||false,ann:activeRoom.ann||''} : null;
+    const beat = () => updateDoc(ref, {online:document.visibilityState==='visible',lastSeen:serverTimestamp(),currentRoomId:room?.id||null,activeRoom:room}).catch(()=>{});
+    beat(); const timer = setInterval(beat,30000);
+    document.addEventListener('visibilitychange',beat);
+    return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',beat)};
+  }, [fbUser?.uid, activeRoom?.id]);
+
+  useEffect(() => {
+    if (!fbUser?.uid) return;
+    let initial = true; const seen = new Set<string>();
+    return onSnapshot(query(collection(db,'transactions'),where('receiverId','==',fbUser.uid)), snapshot=>{
+      const gifts = snapshot.docs.filter(d=>d.data().type==='gift_sent');
+      const count = gifts.reduce((n,d)=>n+Number(d.data().quantity||0),0);
+      const coins = gifts.reduce((n,d)=>n+Number(d.data().cost||0),0);
+      setS((prev:any)=>({...prev,giftReceivedCount:count,giftReceivedCoins:coins,gifts:{...prev.gifts,recv:gifts.map(d=>`${d.data().emoji} ${d.data().quantity}টি — ${d.data().senderName}`).slice(-30)}}));
+      updateDoc(doc(db,'users',fbUser.uid),{giftReceivedCount:count,giftReceivedCoins:coins}).catch(()=>{});
+      if (!initial) for(const gift of gifts) if(!seen.has(gift.id)){setIncomingGift(gift.data());setTimeout(()=>setIncomingGift(null),4000)}
+      gifts.forEach(d=>seen.add(d.id)); initial=false;
+    },()=>setToastText('পাওয়া গিফট লোড হয়নি। সংযোগ ও অনুমতি পরীক্ষা করুন।'));
+  }, [fbUser?.uid]);
+
+  useEffect(() => {
+    if (!fbUser?.uid) return;
+    return onSnapshot(collection(db,'rooms'),snapshot=>{
+      const remote = snapshot.docs.map(d=>({...d.data(),id:d.id,own:d.data().hostId===fbUser.uid}));
+      setS((prev:any)=>({...prev,rooms:[...remote,...prev.rooms.filter((r:any)=>!remote.some((x:any)=>x.id===r.id))]}));
+    },()=>setToastText('রুম তালিকা লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
   }, [fbUser?.uid]);
 
   const toast = (text: string) => {
@@ -569,9 +605,13 @@ export default function App() {
 
   return (
     <div id="app">
+      {showUserDirectory && <UserDirectory roomId={activeRoom?.id} onClose={()=>setShowUserDirectory(false)} onJoin={room=>{setActiveRoom(room);setIsRoomMinimized(false);setShowUserDirectory(false)}} />}
+      {incomingGift && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · মূল্য 🪙 {incomingGift.cost}</p></div>}
+
       {isAuthenticated && <UploadedDesign state={S} admin={isSuperAdmin}
         visible={!activePage && !activeRoom && !activeGame && tab === 'home' && !showCreateRoomModal && !splashVisible}
         onAction={(action, value) => {
+          if (action === 'users') setShowUserDirectory(true);
           if (action === 'logout') handleLogout();
           if (action === 'admin' && isSuperAdmin) setActivePage('admin');
           if (action === 'page' && ['edit_profile','hist','frames','entries','svip','tasks','invite','store','items'].includes(value || '')) setActivePage(value!);
@@ -2455,6 +2495,7 @@ export default function App() {
       {/* 6. Active Voice Room View */}
       {activeRoom && !isRoomMinimized && (
         <VoiceRoomView
+          onOpenUsers={()=>setShowUserDirectory(true)}
           room={activeRoom}
           user={S}
           customGifts={S.customGifts}
@@ -2835,7 +2876,7 @@ export default function App() {
               </button>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   if (!newRoomName.trim()) {
                     toast('অনুগ্রহ করে রুমের নাম লিখুন');
                     return;
@@ -2856,6 +2897,11 @@ export default function App() {
                     sc: newRoomSeatCount,
                     oc: [{ s: 0, n: S.name, av: S.img ? '👤' : (S.av || '🎤'), sc: 0 }]
                   };
+
+                  if (!fbUser?.uid) { toast('রুম তৈরি করতে Google দিয়ে লগইন করুন।'); return; }
+                  createdRoom.hostId = fbUser.uid;
+                  try { await setDoc(doc(db,'rooms',createdRoom.id), createdRoom); }
+                  catch { toast('রুম সেভ হয়নি। সংযোগ ও অনুমতি পরীক্ষা করুন।'); return; }
 
                   // Prepend newly created room to list
                   setS((prev: any) => ({
