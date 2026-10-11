@@ -47,5 +47,20 @@ try{
  await assertFails(runTransaction(recipient,async t=>{const ref=doc(recipient,'users','recipient'),s=await t.get(ref);const data={...publicGift.data(),cost:1,quantity:1,createdAt:serverTimestamp()};t.update(ref,{coins:s.data().coins-1});t.set(doc(recipient,'transactions','atomic-failure'),data);t.set(doc(recipient,'rooms','gift-room','giftEvents','atomic-failure'),{...data,receiverId:'seller'})}));if((await getDoc(doc(recipient,'users','recipient'))).data().coins!==80)throw Error('Failed room gift debited wallet');
  await assertSucceeds(updateDoc(doc(other,'users','other'),{online:true,currentRoomId:'receiver-room',lastSeen:serverTimestamp()}));const remoteGift=await sendDirectGift(recipient,{senderId:'recipient',receiverId:'other',roomId:'gift-room',item:{name:'Rose',emoji:'🌹',cost:5},quantity:1});if(remoteGift.roomId!=='receiver-room')throw Error('Gift did not follow recipient room');await assertSucceeds(getDoc(doc(other,'rooms','receiver-room','giftEvents',remoteGift.id)));
  await seed();const giftRaces=await Promise.allSettled([sendDirectGift(other,{senderId:'other',receiverId:'recipient',roomId:'gift-room',item:{name:'Rose',emoji:'🌹',cost:60},quantity:1}),sendDirectGift(other,{senderId:'other',receiverId:'recipient',roomId:'gift-room',item:{name:'Rose',emoji:'🌹',cost:60},quantity:1})]);if(giftRaces.filter(x=>x.status==='fulfilled').length!==1||(await getDoc(doc(other,'users','other'))).data().coins!==40)throw Error('Concurrent gift overspend');
+ await seed();
+ await assertSucceeds(setDoc(doc(recipient,'rooms','policy-room'),{hostId:'recipient',name:'Room'}));
+ await assertFails(setDoc(doc(other,'rooms','policy-room','roles','other'),{role:'admin'}));
+ await assertSucceeds(setDoc(doc(recipient,'rooms','policy-room','roles','seller'),{role:'admin'}));
+ await assertFails(setDoc(doc(seller,'rooms','policy-room','roles','other'),{role:'admin'}));
+ await assertFails(setDoc(doc(seller,'rooms','policy-room','controls','recipient'),{muted:true,blocked:true}));
+ await assertSucceeds(setDoc(doc(seller,'rooms','policy-room','controls','other'),{muted:true,blocked:true}));
+ await assertFails(updateDoc(doc(other,'users','other'),{currentRoomId:'policy-room',roomSeat:1}));
+ await assertSucceeds(updateDoc(doc(other,'users','other'),{currentRoomId:null,roomSeat:null}));
+ await assertFails(updateDoc(doc(seller,'users','other'),{coins:100000}));
+ await assertFails(setDoc(doc(seller,'rooms','another-room','controls','other'),{muted:true,blocked:true}));
+ await assertSucceeds(setDoc(doc(recipient,'rooms','policy-room','controls','other'),{muted:false,blocked:false}));
+ await assertSucceeds(updateDoc(doc(other,'users','other'),{currentRoomId:'policy-room',roomSeat:1}));
+ await assertSucceeds(deleteDoc(doc(recipient,'rooms','policy-room','roles','seller')));
+ await assertFails(setDoc(doc(seller,'rooms','policy-room','controls','other'),{muted:true,blocked:true}));
  console.log('PASS: seller conservation, replay/overspend/revocation, scoped permissions, block enforcement, support privacy immutable receipts, directed room gifts, and self gifts');
 }finally{await env.cleanup()}

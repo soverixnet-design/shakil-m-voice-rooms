@@ -16,6 +16,7 @@ import {AssetShop,EntryMedia,useMediaAssets} from './components/MediaAssets';
 import { UserDirectory } from './components/UserDirectory';
 import { UploadedDesign } from './components/UploadedDesign';
 import { collection, query, where, getDocs, runTransaction, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import {GreedyLionGame} from './games/GreedyLionGame';
 import { JackpotFruitGame } from './games/JackpotFruitGame';
 import { LionFoodWheelGame } from './games/LionFoodWheelGame';
 import { NightFoodWheelGame } from './games/NightFoodWheelGame';
@@ -638,7 +639,7 @@ export default function App() {
           if (action === 'checkin') handleCheckin();
           if (action === 'room') { const room = S.rooms.find((r: any) => String(r.id) === value); if (room) { setActiveRoom(room); setIsRoomMinimized(false); } }
           if (action === 'game') {
-            if (['lion_wheel','night_wheel','jackpot_fruit','slots','carrom','chess_3d'].includes(value || '')) { setActiveGame(value!); setIsGameMinimized(false); }
+            if (['greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots','carrom','chess_3d'].includes(value || '')) { setActiveGame(value!); setIsGameMinimized(false); }
             else { setTab('explore'); toast('গেম তালিকা থেকে চালু গেম বেছে নিন।'); }
           }
         }} />}
@@ -1015,7 +1016,7 @@ export default function App() {
               <div
                 className="bn"
                 style={{ background: 'linear-gradient(135deg,#ffb02a,#e0402a)' }}
-                onClick={() => setActiveGame('lion_wheel')}
+                onClick={() => setActiveGame('greedy_lion')}
               >
                 🦁 Happy Food Wheel
               </div>
@@ -1058,7 +1059,7 @@ export default function App() {
               <div
                 className="tl"
                 style={{ background: 'linear-gradient(#9ad0ff,#4a7aff)' }}
-                onClick={() => setActiveGame('lion_wheel')}
+                onClick={() => setActiveGame('greedy_lion')}
               >
                 <b>🦁</b>ফুড হুইল
               </div>
@@ -2603,7 +2604,7 @@ export default function App() {
           title="মিনিমাইজড গেম বড় করুন"
         >
           <span className="text-2xl drop-shadow">
-            {activeGame === 'jackpot_fruit' ? '🍒' :
+            {activeGame === 'greedy_lion' ? '🦁' : activeGame === 'jackpot_fruit' ? '🍒' :
              activeGame === 'lion_wheel' ? '🦁' :
              activeGame === 'night_wheel' ? '🌙' :
              activeGame === 'slots' ? '🎰' :
@@ -2611,7 +2612,7 @@ export default function App() {
           </span>
           <div className="text-left pr-1">
             <b className="text-[11px] block font-black leading-tight text-white drop-shadow">
-              {activeGame === 'jackpot_fruit' ? 'জ্যাকপট ফ্রুট' :
+              {activeGame === 'greedy_lion' ? 'Greedy Lion' : activeGame === 'jackpot_fruit' ? 'জ্যাকপট ফ্রুট' :
                activeGame === 'lion_wheel' ? 'ফুড হুইল' :
                activeGame === 'night_wheel' ? 'নাইট হুইল' :
                activeGame === 'slots' ? 'স্লটস' :
@@ -2622,6 +2623,7 @@ export default function App() {
           <button
             onClick={(e) => {
               e.stopPropagation();
+              if(activeGame==='greedy_lion'){window.dispatchEvent(new Event('greedy-lion-exit'));return;}
               setActiveGame(null);
               setIsGameMinimized(false);
               toast('গেম বন্ধ করা হয়েছে');
@@ -2666,6 +2668,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => {
+                    if(activeGame==='greedy_lion'){window.dispatchEvent(new Event('greedy-lion-exit'));return;}
                     setActiveGame(null);
                     setIsGameMinimized(false);
                     toast('রুমে ফিরে এসেছেন');
@@ -2680,6 +2683,7 @@ export default function App() {
           )}
 
           <div className="flex-1 relative overflow-hidden">
+            {activeGame === 'greedy_lion' && <GreedyLionGame getBalance={()=>coinsRef.current} userCoins={S.coins} userName={S.name} userAvatar={S.av} onUpdateCoins={updateCoins} onClose={()=>{setActiveGame(null);setIsGameMinimized(false)}}/>}
             {activeGame === 'jackpot_fruit' && (
               <JackpotFruitGame
                 getBalance={() => coinsRef.current}

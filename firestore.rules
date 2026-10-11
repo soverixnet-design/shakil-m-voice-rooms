@@ -7,6 +7,9 @@ service cloud.firestore {
     function active() { return signed() && (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) || !(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('status', 'active') in ['banned', 'archived'])); }
     function permission(name) { return active() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)) && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.get('active', false) == true && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.get('permissions', {}).get(name, false) == true; }
     function staff(name) { return owner() || permission(name); }
+    function roomOwner(id) { return active() && get(/databases/$(database)/documents/rooms/$(id)).data.hostId == request.auth.uid; }
+    function roomAdmin(id) { return roomOwner(id) || (active() && exists(/databases/$(database)/documents/rooms/$(id)/roles/$(request.auth.uid)) && get(/databases/$(database)/documents/rooms/$(id)/roles/$(request.auth.uid)).data.role == 'admin'); }
+    function mayEnterRoom(id) { return id == null || id == '' || !exists(/databases/$(database)/documents/rooms/$(id)/controls/$(request.auth.uid)) || get(/databases/$(database)/documents/rooms/$(id)/controls/$(request.auth.uid)).data.get('blocked',false) != true; }
     // All three documents must commit together. A receipt ID cannot be reused.
     function validSellerTransfer(id) {
       let path = /databases/$(database)/documents/sellerTransfers/$(id);
@@ -22,7 +25,7 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if active() || self(uid);
       allow create: if owner() || (self(uid) && active() && request.resource.data.get('role','user') == 'user' && request.resource.data.get('status','active') == 'active' && request.resource.data.get('email','') == request.auth.token.get('email',''));
-      allow update: if owner() || (self(uid) && active() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','status','email','lastSellerTransfer'])) || (permission('moderate') && resource.data.get('email','') != 'yfastvpn@gmail.com' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status in ['active','banned']) || (permission('seller') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coins','lastSellerTransfer']) && validSellerTransfer(request.resource.data.get('lastSellerTransfer','missing')));
+      allow update: if owner() || (self(uid) && active() && mayEnterRoom(request.resource.data.get('currentRoomId',null)) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','status','email','lastSellerTransfer'])) || (permission('moderate') && resource.data.get('email','') != 'yfastvpn@gmail.com' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status in ['active','banned']) || (permission('seller') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coins','lastSellerTransfer']) && validSellerTransfer(request.resource.data.get('lastSellerTransfer','missing')));
       allow delete: if owner();
     }
     match /admins/{uid} { allow read: if owner() || self(uid); allow write: if owner(); }
@@ -46,6 +49,16 @@ service cloud.firestore {
       allow create: if owner() || (active() && request.resource.data.hostId == request.auth.uid);
       allow update: if owner() || (active() && resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId);
       allow delete: if owner() || (active() && resource.data.hostId == request.auth.uid);
+    }
+    match /rooms/{roomId}/roles/{uid} {
+      allow read: if active();
+      allow create, update: if roomOwner(roomId) && uid != get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId && request.resource.data.keys().hasOnly(['role']) && request.resource.data.role == 'admin';
+      allow delete: if roomOwner(roomId);
+    }
+    match /rooms/{roomId}/controls/{uid} {
+      allow read: if active();
+      allow create, update: if roomAdmin(roomId) && uid != get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId && (roomOwner(roomId) || !exists(/databases/$(database)/documents/rooms/$(roomId)/roles/$(uid))) && request.resource.data.keys().hasOnly(['muted','blocked']) && request.resource.data.muted is bool && request.resource.data.blocked is bool;
+      allow delete: if roomOwner(roomId);
     }
     // Public room animation mirrors a newly committed private gift receipt.
     match /rooms/{roomId}/giftEvents/{giftId} {

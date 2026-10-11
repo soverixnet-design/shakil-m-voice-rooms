@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const html=fs.readFileSync('public/games/greedy-lion.html','utf8');
+new Function(html.match(/<script>([\s\S]*?)<\/script>/)[1]);
+const place=html.slice(html.indexOf('async function place('),html.indexOf('function tick('));
+const c=vm.createContext({phase:'bet',walletBusy:false,bal:1000,chip:1000,bets:Array(10).fill(0),last:null,auto:false,toast(){},tone(){},render(){},wallet:async delta=>{c.bal+=delta;return true}});
+vm.runInContext(place,c);
+await c.place(2);assert.equal(c.bal,0);assert.equal(c.bets[2],1000);
+await c.place(2);assert.equal(c.bets[2],1000);
+c.bal=1000;c.wallet=async()=>false;await c.place(3);assert.equal(c.bal,1000);assert.equal(c.bets[3],0);
+c.walletBusy=true;await c.place(4);assert.equal(c.bets[4],0);
+c.walletBusy=false;c.last=[1000,0,0,0,0,0,0,0,0,0];c.auto=true;await c.applyLast();assert.equal(c.auto,false);assert.equal(c.bets[0],0);
+assert(!html.includes('bal+=100000'));assert(!html.includes("S.set('bal'"));
+console.log('PASS: game syntax, saved debit, insufficient balance, failed saves, pending save guard, auto-play failure, no free coin balance');

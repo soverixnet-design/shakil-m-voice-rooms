@@ -20,7 +20,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import { auth, db } from '../firebase';
-import { collection, doc, updateDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, updateDoc, onSnapshot, query, where, setDoc, deleteDoc } from 'firebase/firestore';
 import { VoiceRoom, UserProfile } from '../types';
 
 interface Props {
@@ -50,6 +50,7 @@ const GIFTS = [
 const REACTIONS = ['❤️', '👏', '😂', '🔥', '😍', '🎉'];
 
 const ROOM_GAMES = [
+  {id:'greedy_lion',name:'Greedy Lion',icon:'🦁',desc:'নতুন লায়ন গেম · একই ওয়ালেট',bg:'from-yellow-700 to-orange-950'},
   { id: 'lion_wheel', name: 'সিংহ ফুড হুইল', icon: '🦁', desc: 'সালাদ, পিজা ও ৩ডি হুইল', bg: 'from-amber-700 to-orange-900' },
   { id: 'night_wheel', name: 'নাইট ফুড হুইল', icon: '🌙', desc: 'রাতের চাকা ঘুরিয়ে কয়েন', bg: 'from-indigo-900 to-purple-950' },
   { id: 'jackpot_fruit', name: 'জ্যাকপট ফ্রুট', icon: '🍒', desc: 'ফল মিলিয়ে ৪০ গুণ পর্যন্ত', bg: 'from-pink-700 to-rose-900' },
@@ -71,7 +72,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   onOpenUsers,
 }) => {
   const seatCount = room.sc || (room.d ? 12 : 8);
-  const isCurrentUserHost = Boolean(room.host === user.name || (room.hostId && (room.hostId === user.id || room.hostId === user.uid)));
+  const isCurrentUserHost = Boolean(auth.currentUser && room.hostId === auth.currentUser.uid);
   
   const [seatedIndex, setSeatedIndex] = useState<number | null>(() => {
     return isCurrentUserHost ? 0 : null;
@@ -119,6 +120,13 @@ export const VoiceRoomView: React.FC<Props> = ({
     return onSnapshot(query(collection(db,'users'),where('currentRoomId','==',room.id)),snapshot=>{const members=snapshot.docs.map(d=>({...d.data(),uid:d.id})).filter((u:any)=>u.online&&!['banned','archived'].includes(u.status)&&Date.now()-(u.lastSeen?.toMillis?.()||0)<90000);if(!initial)for(const member of members)if(!seen.has(member.uid)&&member.uid!==auth.currentUser?.uid)setRoomEntry({...member,at:Date.now()});seen=new Set(members.map(m=>m.uid));initial=false;setLiveMembers(members)},()=>{});
   },[room.id]);
 
+  const [roomRoles,setRoomRoles]=useState<Record<string,any>>({}),[roomControls,setRoomControls]=useState<Record<string,any>>({}),[policyOpen,setPolicyOpen]=useState(false),[policyTarget,setPolicyTarget]=useState(''),[policyStatus,setPolicyStatus]=useState('');
+  const myUid=auth.currentUser?.uid||'';
+  const canModerate=isCurrentUserHost||roomRoles[myUid]?.role==='admin';
+  useEffect(()=>{if(!auth.currentUser)return;const a=onSnapshot(collection(db,'rooms',room.id,'roles'),v=>setRoomRoles(Object.fromEntries(v.docs.map(d=>[d.id,d.data()]))),()=>{});const b=onSnapshot(collection(db,'rooms',room.id,'controls'),v=>setRoomControls(Object.fromEntries(v.docs.map(d=>[d.id,d.data()]))),()=>{});return()=>{a();b()}},[room.id]);
+  useEffect(()=>{const c=roomControls[myUid];if(c?.muted)setIsMicOn(false);if(c?.blocked){onLeaveRoom()}},[roomControls,myUid]);
+  async function policyAction(action:string){if(!policyTarget)return;setPolicyStatus('সেভ হচ্ছে…');try{if(action==='admin')await setDoc(doc(db,'rooms',room.id,'roles',policyTarget),{role:'admin'});else if(action==='user')await deleteDoc(doc(db,'rooms',room.id,'roles',policyTarget));else await setDoc(doc(db,'rooms',room.id,'controls',policyTarget),{muted:action==='mute',blocked:action==='block'});setPolicyStatus('✅ সেভ হয়েছে')}catch{setPolicyStatus('সেভ হয়নি। অনুমতি ও নতুন রুম রুলস পরীক্ষা করুন।')}}
+
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -146,12 +154,13 @@ export const VoiceRoomView: React.FC<Props> = ({
       alert('মাইক চালু করতে আগে যেকোনো একটি সিটে বসুন!');
       return;
     }
+    if(roomControls[myUid]?.muted){setSeatError('রুম অ্যাডমিন আপনার মাইক বন্ধ রেখেছেন।');return;}
     setIsMicOn(prev => !prev);
   };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || roomControls[myUid]?.blocked) return;
     setChatMessages(prev => [
       ...prev,
       {
@@ -285,11 +294,11 @@ export const VoiceRoomView: React.FC<Props> = ({
       {/* Center Seats Grid (.sg3, .s3w, .s3, .nm3, .sc3) */}
       <div className="relative z-10 flex-1 overflow-y-auto px-2 py-2 flex flex-col justify-between">
         <RoomGiftFlights roomId={room.id} onGift={event=>{setRoomCoinTotal(p=>p+event.cost);setChatMessages(p=>[...p,{id:event.id,type:'gift',sender:event.senderName,text:`${event.senderName} → ${event.receiverName} (ID ${event.receiverPublicId}): ${event.quantity}টি ${event.giftName} · ${event.cost} কয়েন`}])}}/>
-        <p className="text-xs text-cyan-200">ইউজারের ছবি বা সিটে চাপ দিয়ে তাকে গিফট দিন।</p>
+        <p className="text-xs text-cyan-200">ছবি বা সিটে চাপ দিয়ে প্রোফাইল দেখুন ও গিফট দিন।</p>
         {seatError&&<p role="status">{seatError}</p>}
         {seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}
         {roomEntry&&mediaAssets.find(a=>a.id===roomEntry.customEntryId)&&<EntryMedia key={roomEntry.uid+roomEntry.at} image={mediaAssets.find(a=>a.id===roomEntry.customEntryId)!.image} name={roomEntry.name}/>}
-        <div className="flex gap-2 overflow-x-auto pb-3">{liveMembers.map(member=><button key={member.uid} className="gl p-2 shrink-0 text-center" onClick={()=>onOpenUsers(member.uid)}><span data-gift-uid={member.uid}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===member.customFrameId)?.image}/></span><b className="block">{member.name}</b><small className="block">ID {member.id} · 🟢 অনলাইন</small><small>🎁 {member.giftReceivedCount||0}টি · 🪙 {Number(member.giftReceivedCoins||0).toLocaleString()}</small></button>)}</div>
+        <div className="flex gap-2 overflow-x-auto pb-2">{liveMembers.filter(member=>!Number.isInteger(member.roomSeat)).map(member=><button key={member.uid} className="shrink-0 text-center" title={member.name} onClick={()=>onOpenUsers(member.uid)}><span data-gift-uid={member.uid}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===member.customFrameId)?.image}/></span><small className="block">{member.name}</small></button>)}</div>
         <div className="sg3" style={{ gridTemplateColumns: `repeat(${seatCount <= 8 ? 4 : 4}, 1fr)`, margin: 'auto 0' }}>
           {liveSeats.map((seat, idx) => {
             const isUserSeatedHere = seatedIndex === idx;
@@ -343,6 +352,7 @@ export const VoiceRoomView: React.FC<Props> = ({
 
       {/* Floating Action Buttons on Right (.fb) */}
       <div className="fb">
+        <button onClick={()=>setPolicyOpen(true)} title="রুমের নিয়ম ও অনুমতি">🛡️</button>
         <button onClick={() => setShowGameDrawer(true)} title="রুমের ভেতর গেমস">🎮</button>
         <button onClick={onOpenWallet} title="ওয়ালেট">👛</button>
         <button onClick={()=>onOpenUsers()} title="গিফট" style={{ animation: 'bounce 1.5s infinite' }}>🎁</button>
@@ -400,6 +410,7 @@ export const VoiceRoomView: React.FC<Props> = ({
         </div>
       )}
 
+      {policyOpen&&<div className="fixed inset-0 z-[75] bg-black/80 flex items-center justify-center p-4"><section className="bg-slate-950 border border-amber-400 rounded-2xl p-4 w-full max-w-md space-y-3"><button className="ib float-right" onClick={()=>setPolicyOpen(false)}>✕</button><h3>🛡️ রুমের নিয়ম ও অনুমতি</h3><p>মালিক: রুম পরিচালনা ও রুম অ্যাডমিন দেওয়া/সরানো।</p><p>রুম অ্যাডমিন: সাধারণ ইউজারের মাইক বন্ধ, রুম থেকে সরানো ও নিষেধাজ্ঞা তুলে নেওয়া।</p><p>ইউজার: নিজের সিট, মাইক, প্রোফাইল, গিফট ও গেম। রুম অ্যাডমিন কয়েন রিচার্জ বা অ্যাপ অ্যাডমিন দিতে পারেন না।</p>{canModerate&&<><select className="in w-full" value={policyTarget} onChange={e=>setPolicyTarget(e.target.value)}><option value="">রুমের ইউজার নির্বাচন করুন</option>{Object.keys(roomControls).filter(uid=>roomControls[uid].blocked&&!liveMembers.some(m=>m.uid===uid)).map(uid=><option key={uid} value={uid}>সরানো ইউজার · {uid}</option>)}{liveMembers.filter(m=>m.uid!==room.hostId&&(isCurrentUserHost||roomRoles[m.uid]?.role!=='admin')).map(m=><option key={m.uid} value={m.uid}>{m.name} · ID {m.id}</option>)}</select><div className="flex flex-wrap gap-2">{isCurrentUserHost&&<><button className="b" onClick={()=>policyAction('admin')}>রুম অ্যাডমিন দিন</button><button className="b" onClick={()=>policyAction('user')}>অ্যাডমিন সরান</button></>}<button className="b" onClick={()=>policyAction('mute')}>মাইক বন্ধ</button><button className="b" onClick={()=>policyAction('block')}>রুম থেকে সরান</button><button className="b" onClick={()=>policyAction('clear')}>মাইক / প্রবেশ চালু</button></div><label>সরানো ইউজারের Firebase UID<input className="in w-full" value={policyTarget} onChange={e=>setPolicyTarget(e.target.value)}/></label><p role="status">{policyStatus}</p></>}</section></div>}
       {/* In-Room Game Drawer Modal */}
       {showGameDrawer && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-end justify-center p-0">
