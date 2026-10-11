@@ -352,7 +352,6 @@ export const VoiceRoomView: React.FC<Props> = ({
 
       {/* Floating Action Buttons on Right (.fb) */}
       <div className="fb">
-        <button onClick={()=>setPolicyOpen(true)} title="রুমের নিয়ম ও অনুমতি">🛡️</button>
         <button onClick={() => setShowGameDrawer(true)} title="রুমের ভেতর গেমস">🎮</button>
         <button onClick={onOpenWallet} title="ওয়ালেট">👛</button>
         <button onClick={()=>onOpenUsers()} title="গিফট" style={{ animation: 'bounce 1.5s infinite' }}>🎁</button>
