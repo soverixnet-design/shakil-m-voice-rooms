@@ -1,3 +1,4 @@
+import {useMediaAssets,MediaAvatar,EntryMedia} from './MediaAssets';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Volume2, 
@@ -108,10 +109,13 @@ export const VoiceRoomView: React.FC<Props> = ({
     return arr;
   });
 
+  const mediaAssets=useMediaAssets();
+  const [roomEntry,setRoomEntry]=useState<any>(null);
   const [liveMembers,setLiveMembers] = useState<any[]>([]);
   useEffect(()=>{
     if(!auth.currentUser)return;
-    return onSnapshot(query(collection(db,'users'),where('currentRoomId','==',room.id)),snapshot=>setLiveMembers(snapshot.docs.map(d=>({...d.data(),uid:d.id})).filter((u:any)=>u.online&&Date.now()-(u.lastSeen?.toMillis?.()||0)<90000)),()=>{});
+    let initial=true;let seen=new Set<string>();setRoomEntry(null);
+    return onSnapshot(query(collection(db,'users'),where('currentRoomId','==',room.id)),snapshot=>{const members=snapshot.docs.map(d=>({...d.data(),uid:d.id})).filter((u:any)=>u.online&&!['banned','archived'].includes(u.status)&&Date.now()-(u.lastSeen?.toMillis?.()||0)<90000);if(!initial)for(const member of members)if(!seen.has(member.uid)&&member.uid!==auth.currentUser?.uid)setRoomEntry({...member,at:Date.now()});seen=new Set(members.map(m=>m.uid));initial=false;setLiveMembers(members)},()=>{});
   },[room.id]);
 
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -287,7 +291,8 @@ export const VoiceRoomView: React.FC<Props> = ({
 
       {/* Center Seats Grid (.sg3, .s3w, .s3, .nm3, .sc3) */}
       <div className="relative z-10 flex-1 overflow-y-auto px-2 py-2 flex flex-col justify-between">
-        <div className="flex gap-2 overflow-x-auto pb-3">{liveMembers.map(member=><button key={member.uid} className="gl p-2 shrink-0 text-center" onClick={onOpenUsers}><span className="text-2xl">{member.avatar||'👤'}</span><b className="block">{member.name}</b><small className="block">ID {member.id} · 🟢 অনলাইন</small><small>🎁 {member.giftReceivedCount||0}টি · 🪙 {Number(member.giftReceivedCoins||0).toLocaleString()}</small></button>)}</div>
+        {roomEntry&&mediaAssets.find(a=>a.id===roomEntry.customEntryId)&&<EntryMedia key={roomEntry.uid+roomEntry.at} image={mediaAssets.find(a=>a.id===roomEntry.customEntryId)!.image} name={roomEntry.name}/>}
+        <div className="flex gap-2 overflow-x-auto pb-3">{liveMembers.map(member=><button key={member.uid} className="gl p-2 shrink-0 text-center" onClick={onOpenUsers}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===member.customFrameId)?.image}/><b className="block">{member.name}</b><small className="block">ID {member.id} · 🟢 অনলাইন</small><small>🎁 {member.giftReceivedCount||0}টি · 🪙 {Number(member.giftReceivedCoins||0).toLocaleString()}</small></button>)}</div>
         <div className="sg3" style={{ gridTemplateColumns: `repeat(${seatCount <= 8 ? 4 : 4}, 1fr)`, margin: 'auto 0' }}>
           {seats.map((seat, idx) => {
             const isUserSeatedHere = seatedIndex === idx;

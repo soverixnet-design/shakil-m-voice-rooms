@@ -11,6 +11,8 @@ import {
   setDoc,
   updateDoc
 } from './firebase';
+import {SellerWallet,SupportChat,Notices,useAccess} from './components/AdminExtensions';
+import {AssetShop,EntryMedia,useMediaAssets} from './components/MediaAssets';
 import { UserDirectory } from './components/UserDirectory';
 import { UploadedDesign } from './components/UploadedDesign';
 import { collection, query, where, getDocs, runTransaction, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -334,6 +336,10 @@ export default function App() {
   const wl = Math.floor(1 + Math.sqrt((S.spent || 0) / 1000));
 
   // Only the verified Firebase owner account can access administration.
+  const delegatedAccess=useAccess(fbUser);
+  const mediaAssets=useMediaAssets();
+  const customFrame=mediaAssets.find(a=>a.id===S.customFrameId&&a.kind==='frame');
+  const customEntry=mediaAssets.find(a=>a.id===S.customEntryId&&a.kind==='entry');
   const isSuperAdmin = Boolean(
     fbUser?.emailVerified && fbUser?.email &&
     ADMIN_EMAILS.includes(fbUser.email.toLowerCase())
@@ -427,9 +433,10 @@ export default function App() {
     return onSnapshot(doc(db, 'users', fbUser.uid), snapshot => {
       if (!snapshot.exists()) return;
       const data = snapshot.data();
+      if(['banned','archived'].includes(data.status)){setToastText('আপনার অ্যাকাউন্ট ব্লক করা হয়েছে।');void signOut(auth);localStorage.removeItem('sv_auth_session');setIsAuthenticated(false);setActiveRoom(null);setActiveGame(null);return;}
       if (data.id) setS((prev: any) => ({...prev, id: String(data.id), uid: fbUser.uid }));
       if (data.giftSentCount !== undefined) setS((prev:any)=>({...prev,giftSentCount:data.giftSentCount,giftSentCoins:data.giftSentCoins,gifts:{...prev.gifts,sent:data.giftSentCoins||0}}));
-      for(const field of ['name','svip','badge']) if(data[field]!==undefined)setS((prev:any)=>({...prev,[field]:data[field]}));
+      for(const field of ['name','svip','badge','customFrameId','customEntryId']) if(data[field]!==undefined)setS((prev:any)=>({...prev,[field]:data[field]}));
       const coins = data.coins;
       if (Number.isSafeInteger(coins) && coins >= 0) setS((prev: any) => ({ ...prev, coins }));
     }, () => setToastText('লাইভ ব্যালেন্স লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
@@ -611,16 +618,20 @@ export default function App() {
 
   return (
     <div id="app">
+      {activePage==='seller'&&<SellerWallet user={fbUser} onClose={()=>setActivePage(null)}/>}
+      {activePage==='support_chat'&&<SupportChat user={fbUser} onClose={()=>setActivePage(null)}/>}
+      {activePage==='notices'&&<Notices onClose={()=>setActivePage(null)}/>}
+      {activeRoom&&customEntry&&<EntryMedia key={activeRoom.id+customEntry.id} image={customEntry.image} name={S.name}/>}
       {showUserDirectory && <UserDirectory roomId={activeRoom?.id} onClose={()=>setShowUserDirectory(false)} onJoin={room=>{setActiveRoom(room);setIsRoomMinimized(false);setShowUserDirectory(false)}} />}
-      {incomingGift && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · মূল্য 🪙 {incomingGift.cost}</p></div>}
+      {incomingGift && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.giftImage?<img src={incomingGift.giftImage} alt={incomingGift.giftName} className="w-24 h-24 object-contain"/>:incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · মূল্য 🪙 {incomingGift.cost}</p></div>}
 
-      {isAuthenticated && <UploadedDesign state={S} admin={isSuperAdmin}
+      {isAuthenticated && <UploadedDesign state={{...S,customFrameImage:customFrame?.image,mediaBanners:mediaAssets.filter(a=>a.kind==='banner'),sellerEnabled:Boolean(delegatedAccess?.active&&delegatedAccess.permissions?.seller)}} admin={isSuperAdmin}
         visible={!activePage && !activeRoom && !activeGame && tab === 'home' && !showCreateRoomModal && !splashVisible}
         onAction={(action, value) => {
           if (action === 'users') setShowUserDirectory(true);
           if (action === 'logout') handleLogout();
           if (action === 'admin' && isSuperAdmin) setActivePage('admin');
-          if (action === 'page' && ['edit_profile','hist','frames','entries','svip','tasks','invite','store','items'].includes(value || '')) setActivePage(value!);
+          if (action === 'page' && ['edit_profile','hist','frames','entries','svip','tasks','invite','store','items','seller','support_chat','notices'].includes(value || '')) setActivePage(value!);
           if (action === 'nav' && ['wallet','msg','moments'].includes(value || '')) setTab(value as any);
           if (action === 'create-room') setShowCreateRoomModal(true);
           if (action === 'checkin') handleCheckin();
@@ -1475,13 +1486,13 @@ export default function App() {
             <div className="row" style={{ padding: '14px 0 8px' }}>
               <b style={{ fontSize: '23px' }}>Message</b>
             </div>
-            <div className="gl rr" onClick={() => toast('সাপোর্ট টিম শীঘ্রই উত্তর দেবে')}>
+            <div className="gl rr" onClick={() => setActivePage('support_chat')}>
               <div className="c" style={{ background: GR[1] }}>
                 🎧
               </div>
               <div className="sp">
                 <b>কাস্টমার সার্ভিস</b>
-                <div className="sm">🟢 অনলাইন · সমস্যা জানান, ছবিও পাঠাতে পারবেন</div>
+                <div className="sm">আপনার সমস্যা জানান, ছবিও পাঠাতে পারবেন</div>
               </div>
             </div>
             <div className="gl rr">
@@ -1489,7 +1500,7 @@ export default function App() {
                 📢
               </div>
               <div className="sp">
-                <b>অফিশিয়াল নোটিশ</b>
+                <b onClick={()=>setActivePage('notices')} style={{cursor:'pointer'}}>অফিশিয়াল নোটিশ — খুলুন ›</b>
                 <div className="sm">{S.bn.t}</div>
               </div>
             </div>
@@ -1675,6 +1686,7 @@ export default function App() {
                     ['🖼️', 'ফ্রেম (Avatar Frames)', 'frames'],
                     ['🚪', 'এন্ট্রি অ্যানিমেশন (Room Entry)', 'entries'],
                     ['🧾', 'লেনদেন খতিয়ান (Transactions)', 'hist'],
+                    ...(delegatedAccess?.active&&delegatedAccess.permissions?.seller?[['🪙','সেলার কয়েন ট্রান্সফার','seller']]:[]),
                   ].map(r => (
                     <div key={r[2]} className="lr" onClick={() => setActivePage(r[2])}>
                       <span style={{ fontSize: '22px' }}>{r[0]}</span>
@@ -1797,6 +1809,7 @@ export default function App() {
             {/* SUBPAGE: FRAMES (All 18 frames) */}
             {activePage === 'frames' && (
               <>
+                <AssetShop kind="frame" user={fbUser} items={mediaAssets}/>
                 <p className="sm" style={{ margin: '8px 0' }}>
                   প্রোফাইল ছবির ফ্রেম। "বিশেষ" ফ্রেম শুধু অ্যাডমিন থেকে পাওয়া যায়।
                 </p>
@@ -1840,6 +1853,7 @@ export default function App() {
             {/* SUBPAGE: ENTRIES (All 15 entries with Live Preview) */}
             {activePage === 'entries' && (
               <>
+                <AssetShop kind="entry" user={fbUser} items={mediaAssets}/>
                 <p className="sm" style={{ margin: '8px 0' }}>
                   রুমে ঢোকার সময় আপনার বিশেষ এন্ট্রি অ্যানিমেশন চলবে। "বিশেষ" এন্ট্রি শুধু অ্যাডমিন থেকে পাওয়া যায়।
                 </p>

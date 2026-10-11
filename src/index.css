@@ -1107,3 +1107,8 @@ h3 {
 
 @keyframes giftArrival {0%{transform:translateY(110px) scale(.3);opacity:0}25%{opacity:1}80%{transform:translateY(0) scale(1.4);opacity:1}100%{transform:translateY(0) scale(.3);opacity:0}}
 .gift-arrival{animation:giftArrival 1.8s ease-in-out 2;pointer-events:none}
+@keyframes mediaFrameTilt {0%,100%{transform:perspective(500px) rotateY(-9deg) rotateX(3deg)}50%{transform:perspective(500px) rotateY(9deg) rotateX(-3deg)}}
+.media-frame{animation:mediaFrameTilt 4s ease-in-out infinite;filter:drop-shadow(0 5px 10px #19e6c160)}
+@keyframes mediaEntryIn {0%{opacity:0;transform:scale(.3) translateY(30vh)}25%,80%{opacity:1;transform:scale(1) translateY(0)}100%{opacity:0;transform:scale(1.1) translateY(-10vh)}}
+.media-entry{animation:mediaEntryIn 3.5s ease-in-out forwards}
+@media(prefers-reduced-motion:reduce){.media-frame,.media-entry{animation:none}}

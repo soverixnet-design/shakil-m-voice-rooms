@@ -258,7 +258,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   // 5. TOGGLE ADMIN ROLE
-  const handleToggleUserRole = () => { onToast('অ্যাডমিন অনুমতি শুধুই অনুমোদিত মালিকের জন্য।'); };
+  const handleToggleUserRole = () => { onToast('সীমিত অনুমতি দিতে কনটেন্ট / সাপোর্ট / অনুমতি → অ্যাডমিন / সেলার খুলুন।'); };
 
   // 6. CYCLE SVIP LEVEL
   const handleCycleSvip = async (target: any) => {

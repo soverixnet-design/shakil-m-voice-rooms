@@ -6,7 +6,7 @@ export const UploadedDesign: React.FC<Props> = props => {
   const send = () => {
     const s = latest.current.state;
     const escape = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
-    const state = { ...s, svip: Math.min(3, Math.max(0, Number(s.svip) || 0)), name: escape(s.name), bio: escape(s.bio),
+    const state = { ...s, svip: Math.min(3, Math.max(0, Number(s.svip) || 0)), name: escape(s.name), bio: escape(s.bio),bn:{...s.bn,t:escape(s.bn?.t)},
       rooms: (s.rooms || []).map((r: any) => ({...r, name: escape(r.name), host: escape(r.host), ann: escape(r.ann)})) };
     frame.current?.contentWindow?.postMessage({type:'design-state', state, admin:latest.current.admin}, window.location.origin);
   };
