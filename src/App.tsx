@@ -572,6 +572,7 @@ export default function App() {
       {isAuthenticated && <UploadedDesign state={S} admin={isSuperAdmin}
         visible={!activePage && !activeRoom && !activeGame && tab === 'home' && !showCreateRoomModal && !splashVisible}
         onAction={(action, value) => {
+          if (action === 'logout') handleLogout();
           if (action === 'admin' && isSuperAdmin) setActivePage('admin');
           if (action === 'page' && ['edit_profile','hist','frames','entries','svip','tasks','invite','store','items'].includes(value || '')) setActivePage(value!);
           if (action === 'nav' && ['wallet','msg','moments'].includes(value || '')) setTab(value as any);

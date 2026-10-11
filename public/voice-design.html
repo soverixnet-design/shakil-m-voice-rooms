@@ -362,7 +362,7 @@ try{const q=new URLSearchParams(location.search).get('ref');if(q)window.__ref=q.
 
 </script><script>
 // Firebase, wallet changes and administration remain owned by the parent application.
-const hostOrigin=location.origin;
+const hostOrigin=location.origin;let hostAdmin=false;
 function hostSend(action,value){if(parent!==window)parent.postMessage({type:'design-action',action,value},hostOrigin)}
 coin=()=>toast('অ্যাকাউন্টের ওয়ালেট থেকে এই কাজটি করুন।');
 showReg=()=>{};
@@ -389,13 +389,14 @@ $('#cn').onclick=pWallet;
 ['wallet','msg','moments'].forEach(t=>{const b=$(`#nav [data-t="${t}"]`);if(b)b.onclick=()=>hostSend('nav',t)});
 addEventListener('message',e=>{
  if(e.source!==parent||e.origin!==hostOrigin||e.data?.type!=='design-state')return;
- const d=e.data;S=Object.assign(def(),d.state);S.reg=true;S.bn={g:0,...S.bn};
+ const d=e.data;hostAdmin=Boolean(d.admin);S=Object.assign(def(),d.state);S.reg=true;S.bn={g:0,...S.bn};
  $('#adm').style.display=d.admin?'':'none';
  hdr();
  if(!$('#pg')?.classList.contains('on'))render();
  else if($('#pg').dataset.profile==='on')profile3();
 });
-const oldProfile=profile3;profile3=function(){oldProfile();$('#pg').dataset.profile='on'};
+const oldProfile=profile3;profile3=function(){oldProfile();$('[data-a=admin]').forEach(e=>e.style.display=hostAdmin?'':'none');$('#pg').dataset.profile='on'};
 const oldClose=closePage;closePage=function(){delete $('#pg').dataset.profile;oldClose()};
+document.addEventListener('click',e=>{if(e.target.closest('[data-a=logout]')){e.preventDefault();e.stopImmediatePropagation();hostSend('logout')}},true);
 parent.postMessage({type:'design-ready'},hostOrigin);
 </script></body></html>
