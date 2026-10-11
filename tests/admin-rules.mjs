@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {giftFlightOffset} from '../src/lib/giftFlight.ts';
+import {deliverSelectedGifts} from '../src/lib/giftBatch.ts';
 import {sendDirectGift} from '../src/lib/gifts.ts';
 import {initializeTestEnvironment,assertSucceeds,assertFails} from '@firebase/rules-unit-testing';
 import {doc,setDoc,getDoc,updateDoc,deleteDoc,runTransaction,serverTimestamp} from 'firebase/firestore';
@@ -62,5 +63,13 @@ try{
  await assertSucceeds(updateDoc(doc(other,'users','other'),{currentRoomId:'policy-room',roomSeat:1}));
  await assertSucceeds(deleteDoc(doc(recipient,'rooms','policy-room','roles','seller')));
  await assertFails(setDoc(doc(seller,'rooms','policy-room','controls','other'),{muted:true,blocked:true}));
+ await seed();
+ const group=await deliverSelectedGifts(['other','recipient','other','seller'],uid=>sendDirectGift(other,{senderId:'other',receiverId:uid,roomId:'gift-room',item:{name:'Rose',emoji:'🌹',cost:5},quantity:2}));
+ assert.equal(group.delivered.length,3);assert.equal(group.remaining.length,0);assert.equal((await getDoc(doc(other,'users','other'))).data().coins,70);
+ assert.deepEqual(group.delivered.map(e=>e.receiverId),['other','recipient','seller']);
+ await seed();let calls=[];
+ const partial=await deliverSelectedGifts(['recipient','seller','other'],async uid=>{calls.push(uid);if(uid==='seller')throw Error('Connection interrupted');return sendDirectGift(other,{senderId:'other',receiverId:uid,roomId:'gift-room',item:{name:'Rose',emoji:'🌹',cost:5},quantity:2})});
+ assert.equal(partial.delivered.length,1);assert.deepEqual(partial.remaining,['seller','other']);assert.deepEqual(calls,['recipient','seller']);assert.equal((await getDoc(doc(other,'users','other'))).data().coins,90);
+ const retry=await deliverSelectedGifts(partial.remaining,uid=>sendDirectGift(other,{senderId:'other',receiverId:uid,roomId:'gift-room',item:{name:'Rose',emoji:'🌹',cost:5},quantity:2}));assert.equal(retry.delivered.length,2);assert.equal((await getDoc(doc(other,'users','other'))).data().coins,70);
  console.log('PASS: seller conservation, replay/overspend/revocation, scoped permissions, block enforcement, support privacy immutable receipts, directed room gifts, and self gifts');
 }finally{await env.cleanup()}
