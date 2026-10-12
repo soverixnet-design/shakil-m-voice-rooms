@@ -1,0 +1,3 @@
+import React,{useEffect,useState} from 'react';
+import {MediaAvatar} from './MediaAssets';
+export function RoomWelcome({name,avatar,roomName}:{name:string;avatar?:string;roomName?:string}){const [visible,setVisible]=useState(true);useEffect(()=>{setVisible(true);const timer=setTimeout(()=>setVisible(false),3200);return()=>clearTimeout(timer)},[name,roomName]);return visible?<div className="room-welcome" role="status"><div className="room-welcome-card"><span>✨</span><MediaAvatar avatar={avatar} size={58}/><div><b data-no-translate="true">{name}</b><p>Joined the room</p>{roomName&&<small data-no-translate="true">{roomName}</small>}</div><span>👑</span></div></div>:null}

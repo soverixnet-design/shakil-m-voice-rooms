@@ -1,3 +1,5 @@
+import {AuthScreen} from './components/AuthScreen';
+import {RoomWelcome} from './components/RoomWelcome';
 import {galleryPhoto} from './lib/profilePhoto';
 import {ProfilePhotoEditor} from './components/ProfilePhotoEditor';
 import {confirmedCoins,safeSiteSettings} from './lib/walletState';
@@ -176,9 +178,7 @@ const DEFAULT_USER_LIST = [
 ];
 
 const DEFAULT_CUSTOM_GIFTS = [
-  { id: 'g1', name: 'হার্ট', icon: '❤️', price: 1, type: 'love' },
-  { id: 'g2', name: 'গোলাপ', icon: '🌹', price: 10, type: 'romantic' },
-  { id: 'g3', name: 'স্টার', icon: '⭐', price: 250, type: 'popular' },
+  { id: 'g1', name: 'হার্ট', icon: '❤️', price: 1'স্টার', icon: '⭐', price: 250, type: 'popular' },
   { id: 'g4', name: 'লাভ রিং', icon: '💍', price: 750, type: 'romantic' },
   { id: 'g5', name: 'ডায়মন্ড', icon: '💎', price: 1100, type: 'luxury' },
   { id: 'g6', name: 'VIP কার', icon: '🚗', price: 2000, type: 'luxury' },
@@ -302,21 +302,8 @@ export default function App() {
   const [editCountry, setEditCountry] = useState('');
   
   // Mandatory Login Gate: অ্যাপসে লগইন ছাড়া কোনোভাবেই প্রবেশ করা যাবে না
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    try {
-      const session = localStorage.getItem('sv_auth_session');
-      if (!session) return false;
-      const parsed = JSON.parse(session);
-      if (parsed.pin || parsed.role === 'admin') {
-        localStorage.removeItem('sv_auth_session');
-        return false;
-      }
-      return parsed.role === 'user';
-    } catch {
-      return false;
-    }
-  });
-
+  const [isAuthenticated,setIsAuthenticated]=useState(false);
+  const [authChecking,setAuthChecking]=useState(true),[authError,setAuthError]=useState(''),[authRetry,setAuthRetry]=useState(0);
   const [loginTab, setLoginTab] = useState<'google' | 'user'>('google');
   const [loginUserName, setLoginUserName] = useState<string>('');
   const [loginUserPhone, setLoginUserPhone] = useState<string>('');
@@ -395,54 +382,26 @@ export default function App() {
     throw new Error('Could not allocate user ID');
   };
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      setFbUser(u);
-      if (u) {
-        setIsAuthenticated(true);
-        const isOwnerEmail = Boolean(u.emailVerified && u.email && ADMIN_EMAILS.includes(u.email.toLowerCase()));
-        setS((prev: any) => ({ ...prev, role: isOwnerEmail ? 'admin' : 'user' }));
-        try {
-          const userDoc = await getDoc(doc(db, 'users', u.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            const publicId = data.id ? String(data.id) : await makePublicId();
-            await updateDoc(doc(db, 'users', u.uid), { id: publicId, online:true, lastSeen:serverTimestamp() });
-            setS((prev: any) => ({
-              ...prev,
-              id: publicId, uid: u.uid,
-              name: data.name || u.displayName || prev.name,
-              img: data.photoURL || u.photoURL || prev.img,
-              // The live server snapshot owns the wallet balance.
-              role: isOwnerEmail ? 'admin' : 'user',
-            }));
-          } else {
-            const publicId = await makePublicId();
-            setS((prev: any) => ({ ...prev, id: publicId, uid: u.uid }));
-            await setDoc(doc(db, 'users', u.uid), {
-              id: publicId, online:true, lastSeen:serverTimestamp(),
-              userId: u.uid,
-              name: u.displayName || S.name,
-              email: u.email,
-              avatar: S.av,
-              coins: Number.isSafeInteger(S.coins) ? Math.min(50000, Math.max(0, S.coins)) : 5500,
-              role: isOwnerEmail ? 'admin' : 'user',
-              createdAt: new Date().toISOString(),
-            });
-          }
-          localStorage.setItem('sv_auth_session', JSON.stringify({
-            uid: u.uid,
-            name: u.displayName || S.name,
-            email: u.email,
-            role: isOwnerEmail ? 'admin' : 'user',
-          }));
-        } catch (e) {
-          console.warn('Firebase user sync:', e);
-        }
-      }
-    });
-    return () => unsub();
-  }, []);
+  useEffect(()=>{let current=true;const unsub=onAuthStateChanged(auth,async u=>{
+    setIsAuthenticated(false);setFbUser(null);setAuthChecking(true);setAuthError('');
+    if(!u){localStorage.removeItem('sv_auth_session');setAuthChecking(false);setActiveRoom(null);setActiveGame(null);return;}
+    try{
+      const ref=doc(db,'users',u.uid),snapshot=await getDoc(ref);
+      if(!current||auth.currentUser?.uid!==u.uid)return;
+      const data=snapshot.data()||{};
+      if(['banned','archived'].includes(data.status)){await signOut(auth);throw Error('blocked-account')}
+      const isOwner=Boolean(u.emailVerified&&u.email&&ADMIN_EMAILS.includes(u.email.toLowerCase()));
+      const publicId=data.id?String(data.id):await makePublicId();
+      const name=('@')[0]||'User';
+      if(snapshot.exists())await updateDoc(ref,{...(data.id?{}:{id:publicId}),online:true,currentRoomId:null,roomSeat:null,lastSeen:serverTimestamp()});
+      else await setDoc(ref,{id:publicId,userId:u.uid,name,email:u.email||'',avatar:'👤',photoURL:u.photoURL||'',coins:50000,role:isOwner?'admin':'user',status:'active',currentRoomId:null,roomSeat:null,online:true,lastSeen:serverTimestamp(),createdAt:serverTimestamp()});
+      if(!current||auth.currentUser?.uid!==u.uid)return;
+      setS((prev:any)=>({...prev,id:publicId,uid:u.uid,name,img:data.photoURL||u.photoURL||'',role:isOwner?'admin':'user',coins:0}));
+      setFbUser(u);setIsAuthenticated(true);
+      localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
+    }catch(e:any){if(current)setAuthError(e.message==='blocked-account'?'This account is blocked.':`Account setup failed (${e.code||e.message||'connection-error'}). Check Firebase rules and retry.`)}
+    finally{if(current)setAuthChecking(false)}
+  });return()=>{current=false;unsub()}},[authRetry]);
 
   useEffect(() => {
     if (!fbUser?.uid) return;
@@ -532,48 +491,6 @@ export default function App() {
     return task;
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      const res = await signInWithPopup(auth, googleProvider);
-      const isOwnerEmail = Boolean(res.user.emailVerified && res.user.email && ADMIN_EMAILS.includes(res.user.email.toLowerCase()));
-      setS((prev: any) => ({ ...prev, role: isOwnerEmail ? 'admin' : 'user' }));
-      setIsAuthenticated(true);
-      localStorage.setItem('sv_auth_session', JSON.stringify({
-        uid: res.user.uid,
-        name: res.user.displayName || 'ইউজার',
-        email: res.user.email,
-        role: isOwnerEmail ? 'admin' : 'user',
-      }));
-      toast(`স্বাগতম, ${res.user.displayName || 'ইউজার'}! গুগল লগইন সফল 🎉`);
-    } catch (e) {
-      toast('গুগল লগইন সম্পন্ন হয়নি (পপ-আপ বন্ধ বা এরর)');
-    }
-  };
-
-  // User Quick Login with Name & Phone/ID
-  const handleUserQuickLogin = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const name = loginUserName.trim() || 'ইউজার';
-    const id = loginUserPhone.replace(/\D/g, '').slice(-6) || String(100000 + Math.floor(Math.random() * 899999));
-    setS((prev: any) => ({
-      ...prev,
-      name,
-      id,
-      av: loginUserAvatar,
-      role: 'user',
-    }));
-    signOut(auth).catch(() => {});
-    setFbUser(null);
-    setIsAuthenticated(true);
-    localStorage.setItem('sv_auth_session', JSON.stringify({
-      name,
-      id,
-      av: loginUserAvatar,
-      role: 'user',
-    }));
-    toast(`🎉 স্বাগতম ${name}! অ্যাপসে প্রবেশ সফল।`);
-  };
-
   // Logout Handler - অ্যাপ থেকে বের হলে পুনরায় লগইন না করে ঢোকা যাবে না
   const handleLogout = () => {
     try {
@@ -637,6 +554,9 @@ export default function App() {
   const inviteLink = () => `https://shakilm.app/?ref=SM${S.id}`;
   const invText = () => `🎙️ Shakil M Voice Rooms-এ আমার সাথে যোগ দিন! সাইন-আপের সময় আমার ইনভাইট কোড দিন: SM${S.id}\n${inviteLink()}`;
 
+  async function enterRoom(candidate:any){if(!fbUser?.uid)return;try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await updateDoc(doc(db,'users',fbUser.uid),{currentRoomId:room.id,roomSeat:null,online:true,lastSeen:serverTimestamp()});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}}
+  if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} onRetry={()=>setAuthRetry(n=>/>;
+
   return (
     <div id="app">
       {fbUser&&(!activeRoom||isRoomMinimized)&&!activeGame&&lobbyScreen!=='rooms'&&<div style={{position:'fixed',top:72,left:8,right:8,zIndex:45,pointerEvents:'none'}}><GameWinFeed/></div>}
@@ -644,16 +564,16 @@ export default function App() {
       {activePage==='seller'&&<SellerWallet user={fbUser} onClose={()=>setActivePage(null)}/>}
       {activePage==='support_chat'&&<SupportChat user={fbUser} onClose={()=>setActivePage(null)}/>}
       {activePage==='notices'&&<Notices onClose={()=>setActivePage(null)}/>}
-      {activeRoom&&customEntry&&<EntryMedia key={activeRoom.id+customEntry.id} image={customEntry.image} name={S.name}/>}
-      {showUserDirectory && <UserDirectory initialRecipient={giftRecipient} onGiftSent={event=>{setShowUserDirectory(false);toast(`✅ ID ${event.receiverPublicId}-তে ${event.quantity}টি ${event.giftName} পাঠানো হয়েছে। বাকি ${event.balance} কয়েন।`)}} roomId={activeRoom?.id} onClose={()=>setShowUserDirectory(false)} onJoin={room=>{setActiveRoom(room);setIsRoomMinimized(false);setShowUserDirectory(false)}} />}
+      {activeRoom&&(customEntry?<EntryMedia key={activeRoom.id+customEntry.id} image={customEntry.image} name={S.name}/>:<RoomWelcome key={activeRoom.id} name={S.name} avatar={S.img||S.av} roomName={activeRoom.name}/>)}
+      {showUserDirectory && <UserDirectory initialRecipient={giftRecipient} onGiftSent={event=>{setShowUserDirectory(false);toast(`✅ ID ${event.receiverPublicId}-তে ${event.quantity}টি ${event.giftName} পাঠানো হয়েছে। বাকি ${event.balance} কয়েন।`)}} roomId={activeRoom?.id} onClose={()=>setShowUserDirectory(false)} onJoin={room=>{void enterRoom(room);setShowUserDirectory(false)}} />}
       {incomingGift && (!activeRoom||isRoomMinimized||incomingGift.roomId!==activeRoom.id) && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.giftImage?<img src={incomingGift.giftImage} alt={incomingGift.giftName} className="w-24 h-24 object-contain"/>:incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · 💎 {incomingGift.cost} ডায়মন্ড যোগ হয়েছে</p></div>}
 
       {isAuthenticated&&!activePage&&(!activeRoom||isRoomMinimized)&&(!activeGame||isGameMinimized)&&!showCreateRoomModal&&!splashVisible&&<ReferenceLobby state={S} screen={lobbyScreen} roomLibrary={roomLibrary} myRoom={S.rooms.find((r:any)=>r.hostId===fbUser?.uid)} media={mediaAssets} admin={isSuperAdmin} seller={Boolean(delegatedAccess?.active&&delegatedAccess.permissions?.seller)} onScreen={screen=>{const next=screen==='wallet'?'wallet':screen==='messages'?'msg':screen==='games'?'explore':screen==='moments'?'moments':'home';if(tab!==next)lobbyNavigation.current=true;setTab(next);setLobbyScreen(screen)}} onAction={(action,value)=>{
         if(action==='users'){setGiftRecipient(undefined);setShowUserDirectory(true)}
         if(action==='logout')handleLogout();
         if(action==='page'&&value){if(value==='admin'&&!isSuperAdmin)return;setActivePage(value)}
-        if(action==='create-room'){const own=S.rooms.find((r:any)=>r.hostId===fbUser?.uid);if(own)setPendingRoom(own);else setShowCreateRoomModal(true)}
-        if(action==='room'){const room=S.rooms.find((r:any)=>String(r.id)===value);if(room)setPendingRoom(room)}
+        if(action==='create-room'){const own=S.rooms.find((r:any)=>r.hostId===fbUser?.uid);if(own)void enterRoom(own);else setShowCreateRoomModal(true)}
+        if(action==='room'){const room=S.rooms.find((r:any)=>String(r.id)===value);if(room)void enterRoom(room)}
         if(action==='game'&&['greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots'].includes(value||'')){setActiveGame(value!);setIsGameMinimized(false)}
         if(action==='recharge'){const pkg=S.pk[Number(value)];if(pkg)setSelectedRechargePackage(pkg)}
       }}/>} 
@@ -675,271 +595,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 2. Mandatory Login Gate (লগইন ছাড়া অ্যাপসে ঢোকা সম্পূর্ণ নিষেধ) */}
-      {!isAuthenticated && !splashVisible ? (
-        <div
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            padding: '24px 16px 40px',
-            background: 'linear-gradient(180deg, #100626 0%, #1c0a38 50%, #0d041a 100%)',
-            zIndex: 40,
-            width: '100%'
-          }}
-        >
-          {/* Brand Header */}
-          <div style={{ textAlign: 'center', marginTop: '12px', marginBottom: '20px' }}>
-            <div
-              style={{
-                width: '74px',
-                height: '74px',
-                borderRadius: '24px',
-                background: 'linear-gradient(135deg, #f59e0b, #ec4899, #8b5cf6)',
-                margin: '0 auto 12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '36px',
-                boxShadow: '0 10px 25px rgba(236, 72, 153, 0.35)',
-                border: '2px solid rgba(255, 255, 255, 0.2)'
-              }}
-            >
-              🎙️
-            </div>
-            <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#fff', letterSpacing: '0.5px', margin: 0 }}>
-              Shakil M Voice Rooms
-            </h1>
-            <p style={{ fontSize: '12px', color: '#cbd5e1', marginTop: '4px', marginBottom: '8px' }}>
-              লাইভ ভয়েস রুম, পার্টি ও আড্ডার প্রিমিয়াম প্ল্যাটফর্ম
-            </p>
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
-                borderRadius: '999px',
-                padding: '4px 12px',
-                fontSize: '11px',
-                color: '#fca5a5',
-                fontWeight: 700
-              }}
-            >
-              <span>🔒 অ্যাপসে প্রবেশের জন্য লগইন আবশ্যক</span>
-            </div>
-          </div>
-
-          {/* Login Tabs */}
-          <div
-            style={{
-              display: 'flex',
-              width: '100%',
-              maxWidth: '380px',
-              background: 'rgba(255, 255, 255, 0.06)',
-              borderRadius: '16px',
-              padding: '4px',
-              marginBottom: '16px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
-            }}
-          >
-            <button
-              onClick={() => setLoginTab('google')}
-              style={{
-                flex: 1,
-                padding: '8px 4px',
-                borderRadius: '12px',
-                fontSize: '11px',
-                fontWeight: 800,
-                background: loginTab === 'google' ? 'linear-gradient(135deg, #3b82f6, #6366f1)' : 'transparent',
-                color: loginTab === 'google' ? '#fff' : '#94a3b8',
-                transition: 'all 0.2s',
-                cursor: 'pointer'
-              }}
-            >
-              🌐 Google
-            </button>
-            <button
-              onClick={() => setLoginTab('user')}
-              style={{
-                flex: 1,
-                padding: '8px 4px',
-                borderRadius: '12px',
-                fontSize: '11px',
-                fontWeight: 800,
-                background: loginTab === 'user' ? 'linear-gradient(135deg, #ec4899, #8b5cf6)' : 'transparent',
-                color: loginTab === 'user' ? '#fff' : '#94a3b8',
-                transition: 'all 0.2s',
-                cursor: 'pointer'
-              }}
-            >
-              👥 ইউজার লগইন
-            </button>
-          </div>
-
-          {/* TAB 2: GOOGLE LOGIN */}
-          {loginTab === 'google' && (
-            <div
-              style={{
-                width: '100%',
-                maxWidth: '380px',
-                background: 'linear-gradient(180deg, rgba(59, 130, 246, 0.15) 0%, rgba(20, 10, 40, 0.85) 100%)',
-                border: '1.5px solid rgba(59, 130, 246, 0.45)',
-                borderRadius: '24px',
-                padding: '20px',
-                boxShadow: '0 12px 30px rgba(0, 0, 0, 0.5)',
-                textAlign: 'center'
-              }}
-            >
-              <div style={{ fontSize: '32px', marginBottom: '8px' }}>🌐</div>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 900, color: '#fff' }}>
-                গুগল ক্লাউড অ্যাকাউন্ট লগইন
-              </h3>
-              <p style={{ fontSize: '11px', color: '#94a3b8', margin: '8px 0 16px', lineHeight: 1.5 }}>
-                আপনার Google অ্যাকাউন্ট দিয়ে নিরাপদে লগইন করুন।
-              </p>
-
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  borderRadius: '16px',
-                  background: '#ffffff',
-                  color: '#0f172a',
-                  fontWeight: 900,
-                  fontSize: '13px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '10px',
-                  boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
-                  cursor: 'pointer'
-                }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                </svg>
-                <span>Google দিয়ে সরাসরি সাইন-ইন করুন</span>
-              </button>
-            </div>
-          )}
-
-          {/* TAB 3: USER QUICK LOGIN */}
-          {loginTab === 'user' && (
-            <div
-              style={{
-                width: '100%',
-                maxWidth: '380px',
-                background: 'linear-gradient(180deg, rgba(236, 72, 153, 0.15) 0%, rgba(20, 10, 40, 0.85) 100%)',
-                border: '1.5px solid rgba(236, 72, 153, 0.45)',
-                borderRadius: '24px',
-                padding: '20px',
-                boxShadow: '0 12px 30px rgba(0, 0, 0, 0.5)'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <span style={{ fontSize: '20px' }}>👥</span>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 900, color: '#f472b6' }}>
-                    ইউজার প্রোফাইল লগইন
-                  </h3>
-                  <span style={{ fontSize: '10px', color: '#cbd5e1' }}>
-                    নাম ও মোবাইল/আইডি দিয়ে প্রবেশ করুন
-                  </span>
-                </div>
-              </div>
-
-              <form onSubmit={handleUserQuickLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#cbd5e1', marginBottom: '4px' }}>
-                    আপনার নাম:
-                  </label>
-                  <input
-                    type="text"
-                    className="in"
-                    value={loginUserName}
-                    onChange={(e) => setLoginUserName(e.target.value)}
-                    placeholder="যেমন: শাকিল, রাফি, রবিন..."
-                    required
-                    style={{ width: '100%', fontSize: '13px' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#cbd5e1', marginBottom: '4px' }}>
-                    মোবাইল নম্বর / ইউজার আইডি:
-                  </label>
-                  <input
-                    type="text"
-                    className="in"
-                    value={loginUserPhone}
-                    onChange={(e) => setLoginUserPhone(e.target.value)}
-                    placeholder="017XXXXXXXX"
-                    style={{ width: '100%', fontSize: '13px' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#cbd5e1', marginBottom: '4px' }}>
-                    অ্যাভাটার আইকন নির্বাচন:
-                  </label>
-                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                    {['👑', '😎', '🎤', '🎧', '🧑', '👩', '🌸'].map((av) => (
-                      <button
-                        type="button"
-                        key={av}
-                        onClick={() => setLoginUserAvatar(av)}
-                        style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '12px',
-                          fontSize: '18px',
-                          background: loginUserAvatar === av ? 'rgba(236, 72, 153, 0.5)' : 'rgba(255,255,255,0.08)',
-                          border: loginUserAvatar === av ? '2px solid #ec4899' : '1px solid rgba(255,255,255,0.1)',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {av}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="b"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
-                    color: '#fff',
-                    fontWeight: 900,
-                    fontSize: '13px',
-                    marginTop: '6px',
-                    boxShadow: '0 6px 16px rgba(236, 72, 153, 0.35)'
-                  }}
-                >
-                  🚀 লগইন করে ভয়েস রুমে প্রবেশ করুন
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* Bottom Security Note */}
-          <div style={{ marginTop: 'auto', paddingTop: '20px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>
-            <span>🎙️ Shakil M Voice Rooms • Firebase Realtime DB • 2026</span>
-          </div>
-        </div>
-      ) : (
-        <>
+      <>
           {/* 2. Top Header (hd) */}
           <div id="hd">
             <div
@@ -1113,7 +769,7 @@ export default function App() {
                 setShowCreateRoomModal(true);
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', align, gap: '10px' }}>
                 <div 
                   style={{ 
                     width: '42px', 
@@ -1176,7 +832,7 @@ export default function App() {
                     <span className="ls">▮ {r.n || 1}</span>
                     <div className="cvv">{r.cv}</div>
                     <span className="tg2">{r.tag || 'আড্ডা'}</span>
-                    <b>{r.name}</b>
+                    <b data-no-translate="true">{r.name}</b>
                     <div className="sm2">{r.ann || 'স্বাগতম!'}</div>
                   </div>
                 ))}
@@ -1367,8 +1023,7 @@ export default function App() {
               <span className="sp"></span>
               <span style={{ 
                 fontSize: '11px', 
-                padding: '3px 8px', 
-                borderRadius: '8px', 
+                padding:        borderRadius: '8px', 
                 background: 'rgba(239, 68, 68, 0.15)', 
                 color: '#f87171',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
@@ -1616,14 +1271,13 @@ export default function App() {
 
                 <div className="row" style={{ margin: '10px 0' }}>
                   <div
-                    className={`av ${FRM[S.fr]?.[4] ? 'fa' : ''}`}
-                    style={{ width: '80px', height: '80px', fontSize: '40px', background: FRM[S.fr]?.[2], cursor: 'pointer' }}
+                    className={`av ${FR                    style={{ width: '80px', height: '80px', fontSize: '40px', background: FRM[S.fr]?.[2], cursor: 'pointer' }}
                     onClick={() => setActivePage('frames')}
                   >
                     <div>{S.img ? <img src={S.img} alt="Av" /> : S.av}</div>
                   </div>
                   <div className="sp">
-                    <b style={{ fontSize: '20px' }}>{S.name}</b>
+                    <b style={{ fontSize: '20px' }} data-no-translate="true">{S.name}</b>
                     {S.svip ? <span className="bd" style={{ background: SV[S.svip - 1]?.[2] }}>{SV[S.svip - 1]?.[0]}</span> : ''}
                     <div className="sm" onClick={() => handleCopy(S.id)} style={{ cursor: 'pointer' }}>
                       ID {S.id} 📋
@@ -1647,7 +1301,7 @@ export default function App() {
                       লগআউট
                     </button>
                   ) : (
-                    <button className="b t" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={handleGoogleLogin}>
+                    <button className="b t" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={()=>void signInWithPopup(auth,googleProvider).catch(()=>toast('Sign-in failed.'))}>
                       Google লগইন
                     </button>
                   )}
@@ -1803,8 +1457,7 @@ export default function App() {
                 <select
                   className="in"
                   value={editCountry}
-                  onChange={e => setEditCountry(e.target.value)}
-                  style={{ width: '100%' }}
+                  onChange={e => setEditCountry(e.target.valueidth: '100%' }}
                 >
                   {COUNTRIES.map(c => (
                     <option key={c[0]} value={`${c[0]} ${c[1]}`}>{c[0]} {c[1]}</option>
@@ -2018,7 +1671,7 @@ export default function App() {
             {activePage === 'badges' && (
               <div className="rg" style={{ marginTop: '8px' }}>
                 {[
-                  ['🎁', 'প্রথম গিফট', (S.cnt?.gift || 0) > 0],
+                  ['🎁', 'পnt?.gift || 0) > 0],
                   ['💬', 'চ্যাটার (১০ মেসেজ)', (S.cnt?.msg || 0) >= 10],
                   ['🎮', 'গেমার', (S.cnt?.game || 0) > 0],
                   ['💰', 'ধনী (১০K খরচ)', (S.spent || 0) >= 10000],
@@ -2221,8 +1874,7 @@ export default function App() {
             )}
 
             {/* SUBPAGE: TRANSACTIONS HIST */}
-            {activePage === 'hist' && (
-              <>
+            {activePage ===    <>
                 {S.hist.map((h: string, idx: number) => (
                   <div key={idx} className="gl" style={{ padding: '10px 12px', margin: '6px 0', fontSize: '13px' }}>
                     {h}
@@ -2393,7 +2045,7 @@ export default function App() {
                   </p>
                 </div>
 
-                <div className="gl" style={{ padding: '14px' }}>
+         <div className="gl" style={{ padding: '14px' }}>
                   <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>১. ভার্চুয়াল আইটেম ও লাইসেন্স</b>
                   <p>অ্যাপের ফ্রেম, এন্ট্রি অ্যানিমেশন, ব্যাজ ও পদকসমূহ ব্যক্তিগত ব্যবহারের সীমিত ও পরিবর্তনযোগ্য লাইসেন্স হিসেবে গণ্য।</p>
                 </div>
@@ -2544,7 +2196,7 @@ export default function App() {
             const diff = newCoins - S.coins;
             updateCoins(diff, reason);
           }}
-          onOpenGame={(gameId: string) => {
+          onOpenGame={(gameId: s => {
             // Keep room active in background while playing game!
             setActiveGame(gameId);
           }}
@@ -2740,7 +2392,7 @@ export default function App() {
             </div>
 
             <div className="space-y-3.5 text-xs">
-              <label className="block rounded-2xl border border-cyan-400/30 bg-indigo-500/10 p-4 text-center cursor-pointer">{newRoomPhoto?<img src={newRoomPhoto} alt="রুমের ছবি" className="w-20 h-20 rounded-2xl object-cover mx-auto mb-2"/>:<span className="block text-4xl mb-2">📷</span>}গ্যালারি থেকে রুমের ছবি দিন<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={async e=>{const file=e.target.files?.[0];if(file)try{setNewRoomPhoto(await galleryPhoto(file))}catch(err){toast(err instanceof Error?err.message:'ছবি যোগ হয়নি')}}}/></label>
+              <label className="block rounded-2xl border border-cyan-400/30 bg-indigo-500/10 p-4 text-center cursor-pointer">{newRoomPhoto?<img src={newRoomPhoto} alt="রুমের ছবি" className="w-20 h-20 rounded-2xl object-cover mx-auto mb-2"/>:<span className="blockl mb-2">📷</span>}গ্যালারি থেকে রুমের ছবি দিন<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={async e=>{const file=e.target.files?.[0];if(file)try{setNewRoomPhoto(await galleryPhoto(file))}catch(err){toast(err instanceof Error?err.message:'ছবি যোগ হয়নি')}}}/></label>
               <div>
                 <label className="block text-gray-300 font-semibold mb-1">রুমের নাম *</label>
                 <input 
@@ -2924,7 +2576,7 @@ export default function App() {
             </div>
 
             {/* Package Summary Box */}
-            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/15 via-black/40 to-purple-900/30 border border-amber-400/30 text-center mb-4">
+            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/15 via-black/40 to-purple-900/30 bordert-center mb-4">
               <div className="text-[11px] text-gray-300 mb-1">নির্বাচিত প্যাকেজ:</div>
               <div className="text-2xl font-black text-amber-300 flex items-center justify-center gap-1.5">
                 <span>🪙</span>
@@ -3021,7 +2673,6 @@ export default function App() {
         </div>
       )}
         </>
-      )}
 
       {/* Toast Notification */}
       {toastText && (

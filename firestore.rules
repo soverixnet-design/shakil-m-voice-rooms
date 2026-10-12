@@ -19,7 +19,14 @@ service cloud.firestore {
       let policy = /databases/$(database)/documents/rooms/$(target)/seatPolicy/config;
       return room == null || room == '' || seat == null || (seat is int && seat >= 0 && seat < (exists(path) ? get(path).data.get('sc',get(path).data.get('d',false) ? 12 : 8) : 12) && ((resource.data.get('currentRoomId',null) == room && resource.data.get('roomSeat',null) == seat) || !exists(policy) || !(seat in get(policy).data.locked)));
     }
-    function mayEnterRoom(id) { return id == null || id == '' || !exists(/databases/$(database)/documents/rooms/$(id)/controls/$(request.auth.uid)) || get(/databases/$(database)/documents/rooms/$(id)/controls/$(request.auth.uid)).data.get('blocked',false) != true; }
+    function mayEnterRoom(id) {
+      let target = id is string && id != '' ? id : '__no_room__';
+      let room = /databases/$(database)/documents/rooms/$(target);
+      let control = /databases/$(database)/documents/rooms/$(target)/controls/$(request.auth.uid);
+      let role = /databases/$(database)/documents/rooms/$(target)/roles/$(request.auth.uid);
+      let profile = /databases/$(database)/documents/users/$(request.auth.uid);
+      return id == null || id == '' || ((!exists(control) || get(control).data.get('blocked',false) != true) && (!exists(room) || get(room).data.get('locked',false) != true || get(room).data.hostId == request.auth.uid || (exists(profile) && get(profile).data.get('currentRoomId',null) == id) || (exists(role) && get(role).data.role == 'admin')));
+    }
     // All three documents must commit together. A receipt ID cannot be reused.
     function validSellerTransfer(id) {
       let path = /databases/$(database)/documents/sellerTransfers/$(id);
