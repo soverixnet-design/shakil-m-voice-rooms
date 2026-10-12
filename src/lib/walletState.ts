@@ -1,0 +1,3 @@
+export function confirmedCoins(data:any,metadata:{fromCache:boolean;hasPendingWrites:boolean}){return !metadata.fromCache&&!metadata.hasPendingWrites&&Number.isSafeInteger(data.coins)&&data.coins>=0?data.coins:undefined}
+export function safeSiteSettings(data:any){const {coins,diamond,uid,id,role,giftSentCoins,giftReceivedCoins,giftSentCount,giftReceivedCount,totalRecharged,...settings}=data;return settings}
+export function visibleBigWin(wins:any[],now:number){return wins.find(w=>Number(w.amount)>100000&&Number(w.createdAt)<=now&&now-Number(w.createdAt)<10000)}

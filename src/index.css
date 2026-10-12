@@ -1112,3 +1112,17 @@ h3 {
 @keyframes mediaEntryIn {0%{opacity:0;transform:scale(.3) translateY(30vh)}25%,80%{opacity:1;transform:scale(1) translateY(0)}100%{opacity:0;transform:scale(1.1) translateY(-10vh)}}
 .media-entry{animation:mediaEntryIn 3.5s ease-in-out forwards}
 @media(prefers-reduced-motion:reduce){.media-frame,.media-entry{animation:none}}
+
+/* Dynamic mobile viewport and safe scrolling without stretching the theme. */
+html,body,#root{width:100%;height:100%;min-width:0}
+#root{max-width:480px;position:relative;height:100dvh;overflow:hidden}
+#app{height:100dvh;min-height:0;width:100%;max-width:480px}
+#app iframe{max-width:100%}
+.diamond-wallet{border-radius:24px;border:1px solid #b491ff77;background:radial-gradient(circle at 100% 0,#9d6cff55,transparent 65%),linear-gradient(135deg,#271346,#121d3d);box-shadow:0 8px 24px #0004;margin:10px 0;width:100%;min-width:0}
+.win-ticker{position:relative;width:100%;height:42px;overflow:hidden;pointer-events:none;border-radius:18px;background:linear-gradient(90deg,#643208cc,#3d185ecc);border:1px solid #ffd84a77}
+.win-ticker-message{position:absolute;top:10px;left:0;white-space:nowrap;width:max-content;color:#ffe394;font-size:12px;font-weight:800;animation:winTickerTravel 10s linear forwards}
+@keyframes winTickerTravel{0%{transform:translateX(480px);opacity:0}5%,95%{opacity:1}100%{transform:translateX(-100%);opacity:0}}
+@media(max-width:480px){@keyframes winTickerTravel{0%{transform:translateX(100vw);opacity:0}5%,95%{opacity:1}100%{transform:translateX(-100%);opacity:0}}}
+
+.rv{width:100%;max-width:480px;margin:0 auto;height:100dvh}.rv>div.flex-1{min-height:0}.win-ticker-message{transition:left .1s linear,transform .1s linear}
+@media(max-width:360px){.rv .sg3 .sc{width:clamp(40px,16vw,60px);height:clamp(40px,16vw,60px)}.rv header{min-width:0}}

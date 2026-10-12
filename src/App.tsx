@@ -1,6 +1,8 @@
+import {confirmedCoins,safeSiteSettings} from './lib/walletState';
 import {GlobalGameRanks} from './components/GlobalGameRanks';
 import {GameWinFeed} from './components/GameWinFeed';
 import {UploadedSharedGame} from './games/UploadedSharedGame';
+import {WalletRanks} from './components/WalletRanks';
 import {DiamondWallet} from './components/DiamondWallet';
 import {SharedRoundGame} from './games/SharedRoundGame';
 import React, { useState, useEffect, useRef } from 'react';
@@ -397,7 +399,7 @@ export default function App() {
               id: publicId, uid: u.uid,
               name: data.name || u.displayName || prev.name,
               img: u.photoURL || prev.img,
-              coins: data.coins !== undefined ? data.coins : prev.coins,
+              // The live server snapshot owns the wallet balance.
               role: isOwnerEmail ? 'admin' : 'user',
             }));
           } else {
@@ -430,14 +432,14 @@ export default function App() {
 
   useEffect(() => {
     if (!fbUser?.uid) return;
-    return onSnapshot(doc(db, 'users', fbUser.uid), snapshot => {
+    return onSnapshot(doc(db, 'users', fbUser.uid), {includeMetadataChanges:true}, snapshot => {
       if (!snapshot.exists()) return;
       const data = snapshot.data();
       if(['banned','archived'].includes(data.status)){setToastText('আপনার অ্যাকাউন্ট ব্লক করা হয়েছে।');void signOut(auth);localStorage.removeItem('sv_auth_session');setIsAuthenticated(false);setActiveRoom(null);setActiveGame(null);return;}
       if (data.id) setS((prev: any) => ({...prev, id: String(data.id), uid: fbUser.uid }));
       if (data.giftSentCount !== undefined) setS((prev:any)=>({...prev,giftSentCount:data.giftSentCount,giftSentCoins:data.giftSentCoins,gifts:{...prev.gifts,sent:data.giftSentCoins||0}}));
       for(const field of ['name','svip','badge','customFrameId','customEntryId']) if(data[field]!==undefined)setS((prev:any)=>({...prev,[field]:data[field]}));
-      const coins = data.coins;
+      const coins = confirmedCoins(data,snapshot.metadata);
       if (Number.isSafeInteger(coins) && coins >= 0) setS((prev: any) => ({ ...prev, coins }));
     }, () => setToastText('লাইভ ব্যালেন্স লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
   }, [fbUser?.uid]);
@@ -460,7 +462,7 @@ export default function App() {
       const count = gifts.reduce((n,d)=>n+Number(d.data().quantity||0),0);
       const coins = gifts.reduce((n,d)=>n+Number(d.data().cost||0),0);
       setS((prev:any)=>({...prev,giftReceivedCount:count,giftReceivedCoins:coins,gifts:{...prev.gifts,recv:gifts.map(d=>`${d.data().emoji} ${d.data().quantity}টি — ${d.data().senderName}`).slice(-30)}}));
-      updateDoc(doc(db,'users',fbUser.uid),{giftReceivedCount:count,giftReceivedCoins:coins}).catch(()=>{});
+      // Received gift totals are maintained by the server transaction.
       if (!initial) for(const gift of gifts) if(!seen.has(gift.id)){setIncomingGift(gift.data());setTimeout(()=>setIncomingGift(null),4000)}
       gifts.forEach(d=>seen.add(d.id)); initial=false;
     },()=>setToastText('পাওয়া গিফট লোড হয়নি। সংযোগ ও অনুমতি পরীক্ষা করুন।'));
@@ -476,7 +478,7 @@ export default function App() {
   }, [fbUser?.uid]);
 
   useEffect(()=>onSnapshot(doc(db,'system','config'),snapshot=>{
-    if(snapshot.exists())setS((prev:any)=>({...prev,...snapshot.data()}));
+    if(snapshot.exists())setS((prev:any)=>({...prev,...safeSiteSettings(snapshot.data())}));
   },()=>setToastText('সাইটের সেটিংস লোড হয়নি। সংযোগ পরীক্ষা করুন।')),[]);
 
   const toast = (text: string) => {
@@ -490,6 +492,7 @@ export default function App() {
   const updateCoins = (amount: number, reason: string): Promise<boolean> => {
     const uid = fbUser?.uid;
     const task = walletQueue.current.then(async () => {
+      if (!uid) throw new Error('Google login required');
       if (!Number.isSafeInteger(amount)) throw new Error('Invalid coin amount');
       let balance = coinsRef.current + amount;
       if (uid) {
@@ -1249,9 +1252,10 @@ export default function App() {
         {/* TAB 3: WALLET (ওয়ালেট - ব্যালেন্স, রিচার্জ, কয়েন পাঠান ও গ্রহণ) */}
         {tab === 'wallet' && (
           <>
+            <DiamondWallet/>
+            <WalletRanks/>
             <div className="row" style={{ padding: '14px 0 8px' }}>
               <b style={{ fontSize: '23px' }}>Wallet</b>
-              <DiamondWallet/>
               <span className="sp"></span>
               <button className="b" onClick={() => setActivePage('hist')}>
                 🧾 ইতিহাস

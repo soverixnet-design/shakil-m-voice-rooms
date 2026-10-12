@@ -215,7 +215,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         const old = Number(user.data().coins || 0);
         const next = action === 'set' ? amount : old + (action === 'deduct' ? -amount : amount);
         if (!Number.isSafeInteger(next) || next < 0) throw new Error('insufficient-coins');
-        transaction.update(ref, { coins: next });
+        transaction.update(ref, { coins: next, totalRecharged: Number(user.data().totalRecharged||0)+Math.max(0,next-old) });
         transaction.set(ledger, { userId: target.uid, adminId: currentUser.uid, type: 'admin-recharge', amount: next - old, balance: next, reason, createdAt: new Date().toISOString() });
         return { before: old, after: next, amount: next - old };
       });
