@@ -1,3 +1,4 @@
+import gameServerConfig from '../../game-server-config.json';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {collection,doc,limit,onSnapshot,orderBy,query} from 'firebase/firestore';
 import {callSharedGame} from './gameTransport';
@@ -6,8 +7,8 @@ import {clockAnchor,serverTime,sharedPhase,type SharedRound} from './sharedClock
 export const BET_CHIPS=[1000,10000,100000,1000000];
 export function useSharedGame(game:string){
  const [round,setRound]=useState<SharedRound|null>(null),[publicRound,setPublicRound]=useState<any>(null),[players,setPlayers]=useState<any[]>([]),[ranking,setRanking]=useState<any[]>([]),[history,setHistory]=useState<any[]>([]),[error,setError]=useState(''),[balance,setBalance]=useState(0),[busy,setBusy]=useState(false),[now,setNow]=useState(0),[status,setStatus]=useState('সার্ভারের সাথে যুক্ত হচ্ছে…');
- const [serverUrl,setServerUrl]=useState(''),[serverConfigReady,setServerConfigReady]=useState(false);
- useEffect(()=>onSnapshot(doc(db,'system','gameServer'),s=>{setServerUrl(String(s.data()?.url||''));setServerConfigReady(true)},()=>setServerConfigReady(true)),[]);
+ const [serverUrl,setServerUrl]=useState(gameServerConfig.url),[serverConfigReady,setServerConfigReady]=useState(false);
+ useEffect(()=>onSnapshot(doc(db,'system','gameServer'),s=>{setServerUrl(String(s.data()?.url||gameServerConfig.url));setServerConfigReady(true)},()=>setServerConfigReady(true)),[]);
  const anchor=useRef<{server:number;local:number;uncertainty:number}|null>(null),lastSync=useRef(0),roundRef=useRef(round),pending=useRef<any>(null),busyRef=useRef(false),active=useRef(true),epoch=useRef(0);
  roundRef.current=round;
  const sync=useCallback(async()=>{if(!serverConfigReady)return;if(!auth.currentUser){setError('লাইভ গেমের জন্য Google লগইন করুন।');return;}const sent=performance.now(),generation=epoch.current;try{const result=await callSharedGame<SharedRound>(serverUrl,'sync',{game});if(!active.current||generation!==epoch.current||anchor.current&&result.data.serverNow<anchor.current.server)return;const received=performance.now();const matched=clockAnchor(result.data,sent,received);if(matched.uncertainty>1500){setError('সার্ভারের সময় মিলছে—কিছুক্ষণ অপেক্ষা করুন।');return;}anchor.current=matched;lastSync.current=received;setNow(serverTime(anchor.current,received));setRound(result.data);setError('');setStatus('লাইভ • সার্ভারের সময়');}catch(e){if(!active.current||generation!==epoch.current)return;setError('গেম সার্ভারের সংযোগ পাওয়া যাচ্ছে না। আবার চেষ্টা করুন।');}},[game,serverUrl,serverConfigReady]);
