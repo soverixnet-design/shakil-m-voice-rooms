@@ -3,6 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signed() { return request.auth != null; }
     function owner() { return signed() && request.auth.token.get('email_verified', false) == true && request.auth.token.get('email', '') == 'yfastvpn@gmail.com'; }
+    function photo(value) { return value is string && value.size() <= 300000 && (value == '' || value.matches('data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]*={0,2}') || value.matches('https://[A-Za-z0-9./_?=&%:+~-]+')); }
     function self(uid) { return signed() && request.auth.uid == uid; }
     function active() { return signed() && (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) || !(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('status', 'active') in ['banned', 'archived'])); }
     function permission(name) { return active() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)) && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.get('active', false) == true && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.get('permissions', {}).get(name, false) == true; }
@@ -40,8 +41,8 @@ service cloud.firestore {
     }
     match /users/{uid} {
       allow read: if active() || self(uid);
-      allow create: if owner() || (self(uid) && active() && request.resource.data.get('role','user') == 'user' && request.resource.data.get('status','active') == 'active' && request.resource.data.get('email','') == request.auth.token.get('email','') && request.resource.data.get('coins',0) is int && request.resource.data.get('coins',0) >= 0 && request.resource.data.get('coins',0) <= 50000 && request.resource.data.get('diamond',0) == 0 && request.resource.data.get('totalRecharged',0) == 0 && request.resource.data.get('giftReceivedCount',0) == 0 && request.resource.data.get('giftReceivedCoins',0) == 0);
-      allow update: if owner() || (self(uid) && active() && validGiftDebit(request.resource.data.get('lastGiftReceipt','missing'))) || (self(uid) && active() && mayEnterRoom(request.resource.data.get('currentRoomId',null)) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','status','email','lastSellerTransfer','coins','lastGiftReceipt','giftSentCount','giftSentCoins','diamond','totalRecharged','giftReceivedCount','giftReceivedCoins'])) || (permission('moderate') && resource.data.get('email','') != 'yfastvpn@gmail.com' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status in ['active','banned']) || (permission('seller') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coins','lastSellerTransfer']) && validSellerTransfer(request.resource.data.get('lastSellerTransfer','missing')));
+      allow create: if owner() || (self(uid) && active() && photo(request.resource.data.get('photoURL','')) && request.resource.data.get('role','user') == 'user' && request.resource.data.get('status','active') == 'active' && request.resource.data.get('email','') == request.auth.token.get('email','') && request.resource.data.get('coins',0) is int && request.resource.data.get('coins',0) >= 0 && request.resource.data.get('coins',0) <= 50000 && request.resource.data.get('diamond',0) == 0 && request.resource.data.get('totalRecharged',0) == 0 && request.resource.data.get('giftReceivedCount',0) == 0 && request.resource.data.get('giftReceivedCoins',0) == 0);
+      allow update: if owner() || (self(uid) && active() && validGiftDebit(request.resource.data.get('lastGiftReceipt','missing'))) || (self(uid) && active() && photo(request.resource.data.get('photoURL','')) && mayEnterRoom(request.resource.data.get('currentRoomId',null)) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','status','email','lastSellerTransfer','coins','lastGiftReceipt','giftSentCount','giftSentCoins','diamond','totalRecharged','giftReceivedCount','giftReceivedCoins'])) || (permission('moderate') && resource.data.get('email','') != 'yfastvpn@gmail.com' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status in ['active','banned']) || (permission('seller') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coins','lastSellerTransfer']) && validSellerTransfer(request.resource.data.get('lastSellerTransfer','missing')));
       allow delete: if owner();
     }
     match /admins/{uid} { allow read: if owner() || self(uid); allow write: if owner(); }
@@ -62,8 +63,8 @@ service cloud.firestore {
     }
     match /rooms/{id} {
       allow read: if true;
-      allow create: if owner() || (active() && request.resource.data.hostId == request.auth.uid);
-      allow update: if owner() || (active() && resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId);
+      allow create: if owner() || (active() && photo(request.resource.data.get('photoURL','')) && request.resource.data.hostId == request.auth.uid);
+      allow update: if owner() || (active() && photo(request.resource.data.get('photoURL','')) && resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId);
       allow delete: if owner() || (active() && resource.data.hostId == request.auth.uid);
     }
     match /rooms/{roomId}/roles/{uid} {
@@ -161,6 +162,17 @@ service cloud.firestore {
     match /sharedGames/{game}/weeks/{week}/ranking/{uid} { allow read: if active(); allow write: if false; }
     match /gameRequests/{id} { allow read, write: if false; }
     match /gameSecrets/{id} { allow read, write: if false; }
+    match /follows/{id} {
+      allow read: if active();
+      allow create: if active() && request.resource.data.keys().hasOnly(['followerId','followingId','createdAt']) && request.resource.data.followerId == request.auth.uid && request.resource.data.followingId is string && request.resource.data.followingId != request.auth.uid && id == request.auth.uid + '~' + request.resource.data.followingId && request.resource.data.createdAt == request.time && exists(/databases/$(database)/documents/users/$(request.resource.data.followingId));
+      allow delete: if active() && resource.data.followerId == request.auth.uid;
+      allow update: if false;
+    }
+    match /users/{uid}/visitors/{visitor} {
+      allow read: if active();
+      allow create, update: if active() && visitor == request.auth.uid && uid != visitor && request.resource.data.keys().hasOnly(['visitorId','createdAt']) && request.resource.data.visitorId == visitor && request.resource.data.createdAt == request.time;
+      allow delete: if owner();
+    }
     match /{document=**} { allow read, write: if false; }
   }
 }

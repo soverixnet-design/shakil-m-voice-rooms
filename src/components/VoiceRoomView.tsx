@@ -1,3 +1,4 @@
+import {ProfilePhotoEditor} from './ProfilePhotoEditor';
 import {useRoomAudio} from '../lib/useRoomAudio';
 import {GameWinFeed} from './GameWinFeed';
 import {useMediaAssets,MediaAvatar,EntryMedia} from './MediaAssets';
@@ -61,7 +62,7 @@ const ROOM_GAMES = [
 ];
 
 export const VoiceRoomView: React.FC<Props> = ({
-  room,
+  room:roomInput,
   user,
   customGifts,
   onUpdateCoins,
@@ -72,6 +73,9 @@ export const VoiceRoomView: React.FC<Props> = ({
   onClose,
   onOpenUsers,
 }) => {
+  const [roomData,setRoomData]=useState<Partial<VoiceRoom>>({});
+  const room={...roomInput,...roomData};
+  useEffect(()=>{setRoomData({});return onSnapshot(doc(db,'rooms',roomInput.id),s=>{if(s.exists())setRoomData(s.data())},()=>{})},[roomInput.id]);
   const seatCount = room.sc || (room.d ? 12 : 8);
   const isCurrentUserHost = Boolean(auth.currentUser && room.hostId === auth.currentUser.uid);
   
@@ -222,85 +226,18 @@ export const VoiceRoomView: React.FC<Props> = ({
   };
 
   return (
-    <div className="rv neon-room fixed inset-0 z-40 flex flex-col justify-between overflow-hidden select-none pt-safe pb-safe" style={{ background: 'radial-gradient(ellipse at 85% 95%,#5923a988,transparent 55%),radial-gradient(ellipse at 0 30%,#28106699,transparent 50%),#060622' }}>
-      {/* Top Room Header with Host Pill and Actions */}
-      <div className="relative z-10 p-2.5 flex items-center justify-between border-b border-white/10 bg-black/60 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          {/* Back Button (Triggers Exit Options Dialog) */}
-          <button
-            onClick={() => setShowExitConfirm(true)}
-            className="ib"
-            style={{ width: '34px', height: '34px', fontSize: '18px', padding: 0 }}
-            title="ব্যাকে যান / প্রস্থান"
-          >
-            ‹
-          </button>
-
-          {/* Direct Quick Minimize Button */}
-          <button
-            onClick={onMinimize}
-            className="ib"
-            style={{ width: '34px', height: '34px', fontSize: '16px', background: 'rgba(25, 230, 193, 0.2)', borderColor: 'rgba(25, 230, 193, 0.5)', color: 'var(--t)', padding: 0 }}
-            title="রুম মিনিমাইজ করুন (Minimize)"
-          >
-            <ChevronDown size={18} />
-          </button>
-
-          {/* Host Pill from Original Design (.hp) */}
-          <div className="hp">
-            <div className="av fa" style={{ width: '34px', height: '34px', fontSize: '18px', background: 'linear-gradient(135deg,#ffe38a,#d8920a)' }}>
-              <div>{room.cv}</div>
-            </div>
-            <div>
-              <b style={{ fontSize: '13px', display: 'block', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {room.name}
-              </b>
-              <small>ID: {room.id} · {room.host}</small>
-            </div>
-            <button
-              onClick={() => setIsFollowed(!isFollowed)}
-              style={{ background: 'none', color: isFollowed ? '#ff5c9d' : '#ffffff88', padding: '0 2px', fontSize: '14px' }}
-            >
-              {isFollowed ? '❤️' : '🤍'}
-            </button>
-          </div>
-        </div>
-
-        {/* Room Header Actions */}
-        <div className="flex items-center gap-1.5">
-          {/* Room Total Coins (.gi) */}
-          <div className="gi" style={{ width: 'auto', padding: '0 10px', height: '34px', gap: '4px', fontSize: '11px', fontWeight: 900 }}>
-            <span>🏆</span>
-            <span style={{ color: '#3a1c00' }}>{roomCoinTotal.toLocaleString()}</span>
-          </div>
-
-          <button
-            onClick={() => {voice.unlock();setIsRoomSoundOn(!isRoomSoundOn)}}
-            className="ib"
-            style={{ width: '34px', height: '34px', fontSize: '14px', padding: 0 }}
-            title={isRoomSoundOn ? 'সাউন্ড বন্ধ' : 'সাউন্ড চালু'}
-          >
-            {isRoomSoundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
-          </button>
-
-          {/* Leave Button */}
-          <button
-            onClick={() => setShowExitConfirm(true)}
-            className="ib"
-            style={{ width: '34px', height: '34px', fontSize: '14px', background: 'rgba(239, 68, 68, 0.25)', borderColor: 'rgba(239, 68, 68, 0.5)', color: '#fca5a5', padding: 0 }}
-            title="রুম থেকে বের হবেন (Leave)"
-          >
-            <LogOut size={16} />
-          </button>
-        </div>
-      </div>
+    <div className="rv neon-room fixed inset-0 z-40 flex flex-col justify-between overflow-hidden select-none pt-safe pb-safe" style={{backgroundColor:'#060622',backgroundImage:`url(${import.meta.env.BASE_URL}room-neon-bg.svg)`,backgroundSize:'cover',backgroundPosition:'center bottom'}}>
+      <header className="room-reference-header relative z-10">
+        <div className="room-header-line"><button className="room-title-pill" onClick={()=>setRoomProfileOpen(true)}><MediaAvatar avatar={room.photoURL||room.cv} size={42}/><span><b>{room.name}</b><small>ID: {room.id}</small></span></button><div className="room-header-actions"><button title="অডিও চালু/বন্ধ" onClick={()=>{voice.unlock();setIsRoomSoundOn(!isRoomSoundOn)}}>{isRoomSoundOn?'🔊':'🔇'}</button><button title="রুম মিনিমাইজ" onClick={onMinimize}>⌄</button><button title="রুম থেকে ফিরুন" onClick={()=>setShowExitConfirm(true)}>✕</button></div></div>
+        <div className="room-header-line"><button className="room-value-pill" onClick={()=>setRoomProfileOpen(true)}>🏆 {roomCoinTotal.toLocaleString()} ›</button><div className="room-header-members">{liveMembers.slice(0,2).map(m=><button key={m.uid} onClick={()=>onOpenUsers(m.uid)}><MediaAvatar avatar={m.avatar} size={30}/></button>)}<button onClick={()=>setRoomProfileOpen(true)}>{liveMembers.length}</button></div></div>
+      </header>
 
       {/* Center Seats Grid (.sg3, .s3w, .s3, .nm3, .sc3) */}
       <div className="relative z-10 flex-1 overflow-y-auto px-2 py-2 flex flex-col justify-between">
         <RoomGiftFlights roomId={room.id} onGift={event=>{setRoomCoinTotal(p=>p+event.cost);setChatMessages(p=>[...p,{id:event.id,type:'gift',sender:event.senderName,text:`${event.senderName} → ${event.receiverName} (ID ${event.receiverPublicId}): ${event.quantity}টি ${event.giftName} · ${event.cost} কয়েন`}])}}/>
-        <p className="text-xs text-cyan-200">ছবি বা সিটে চাপ দিয়ে প্রোফাইল দেখুন ও গিফট দিন।</p>
+        
         {seatError&&<p role="status">{seatError}</p>}
-        <p className="text-xs text-cyan-300" role="status">{voice.status}</p><button className="b" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে অডিও চালু করুন</button><GameWinFeed roomId={room.id}/>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}
+        <details className="room-voice-status"><summary>🎙️ ভয়েস সংযোগ</summary><p className="text-xs text-cyan-300" role="status">{voice.status}</p><button className="b" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে অডিও চালু করুন</button></details><GameWinFeed roomId={room.id}/>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}
         {roomEntry&&mediaAssets.find(a=>a.id===roomEntry.customEntryId)&&<EntryMedia key={roomEntry.uid+roomEntry.at} image={mediaAssets.find(a=>a.id===roomEntry.customEntryId)!.image} name={roomEntry.name}/>}
         <div className="flex gap-2 overflow-x-auto pb-2">{liveMembers.filter(member=>!Number.isInteger(member.roomSeat)).map(member=><button key={member.uid} className="shrink-0 text-center" title={member.name} onClick={()=>onOpenUsers(member.uid)}><span data-gift-uid={member.uid}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===member.customFrameId)?.image}/></span><small className="block">{member.name}</small></button>)}</div>
         <div className="sg3" style={{ gridTemplateColumns: `repeat(${seatCount>=10?5:4}, 1fr)`, margin: 'auto 0' }}>
@@ -312,7 +249,7 @@ export const VoiceRoomView: React.FC<Props> = ({
                   {seat ? (
                     <MediaAvatar avatar={seat.avatar} frame={mediaAssets.find(a=>a.id===seat.customFrameId)?.image} size={48}/>
                   ) : (
-                    <span style={{ fontSize: '15px', fontWeight: 900, opacity: 0.7 }}>🎙️</span>
+                    <span className="neon-mic-icon">🎙️</span>
                   )}
                 </div>
                 <div className="nm3" style={{ color: isUserSeatedHere ? 'var(--t)' : '#fff' }}>
@@ -414,7 +351,7 @@ export const VoiceRoomView: React.FC<Props> = ({
       )}
 
       {policyOpen&&<div className="fixed inset-0 z-[75] bg-black/80 flex items-center justify-center p-4"><section className="bg-slate-950 border border-amber-400 rounded-2xl p-4 w-full max-w-md space-y-3"><button className="ib float-right" onClick={()=>setPolicyOpen(false)}>✕</button><h3>🛡️ রুমের নিয়ম ও অনুমতি</h3><p>মালিক: রুম পরিচালনা ও রুম অ্যাডমিন দেওয়া/সরানো।</p><p>রুম অ্যাডমিন: সাধারণ ইউজারের মাইক বন্ধ, রুম থেকে সরানো ও নিষেধাজ্ঞা তুলে নেওয়া।</p><p>ইউজার: নিজের সিট, মাইক, প্রোফাইল, গিফট ও গেম। রুম অ্যাডমিন কয়েন রিচার্জ বা অ্যাপ অ্যাডমিন দিতে পারেন না।</p>{canModerate&&<><select className="in w-full" value={policyTarget} onChange={e=>setPolicyTarget(e.target.value)}><option value="">রুমের ইউজার নির্বাচন করুন</option>{Object.keys(roomControls).filter(uid=>roomControls[uid].blocked&&!liveMembers.some(m=>m.uid===uid)).map(uid=><option key={uid} value={uid}>সরানো ইউজার · {uid}</option>)}{liveMembers.filter(m=>m.uid!==room.hostId&&(isCurrentUserHost||roomRoles[m.uid]?.role!=='admin')).map(m=><option key={m.uid} value={m.uid}>{m.name} · ID {m.id}</option>)}</select><div className="flex flex-wrap gap-2">{isCurrentUserHost&&<><button className="b" onClick={()=>policyAction('admin')}>রুম অ্যাডমিন দিন</button><button className="b" onClick={()=>policyAction('user')}>অ্যাডমিন সরান</button></>}<button className="b" onClick={()=>policyAction('mute')}>মাইক বন্ধ</button><button className="b" onClick={()=>policyAction('block')}>রুম থেকে সরান</button><button className="b" onClick={()=>policyAction('clear')}>মাইক / প্রবেশ চালু</button></div><label>সরানো ইউজারের Firebase UID<input className="in w-full" value={policyTarget} onChange={e=>setPolicyTarget(e.target.value)}/></label><p role="status">{policyStatus}</p></>}</section></div>}
-      {roomProfileOpen&&<div className="room-sheet-overlay"><section className="room-profile-card"><button className="back-card" onClick={()=>setRoomProfileOpen(false)}>‹ ফিরে যান</button><h2>🏠 {room.name}</h2><p>ID: {room.id}</p><div className="room-info-grid"><div>Room Value<b>{roomCoinTotal.toLocaleString()}</b></div><div>Members<b>{liveMembers.length}</b></div></div><h3>📢 Announcement</h3><p>{room.ann||'সবাইকে স্বাগতম!'}</p><h3>রুমের সদস্য</h3>{liveMembers.map(m=><button className="back-card" key={m.uid} onClick={()=>{setRoomProfileOpen(false);onOpenUsers(m.uid)}}>{m.name} · ID {m.id}</button>)}</section></div>}
+      {roomProfileOpen&&<div className="room-sheet-overlay"><section className="room-profile-card"><button className="back-card" onClick={()=>setRoomProfileOpen(false)}>‹ ফিরে যান</button><h2>🏠 {room.name}</h2><p>ID: {room.id}</p>{isCurrentUserHost&&<ProfilePhotoEditor roomId={room.id}/>}<div className="room-info-grid"><div>Room Value<b>{roomCoinTotal.toLocaleString()}</b></div><div>Members<b>{liveMembers.length}</b></div></div><h3>📢 Announcement</h3><p>{room.ann||'সবাইকে স্বাগতম!'}</p><h3>রুমের সদস্য</h3>{liveMembers.map(m=><button className="back-card" key={m.uid} onClick={()=>{setRoomProfileOpen(false);onOpenUsers(m.uid)}}>{m.name} · ID {m.id}</button>)}</section></div>}
       {moreOpen&&<div className="room-sheet-overlay"><section className="room-more-card"><header className="flex justify-between"><h3>✨ More</h3><button className="back-card" onClick={()=>setMoreOpen(false)}>‹ ফিরে যান</button></header><div className="room-info-grid">{[['🎮','Games',()=>setShowGameDrawer(true)],['🏠','Room Profile',()=>setRoomProfileOpen(true)],['🎁','Gift',()=>onOpenUsers('')],['🔊','Audio',()=>{voice.unlock();setIsRoomSoundOn(true)}],['🪙','Wallet',onOpenWallet],['⚙️','Settings',()=>setPolicyOpen(true)]].map(([icon,label,action])=><button className="room-tool" key={String(label)} onClick={()=>{setMoreOpen(false);(action as ()=>void)()}}><span>{String(icon)}</span>{String(label)}</button>)}</div></section></div>}
       {/* In-Room Game Drawer Modal */}
       {showGameDrawer && (

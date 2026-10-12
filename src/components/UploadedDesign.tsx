@@ -7,7 +7,7 @@ export const UploadedDesign: React.FC<Props> = props => {
     const s = latest.current.state;
     const escape = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
     const state = { ...s, svip: Math.min(3, Math.max(0, Number(s.svip) || 0)), name: escape(s.name), bio: escape(s.bio),bn:{...s.bn,t:escape(s.bn?.t)},
-      rooms: (s.rooms || []).map((r: any) => ({...r, name: escape(r.name), host: escape(r.host), ann: escape(r.ann)})) };
+      rooms: (s.rooms || []).map((r: any) => ({...r, cv:/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]*={0,2}$/.test(r.photoURL||'')?`<img src="${r.photoURL}" alt="রুম" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`:escape(r.cv), name: escape(r.name), host: escape(r.host), ann: escape(r.ann)})) };
     frame.current?.contentWindow?.postMessage({type:'design-state', state, admin:latest.current.admin}, window.location.origin);
   };
   useEffect(() => {

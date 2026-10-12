@@ -52,6 +52,7 @@ export interface VoiceRoom {
   name: string;
   host: string;
   hostId?: string;
+  photoURL?: string;
   cv: string; // emoji icon
   c: string; // category
   th: number; // theme index

@@ -1,3 +1,4 @@
+import {ProfilePhotoEditor} from './components/ProfilePhotoEditor';
 import {confirmedCoins,safeSiteSettings} from './lib/walletState';
 import {GlobalGameRanks} from './components/GlobalGameRanks';
 import {GameWinFeed} from './components/GameWinFeed';
@@ -398,7 +399,7 @@ export default function App() {
               ...prev,
               id: publicId, uid: u.uid,
               name: data.name || u.displayName || prev.name,
-              img: u.photoURL || prev.img,
+              img: data.photoURL || u.photoURL || prev.img,
               // The live server snapshot owns the wallet balance.
               role: isOwnerEmail ? 'admin' : 'user',
             }));
@@ -438,11 +439,14 @@ export default function App() {
       if(['banned','archived'].includes(data.status)){setToastText('আপনার অ্যাকাউন্ট ব্লক করা হয়েছে।');void signOut(auth);localStorage.removeItem('sv_auth_session');setIsAuthenticated(false);setActiveRoom(null);setActiveGame(null);return;}
       if (data.id) setS((prev: any) => ({...prev, id: String(data.id), uid: fbUser.uid }));
       if (data.giftSentCount !== undefined) setS((prev:any)=>({...prev,giftSentCount:data.giftSentCount,giftSentCoins:data.giftSentCoins,gifts:{...prev.gifts,sent:data.giftSentCoins||0}}));
+      if(data.photoURL!==undefined)setS((prev:any)=>({...prev,img:data.photoURL}));
       for(const field of ['name','svip','badge','customFrameId','customEntryId']) if(data[field]!==undefined)setS((prev:any)=>({...prev,[field]:data[field]}));
       const coins = confirmedCoins(data,snapshot.metadata);
       if (Number.isSafeInteger(coins) && coins >= 0) setS((prev: any) => ({ ...prev, coins }));
     }, () => setToastText('লাইভ ব্যালেন্স লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
   }, [fbUser?.uid]);
+
+  useEffect(()=>{if(!fbUser?.uid)return;const uid=fbUser.uid;const a=onSnapshot(query(collection(db,'follows'),where('followerId','==',uid)),s=>setS((p:any)=>({...p,follow:s.docs.map(d=>d.data().followingId)})),()=>{});const b=onSnapshot(query(collection(db,'follows'),where('followingId','==',uid)),s=>setS((p:any)=>({...p,followerCount:s.size})),()=>{});const c=onSnapshot(collection(db,'users',uid,'visitors'),s=>setS((p:any)=>({...p,visitorCount:s.size})),()=>{});return()=>{a();b();c()}},[fbUser?.uid]);
 
   useEffect(() => {
     if (!fbUser?.uid) return;
@@ -605,7 +609,9 @@ export default function App() {
     toast(`✓ ${amt.toLocaleString()} কয়েন পাঠানো হয়েছে!`);
   };
 
-  const handleEditProfileSave = () => {
+  const handleEditProfileSave = async () => {
+    if(!fbUser){toast('Google লগইন করুন।');return;}
+    try{await updateDoc(doc(db,'users',fbUser.uid),{name:editName.trim()||S.name,bio:editBio.trim(),country:editCountry||S.country});}catch{toast('প্রোফাইল সেভ হয়নি। সংযোগ পরীক্ষা করুন।');return;}
     setS((prev: any) => ({
       ...prev,
       name: editName.trim() || prev.name,
@@ -1755,6 +1761,7 @@ export default function App() {
             {/* SUBPAGE: EDIT PROFILE */}
             {activePage === 'edit_profile' && (
               <>
+                <ProfilePhotoEditor onSaved={image=>setS((prev:any)=>({...prev,img:image}))}/>
                 <div style={{ textAlign: 'center', margin: '10px 0' }}>
                   <div
                     className={`av ${FRM[S.fr]?.[4] ? 'fa' : ''}`}
