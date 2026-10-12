@@ -10,6 +10,15 @@ service cloud.firestore {
     function staff(name) { return owner() || permission(name); }
     function roomOwner(id) { return active() && get(/databases/$(database)/documents/rooms/$(id)).data.hostId == request.auth.uid; }
     function roomAdmin(id) { return roomOwner(id) || (active() && exists(/databases/$(database)/documents/rooms/$(id)/roles/$(request.auth.uid)) && get(/databases/$(database)/documents/rooms/$(id)/roles/$(request.auth.uid)).data.role == 'admin'); }
+    function mayLockSeats(room) { return roomOwner(room) || (roomAdmin(room) && get(/databases/$(database)/documents/rooms/$(room)/roles/$(request.auth.uid)).data.get('canLockSeats',false) == true); }
+    function allowedSeatChange() {
+      let room = request.resource.data.get('currentRoomId',null);
+      let seat = request.resource.data.get('roomSeat',null);
+      let target = room is string && room != '' ? room : '__no_room__';
+      let path = /databases/$(database)/documents/rooms/$(target);
+      let policy = /databases/$(database)/documents/rooms/$(target)/seatPolicy/config;
+      return room == null || room == '' || seat == null || (seat is int && seat >= 0 && seat < (exists(path) ? get(path).data.get('sc',get(path).data.get('d',false) ? 12 : 8) : 12) && ((resource.data.get('currentRoomId',null) == room && resource.data.get('roomSeat',null) == seat) || !exists(policy) || !(seat in get(policy).data.locked)));
+    }
     function mayEnterRoom(id) { return id == null || id == '' || !exists(/databases/$(database)/documents/rooms/$(id)/controls/$(request.auth.uid)) || get(/databases/$(database)/documents/rooms/$(id)/controls/$(request.auth.uid)).data.get('blocked',false) != true; }
     // All three documents must commit together. A receipt ID cannot be reused.
     function validSellerTransfer(id) {
@@ -41,8 +50,8 @@ service cloud.firestore {
     }
     match /users/{uid} {
       allow read: if active() || self(uid);
-      allow create: if owner() || (self(uid) && active() && photo(request.resource.data.get('photoURL','')) && request.resource.data.get('role','user') == 'user' && request.resource.data.get('status','active') == 'active' && request.resource.data.get('email','') == request.auth.token.get('email','') && request.resource.data.get('coins',0) is int && request.resource.data.get('coins',0) >= 0 && request.resource.data.get('coins',0) <= 50000 && request.resource.data.get('diamond',0) == 0 && request.resource.data.get('totalRecharged',0) == 0 && request.resource.data.get('giftReceivedCount',0) == 0 && request.resource.data.get('giftReceivedCoins',0) == 0);
-      allow update: if owner() || (self(uid) && active() && validGiftDebit(request.resource.data.get('lastGiftReceipt','missing'))) || (self(uid) && active() && photo(request.resource.data.get('photoURL','')) && mayEnterRoom(request.resource.data.get('currentRoomId',null)) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','status','email','lastSellerTransfer','coins','lastGiftReceipt','giftSentCount','giftSentCoins','diamond','totalRecharged','giftReceivedCount','giftReceivedCoins'])) || (permission('moderate') && resource.data.get('email','') != 'yfastvpn@gmail.com' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status in ['active','banned']) || (permission('seller') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coins','lastSellerTransfer']) && validSellerTransfer(request.resource.data.get('lastSellerTransfer','missing')));
+      allow create: if owner() || (self(uid) && active() && request.resource.data.get('roomSeat',null) == null && request.resource.data.get('currentRoomId',null) == null && photo(request.resource.data.get('photoURL','')) && request.resource.data.get('role','user') == 'user' && request.resource.data.get('status','active') == 'active' && request.resource.data.get('email','') == request.auth.token.get('email','') && request.resource.data.get('coins',0) is int && request.resource.data.get('coins',0) >= 0 && request.resource.data.get('coins',0) <= 50000 && request.resource.data.get('diamond',0) == 0 && request.resource.data.get('totalRecharged',0) == 0 && request.resource.data.get('giftReceivedCount',0) == 0 && request.resource.data.get('giftReceivedCoins',0) == 0);
+      allow update: if owner() || (self(uid) && active() && validGiftDebit(request.resource.data.get('lastGiftReceipt','missing'))) || (self(uid) && active() && photo(request.resource.data.get('photoURL','')) && allowedSeatChange() && mayEnterRoom(request.resource.data.get('currentRoomId',null)) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','status','email','lastSellerTransfer','coins','lastGiftReceipt','giftSentCount','giftSentCoins','diamond','totalRecharged','giftReceivedCount','giftReceivedCoins'])) || (permission('moderate') && resource.data.get('email','') != 'yfastvpn@gmail.com' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status in ['active','banned']) || (permission('seller') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coins','lastSellerTransfer']) && validSellerTransfer(request.resource.data.get('lastSellerTransfer','missing')));
       allow delete: if owner();
     }
     match /admins/{uid} { allow read: if owner() || self(uid); allow write: if owner(); }
@@ -69,7 +78,12 @@ service cloud.firestore {
     }
     match /rooms/{roomId}/roles/{uid} {
       allow read: if active();
-      allow create, update: if roomOwner(roomId) && uid != get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId && request.resource.data.keys().hasOnly(['role']) && request.resource.data.role == 'admin';
+      allow create, update: if roomOwner(roomId) && uid != get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId && request.resource.data.keys().hasOnly(['role','canLockSeats']) && request.resource.data.get('canLockSeats',false) is bool && request.resource.data.role == 'admin';
+      allow delete: if roomOwner(roomId);
+    }
+    match /rooms/{roomId}/seatPolicy/{id} {
+      allow read: if active();
+      allow create, update: if id == 'config' && mayLockSeats(roomId) && request.resource.data.keys().hasOnly(['locked','updatedBy','updatedAt']) && request.resource.data.locked is list && request.resource.data.locked.size() <= 20 && request.resource.data.locked.hasOnly([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]) && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time;
       allow delete: if roomOwner(roomId);
     }
     match /rooms/{roomId}/controls/{uid} {
