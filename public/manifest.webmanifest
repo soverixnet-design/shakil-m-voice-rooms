@@ -1,0 +1,27 @@
+{
+  "id": "./",
+  "name": "EarnBD Voice Rooms",
+  "short_name": "EarnBD",
+  "description": "ভয়েস রুম, গিফট ও লাইভ গেমস",
+  "lang": "bn",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#120e2b",
+  "theme_color": "#120e2b",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icons/app-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/app-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
