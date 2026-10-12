@@ -403,7 +403,7 @@ export default function App() {
           setS((prev:any)=>({...prev,id:profile.id,uid:u.uid,name:profile.name,img:profile.photoURL,role:profile.role,coins:profile.coins}));
           setFbUser(u);setIsAuthenticated(true);
           localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
-        })(),30000);
+        })(),42000);
       }catch(e:any){if(current&&attempt===version){
         version++;setAuthChecking(false);
         setAuthError((e.message==='blocked-account'||e.message==='inactive-user')?'This account is blocked.':e.code?.startsWith('login/')?`${e.message} (${e.code})`:e.code==='account-timeout'?'Google/email sign-in is complete, but the account database did not respond. Check your connection and retry account setup.':`Account setup failed (${e.code||e.message||'connection-error'}). Please retry.`);
