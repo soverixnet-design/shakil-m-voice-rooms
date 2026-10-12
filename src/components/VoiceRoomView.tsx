@@ -274,7 +274,7 @@ export const VoiceRoomView: React.FC<Props> = ({
           </div>
 
           <button
-            onClick={() => {setIsRoomSoundOn(!isRoomSoundOn);voice.unlock()}}
+            onClick={() => {voice.unlock();setIsRoomSoundOn(!isRoomSoundOn)}}
             className="ib"
             style={{ width: '34px', height: '34px', fontSize: '14px', padding: 0 }}
             title={isRoomSoundOn ? 'সাউন্ড বন্ধ' : 'সাউন্ড চালু'}
@@ -299,7 +299,7 @@ export const VoiceRoomView: React.FC<Props> = ({
         <RoomGiftFlights roomId={room.id} onGift={event=>{setRoomCoinTotal(p=>p+event.cost);setChatMessages(p=>[...p,{id:event.id,type:'gift',sender:event.senderName,text:`${event.senderName} → ${event.receiverName} (ID ${event.receiverPublicId}): ${event.quantity}টি ${event.giftName} · ${event.cost} কয়েন`}])}}/>
         <p className="text-xs text-cyan-200">ছবি বা সিটে চাপ দিয়ে প্রোফাইল দেখুন ও গিফট দিন।</p>
         {seatError&&<p role="status">{seatError}</p>}
-        <p className="text-xs text-cyan-300" role="status">{voice.status}</p><GameWinFeed roomId={room.id}/>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}
+        <p className="text-xs text-cyan-300" role="status">{voice.status}</p><button className="b" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে অডিও চালু করুন</button><GameWinFeed roomId={room.id}/>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}
         {roomEntry&&mediaAssets.find(a=>a.id===roomEntry.customEntryId)&&<EntryMedia key={roomEntry.uid+roomEntry.at} image={mediaAssets.find(a=>a.id===roomEntry.customEntryId)!.image} name={roomEntry.name}/>}
         <div className="flex gap-2 overflow-x-auto pb-2">{liveMembers.filter(member=>!Number.isInteger(member.roomSeat)).map(member=><button key={member.uid} className="shrink-0 text-center" title={member.name} onClick={()=>onOpenUsers(member.uid)}><span data-gift-uid={member.uid}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===member.customFrameId)?.image}/></span><small className="block">{member.name}</small></button>)}</div>
         <div className="sg3" style={{ gridTemplateColumns: `repeat(${seatCount <= 8 ? 4 : 4}, 1fr)`, margin: 'auto 0' }}>
