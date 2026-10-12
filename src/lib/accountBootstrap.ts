@@ -1,5 +1,7 @@
 import config from '../../game-server-config.json';
-import {callSharedGame} from './gameTransport';
-export async function accountBootstrap(){
-  return (await callSharedGame<{id:string;name:string;photoURL:string;coins:number;role:string}>(config.url,'account',{})).data;
+import {auth} from '../firebase';
+import {loadAccountProfile} from './accountBootstrapFlow';
+export async function accountBootstrap(onStage?:(stage:string)=>void){
+  const user=auth.currentUser;if(!user)throw Object.assign(Error('Sign in again.'),{code:'login/no-session'});
+  return loadAccountProfile({getToken:()=>user.getIdToken(),request:fetch,url:config.url,onStage});
 }

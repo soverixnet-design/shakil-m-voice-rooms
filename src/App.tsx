@@ -307,7 +307,7 @@ export default function App() {
   
   // Mandatory Login Gate: অ্যাপসে লগইন ছাড়া কোনোভাবেই প্রবেশ করা যাবে না
   const [isAuthenticated,setIsAuthenticated]=useState(false);
-  const [authChecking,setAuthChecking]=useState(true),[authError,setAuthError]=useState(''),[authRetry,setAuthRetry]=useState(0);
+  const [authChecking,setAuthChecking]=useState(true),[authError,setAuthError]=useState(''),[authRetry,setAuthRetry]=useState(0),[authStage,setAuthStage]=useState('Checking saved sign-in…');
   const [loginTab, setLoginTab] = useState<'google' | 'user'>('google');
   const [loginUserName, setLoginUserName] = useState<string>('');
   const [loginUserPhone, setLoginUserPhone] = useState<string>('');
@@ -398,15 +398,15 @@ export default function App() {
       if(!u){localStorage.removeItem('sv_auth_session');setAuthChecking(false);setActiveRoom(null);setActiveGame(null);return;}
       try{
         await withTimeout((async()=>{
-          const profile=await accountBootstrap();
+          const profile=await accountBootstrap(stage=>{if(valid())setAuthStage(stage)});
           if(!valid())return;
           setS((prev:any)=>({...prev,id:profile.id,uid:u.uid,name:profile.name,img:profile.photoURL,role:profile.role,coins:profile.coins}));
           setFbUser(u);setIsAuthenticated(true);
           localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
-        })(),85000);
+        })(),30000);
       }catch(e:any){if(current&&attempt===version){
         version++;setAuthChecking(false);
-        setAuthError((e.message==='blocked-account'||e.message==='inactive-user')?'This account is blocked.':e.code==='account-timeout'?'Google/email sign-in is complete, but the account database did not respond. Check your connection and retry account setup.':`Account setup failed (${e.code||e.message||'connection-error'}). Please retry.`);
+        setAuthError((e.message==='blocked-account'||e.message==='inactive-user')?'This account is blocked.':e.code?.startsWith('login/')?`${e.message} (${e.code})`:e.code==='account-timeout'?'Google/email sign-in is complete, but the account database did not respond. Check your connection and retry account setup.':`Account setup failed (${e.code||e.message||'connection-error'}). Please retry.`);
       }}finally{if(current&&attempt===version)setAuthChecking(false)}
     },e=>{clearTimeout(startup);if(current){setAuthChecking(false);setAuthError(`Login connection failed (${e.message}). Please retry.`)}});
     return()=>{current=false;version++;clearTimeout(startup);unsub()};
@@ -564,7 +564,7 @@ export default function App() {
   const invText = () => `🎙️ Shakil M Voice Rooms-এ আমার সাথে যোগ দিন! সাইন-আপের সময় আমার ইনভাইট কোড দিন: SM${S.id}\n${inviteLink()}`;
 
   async function enterRoom(candidate:any){if(!fbUser?.uid)return;try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await updateDoc(doc(db,'users',fbUser.uid),{currentRoomId:room.id,roomSeat:null,online:true,lastSeen:serverTimestamp()});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}}
-  if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} onRetry={()=>setAuthRetry(n=>n+1)}/>;
+  if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} stage={authStage} onRetry={()=>setAuthRetry(n=>n+1)}/>;
 
   return (
     <div id="app">
