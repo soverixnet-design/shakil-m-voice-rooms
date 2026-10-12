@@ -1,3 +1,4 @@
+import {accountBootstrap} from './lib/accountBootstrap';
 import {withTimeout} from './lib/authTimeout';
 import {AuthScreen} from './components/AuthScreen';
 import {RoomWelcome} from './components/RoomWelcome';
@@ -397,24 +398,15 @@ export default function App() {
       if(!u){localStorage.removeItem('sv_auth_session');setAuthChecking(false);setActiveRoom(null);setActiveGame(null);return;}
       try{
         await withTimeout((async()=>{
-          const ref=doc(db,'users',u.uid),snapshot=await getDoc(ref);
+          const profile=await accountBootstrap();
           if(!valid())return;
-          const data=snapshot.data()||{};
-          if(['banned','archived'].includes(data.status)){await signOut(auth);throw Error('blocked-account')}
-          const isOwner=Boolean(u.emailVerified&&u.email&&ADMIN_EMAILS.includes(u.email.toLowerCase()));
-          const publicId=data.id?String(data.id):await makePublicId();
-          if(!valid())return;
-          const name=data.name||u.displayName||u.email?.split('@')[0]||'User';
-          if(snapshot.exists())await updateDoc(ref,{...(data.id?{}:{id:publicId}),online:true,currentRoomId:null,roomSeat:null,lastSeen:serverTimestamp()});
-          else await setDoc(ref,{id:publicId,userId:u.uid,name,email:u.email||'',avatar:'👤',photoURL:u.photoURL||'',coins:50000,role:isOwner?'admin':'user',status:'active',currentRoomId:null,roomSeat:null,online:true,lastSeen:serverTimestamp(),createdAt:serverTimestamp()});
-          if(!valid())return;
-          setS((prev:any)=>({...prev,id:publicId,uid:u.uid,name,img:data.photoURL||u.photoURL||'',role:isOwner?'admin':'user',coins:0}));
+          setS((prev:any)=>({...prev,id:profile.id,uid:u.uid,name:profile.name,img:profile.photoURL,role:profile.role,coins:profile.coins}));
           setFbUser(u);setIsAuthenticated(true);
           localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
-        })(),20000);
+        })(),85000);
       }catch(e:any){if(current&&attempt===version){
         version++;setAuthChecking(false);
-        setAuthError(e.message==='blocked-account'?'This account is blocked.':e.code==='account-timeout'?'Google/email sign-in is complete, but the account database did not respond. Check your connection and retry account setup.':`Account setup failed (${e.code||e.message||'connection-error'}). Check Firebase rules and retry.`);
+        setAuthError((e.message==='blocked-account'||e.message==='inactive-user')?'This account is blocked.':e.code==='account-timeout'?'Google/email sign-in is complete, but the account database did not respond. Check your connection and retry account setup.':`Account setup failed (${e.code||e.message||'connection-error'}). Please retry.`);
       }}finally{if(current&&attempt===version)setAuthChecking(false)}
     },e=>{clearTimeout(startup);if(current){setAuthChecking(false);setAuthError(`Login connection failed (${e.message}). Please retry.`)}});
     return()=>{current=false;version++;clearTimeout(startup);unsub()};

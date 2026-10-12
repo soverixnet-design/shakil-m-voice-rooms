@@ -2,7 +2,7 @@ import {getFunctions,httpsCallable} from 'firebase/functions';
 import {auth} from '../firebase';
 import {gameServerUrl} from './gameServerUrl';
 const functions=getFunctions(auth.app,'asia-southeast1');
-export async function callSharedGame<T>(url:string,action:'sync'|'bet'|'gift'|'exchange'|'voice-config',data:any):Promise<{data:T}>{
+export async function callSharedGame<T>(url:string,action:'sync'|'bet'|'gift'|'exchange'|'voice-config'|'account',data:any):Promise<{data:T}>{
  if(!url&&action!=='sync'&&action!=='bet')throw Object.assign(Error('server-unavailable'),{code:'functions/unavailable'});
  if(!url)return await httpsCallable<any,T>(functions,action==='sync'?'syncSharedGame':'placeSharedBet',{timeout:30000})(data);
  const user=auth.currentUser;if(!user)throw Object.assign(Error('unauthenticated'),{code:'functions/unauthenticated'});

@@ -15,3 +15,14 @@ test('Render transport checks origin/auth/input and takes UID only from verified
 });
 test('missing server credentials reports setup-required and never accepts bets',async()=>{let called=false;const server=createGameHttpServer({service:{bet:()=>{called=true}},verifyToken:async()=>({uid:'x'}),origins:[origin],ready:false});await new Promise(r=>server.listen(0,'127.0.0.1',r));const base=`http://127.0.0.1:${server.address().port}`;try{assert.equal((await fetch(base+'/health')).status,503);assert.equal((await fetch(base+'/api/bet',{method:'POST'})).status,503);assert.equal(called,false)}finally{await new Promise(r=>server.close(r))}});
 test('health verifies database readiness and caches quota/permission diagnostics without leaking data',async()=>{for(const [code,reason] of [[8,'database-quota-exceeded'],[7,'server-database-permission-denied']]){let calls=0;const server=createGameHttpServer({service:{},verifyToken:async()=>({uid:'u'}),origins:[origin],checkReady:async()=>{calls++;throw Object.assign(Error('private database detail'),{code})}});await new Promise(r=>server.listen(0,'127.0.0.1',r));try{const base=`http://127.0.0.1:${server.address().port}`;for(let i=0;i<2;i++){const r=await fetch(base+'/health');assert.equal(r.status,503);const body=await r.json();assert.equal(body.reason,reason);assert.equal(body.status,'database-unavailable');assert(!JSON.stringify(body).includes('private database detail'));}assert.equal(calls,1)}finally{await new Promise(r=>server.close(r))}}});
+
+test('account bootstrap trusts verified identity and rejects unsigned callers',async()=>{
+ let received;const identity={uid:'real-user',email:'owner@example.com',email_verified:true};
+ const server=createGameHttpServer({service:{account:async(data,verified)=>{received=verified;return {id:'123',role:'user'}}},verifyToken:async()=>identity,origins:[origin]});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ try{const base=`http://127.0.0.1:${server.address().port}/api/account`;
+ const request={method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({uid:'victim',email:'yfastvpn@gmail.com',role:'admin'})};
+ assert.equal((await fetch(base,{...request,headers:{...request.headers,Authorization:''}})).status,401);
+ const response=await fetch(base,request);assert.equal(response.status,200);assert.deepEqual(received,identity);assert.equal((await response.json()).data.role,'user');
+ }finally{await new Promise(r=>server.close(r))}
+});
