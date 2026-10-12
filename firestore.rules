@@ -70,9 +70,19 @@ service cloud.firestore {
       allow create: if active();
       allow update, delete: if owner();
     }
+    match /roomOwners/{uid} {
+      allow read: if self(uid) || owner();
+      allow create: if self(uid) && active() && request.resource.data.keys().hasOnly(['roomId']) && request.resource.data.roomId == 'user-' + uid && getAfter(/databases/$(database)/documents/rooms/$(request.resource.data.roomId)).data.hostId == uid;
+      allow update, delete: if false;
+    }
+    match /users/{uid}/roomLibrary/{roomId} {
+      allow read: if self(uid);
+      allow create, update: if self(uid) && active() && request.resource.data.keys().hasOnly(['visitedAt','followed']) && request.resource.data.get('followed',false) is bool && (!('visitedAt' in request.resource.data) || request.resource.data.visitedAt is timestamp);
+      allow delete: if self(uid);
+    }
     match /rooms/{id} {
       allow read: if true;
-      allow create: if owner() || (active() && photo(request.resource.data.get('photoURL','')) && request.resource.data.hostId == request.auth.uid);
+      allow create: if owner() || (active() && photo(request.resource.data.get('photoURL','')) && request.resource.data.hostId == request.auth.uid && id == 'user-' + request.auth.uid && !exists(/databases/$(database)/documents/roomOwners/$(request.auth.uid)) && getAfter(/databases/$(database)/documents/roomOwners/$(request.auth.uid)).data.roomId == id);
       allow update: if owner() || (active() && photo(request.resource.data.get('photoURL','')) && resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId);
       allow delete: if owner() || (active() && resource.data.hostId == request.auth.uid);
     }

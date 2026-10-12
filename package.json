@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test:rules": "npx --yes firebase-tools@14.10.1 emulators:exec --only firestore --project demo-voice-admin --config firebase.emulator.json \"node tests/admin-rules.mjs && node tests/shared-games-emulator.mjs && node tests/wallet-voice-emulator.mjs && node tests/seat-policy-emulator.mjs\"",
+    "test:rules": "npx --yes firebase-tools@14.10.1 emulators:exec --only firestore --project demo-voice-admin --config firebase.emulator.json \"node tests/admin-rules.mjs && node tests/shared-games-emulator.mjs && node tests/wallet-voice-emulator.mjs && node tests/seat-policy-emulator.mjs && node tests/room-library-emulator.mjs\"",
     "test:games": "node --import tsx --test tests/shared-games.test.mjs tests/render-server.test.mjs tests/uploaded-games.test.mjs"
   },
   "dependencies": {

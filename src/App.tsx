@@ -1,3 +1,4 @@
+import {galleryPhoto} from './lib/profilePhoto';
 import {ProfilePhotoEditor} from './components/ProfilePhotoEditor';
 import {confirmedCoins,safeSiteSettings} from './lib/walletState';
 import {GlobalGameRanks} from './components/GlobalGameRanks';
@@ -326,6 +327,11 @@ export default function App() {
   // User Room Creation Modal State
   const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
+  const [newRoomPhoto,setNewRoomPhoto]=useState('');
+  const [roomCreating,setRoomCreating]=useState(false);
+  const [roomLibrary,setRoomLibrary]=useState<any[]>([]);
+  useEffect(()=>{if(!fbUser?.uid){setRoomLibrary([]);return;}return onSnapshot(collection(db,'users',fbUser.uid,'roomLibrary'),snap=>setRoomLibrary(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a:any,b:any)=>(b.visitedAt?.toMillis?.()||0)-(a.visitedAt?.toMillis?.()||0))));},[fbUser?.uid]);
+  useEffect(()=>{if(!activeRoom||!fbUser?.uid)return;void setDoc(doc(db,'users',fbUser.uid,'roomLibrary',String(activeRoom.id)),{visitedAt:serverTimestamp()},{merge:true}).catch(()=>toast('রুমের হিস্ট্রি সেভ হয়নি। নতুন Rules প্রকাশ করুন।'));},[activeRoom?.id,fbUser?.uid]);
   const [newRoomCategory, setNewRoomCategory] = useState('চ্যাট');
   const [newRoomTag, setNewRoomTag] = useState('আড্ডা');
   const [newRoomIcon, setNewRoomIcon] = useState('🎤');
@@ -636,7 +642,7 @@ export default function App() {
       {showUserDirectory && <UserDirectory initialRecipient={giftRecipient} onGiftSent={event=>{setShowUserDirectory(false);toast(`✅ ID ${event.receiverPublicId}-তে ${event.quantity}টি ${event.giftName} পাঠানো হয়েছে। বাকি ${event.balance} কয়েন।`)}} roomId={activeRoom?.id} onClose={()=>setShowUserDirectory(false)} onJoin={room=>{setActiveRoom(room);setIsRoomMinimized(false);setShowUserDirectory(false)}} />}
       {incomingGift && (!activeRoom||isRoomMinimized||incomingGift.roomId!==activeRoom.id) && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.giftImage?<img src={incomingGift.giftImage} alt={incomingGift.giftName} className="w-24 h-24 object-contain"/>:incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · 💎 {incomingGift.cost} ডায়মন্ড যোগ হয়েছে</p></div>}
 
-      {isAuthenticated && <UploadedDesign state={{...S,customFrameImage:customFrame?.image,mediaBanners:mediaAssets.filter(a=>a.kind==='banner'),sellerEnabled:Boolean(delegatedAccess?.active&&delegatedAccess.permissions?.seller)}} admin={isSuperAdmin}
+      {isAuthenticated && <UploadedDesign state={{...S,myRoomId:S.rooms.find((r:any)=>r.hostId===fbUser?.uid)?.id,roomLibrary,customFrameImage:customFrame?.image,mediaBanners:mediaAssets.filter(a=>a.kind==='banner'),sellerEnabled:Boolean(delegatedAccess?.active&&delegatedAccess.permissions?.seller)}} admin={isSuperAdmin}
         visible={!activePage && !activeRoom && !activeGame && tab === 'home' && !showCreateRoomModal && !splashVisible}
         onAction={(action, value) => {
           if (action === 'users') {setGiftRecipient(undefined);setShowUserDirectory(true);}
@@ -644,7 +650,7 @@ export default function App() {
           if (action === 'admin' && isSuperAdmin) setActivePage('admin');
           if (action === 'page' && ['game_rank','edit_profile','hist','frames','entries','svip','tasks','invite','store','items','seller','support_chat','notices'].includes(value || '')) setActivePage(value!);
           if (action === 'nav' && ['wallet','msg','moments'].includes(value || '')) setTab(value as any);
-          if (action === 'create-room') setShowCreateRoomModal(true);
+          if (action === 'create-room') {const own=S.rooms.find((r:any)=>r.hostId===fbUser?.uid);if(own){setActiveRoom(own);setIsRoomMinimized(false);}else setShowCreateRoomModal(true);}
           if (action === 'checkin') handleCheckin();
           if (action === 'room') { const room = S.rooms.find((r: any) => String(r.id) === value); if (room) { setActiveRoom(room); setIsRoomMinimized(false); } }
           if (action === 'game') {
@@ -2711,7 +2717,7 @@ export default function App() {
           onClick={() => setShowCreateRoomModal(false)}
         >
           <div 
-            className="w-full max-w-sm bg-[#12092b] border border-cyan-400/40 rounded-3xl p-5 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative text-white"
+            className="w-full max-w-sm max-h-[90dvh] overflow-y-auto bg-[#12092b] border border-cyan-400/40 rounded-3xl p-5 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative text-white"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
@@ -2733,6 +2739,7 @@ export default function App() {
             </div>
 
             <div className="space-y-3.5 text-xs">
+              <label className="block rounded-2xl border border-cyan-400/30 bg-indigo-500/10 p-4 text-center cursor-pointer">{newRoomPhoto?<img src={newRoomPhoto} alt="রুমের ছবি" className="w-20 h-20 rounded-2xl object-cover mx-auto mb-2"/>:<span className="block text-4xl mb-2">📷</span>}গ্যালারি থেকে রুমের ছবি দিন<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={async e=>{const file=e.target.files?.[0];if(file)try{setNewRoomPhoto(await galleryPhoto(file))}catch(err){toast(err instanceof Error?err.message:'ছবি যোগ হয়নি')}}}/></label>
               <div>
                 <label className="block text-gray-300 font-semibold mb-1">রুমের নাম *</label>
                 <input 
@@ -2830,7 +2837,8 @@ export default function App() {
                     return;
                   }
                   const createdRoom: any = {
-                    id: String(Math.floor(30000 + Math.random() * 69999)),
+                    id: `user-${fbUser?.uid}`,
+                    photoURL:newRoomPhoto,
                     name: newRoomName.trim(),
                     host: S.name,
                     hostId: S.id,
@@ -2848,8 +2856,14 @@ export default function App() {
 
                   if (!fbUser?.uid) { toast('রুম তৈরি করতে Google দিয়ে লগইন করুন।'); return; }
                   createdRoom.hostId = fbUser.uid;
-                  try { await setDoc(doc(db,'rooms',createdRoom.id), createdRoom); }
-                  catch { toast('রুম সেভ হয়নি। সংযোগ ও অনুমতি পরীক্ষা করুন।'); return; }
+                  if(roomCreating)return;
+                  setRoomCreating(true);
+                  try {
+                    const existing=await getDocs(query(collection(db,'rooms'),where('hostId','==',fbUser.uid)));
+                    if(!existing.empty){setActiveRoom({id:existing.docs[0].id,...existing.docs[0].data()});setShowCreateRoomModal(false);setIsRoomMinimized(false);return;}
+                    await runTransaction(db,async tx=>{const ref=doc(db,'roomOwners',fbUser.uid);const own=await tx.get(ref);const roomRef=doc(db,'rooms',createdRoom.id);const roomSnap=await tx.get(roomRef);if(own.exists()||roomSnap.exists())throw new Error('আপনার রুম ইতিমধ্যে তৈরি হয়েছে।');tx.set(ref,{roomId:createdRoom.id});tx.set(roomRef,createdRoom);});
+                  } catch(err) { toast(err instanceof Error?err.message:'রুম সেভ হয়নি। নতুন Rules ও সংযোগ পরীক্ষা করুন।'); return; }
+                  finally{setRoomCreating(false);}
 
                   // Prepend newly created room to list
                   setS((prev: any) => ({
@@ -2867,7 +2881,7 @@ export default function App() {
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 font-bold hover:brightness-110 active:scale-95 shadow-lg shadow-cyan-500/25"
               >
-                🚀 লাইভ রুম চালু করুন
+                {roomCreating?'সেভ হচ্ছে…':'🚀 লাইভ রুম চালু করুন'}
               </button>
             </div>
           </div>

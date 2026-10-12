@@ -85,6 +85,8 @@ export const VoiceRoomView: React.FC<Props> = ({
   const [isMicOn, setIsMicOn] = useState<boolean>(false);
   const [isRoomSoundOn, setIsRoomSoundOn] = useState<boolean>(true);
   const [isFollowed, setIsFollowed] = useState<boolean>(false);
+  useEffect(()=>{if(!auth.currentUser)return;return onSnapshot(doc(db,'users',auth.currentUser.uid,'roomLibrary',String(room.id)),snap=>setIsFollowed(snap.data()?.followed===true));},[room.id]);
+  async function followRoom(){if(!auth.currentUser)return;try{await setDoc(doc(db,'users',auth.currentUser.uid,'roomLibrary',String(room.id)),{followed:!isFollowed},{merge:true})}catch{setSeatError('রুম ফলো সেভ হয়নি। নতুন Rules প্রকাশ করুন।')}}
   const [chatMessages, setChatMessages] = useState<{ id: string; type: 'chat' | 'gift' | 'notice'; text: string; sender: string }[]>([
     { id: '1', type: 'notice', text: `📢 ${room.ann || 'রুমে স্বাগতম! সবাই মিলে আড্ডা দিই 🎉'}`, sender: 'System' },
     { id: '2', type: 'notice', text: `🎉 ${user.name} রুমে প্রবেশ করেছেন`, sender: 'System' },
@@ -154,7 +156,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   const [seatBusy,setSeatBusy]=useState(false),[seatError,setSeatError]=useState('');
   const seatLock=useRef(false);
   const liveSeats=Array.from({length:seatCount},(_,index)=>liveMembers.filter(m=>m.roomSeat===index).sort((a,b)=>a.uid.localeCompare(b.uid))[0]||null);
-  useEffect(()=>{if(auth.currentUser)void updateDoc(doc(db,'users',auth.currentUser.uid),{roomSeat:isCurrentUserHost?0:null}).catch(()=>setSeatError('সিট সেভ হয়নি। Google লগইন পরীক্ষা করুন।'))},[room.id]);
+  useEffect(()=>{if(auth.currentUser)void updateDoc(doc(db,'users',auth.currentUser.uid),{currentRoomId:room.id,roomSeat:null,online:true}).catch(()=>setSeatError('সিট সেভ হয়নি। Google লগইন পরীক্ষা করুন।'))},[room.id]);
   const handleSeatClick = async (index:number) => {
     if(seatLock.current)return;
     if(!auth.currentUser){setSeatError('রুমে বসতে Google দিয়ে লগইন করুন।');return;}
@@ -163,7 +165,7 @@ export const VoiceRoomView: React.FC<Props> = ({
     if(seatedIndex!==index&&lockedSeats.includes(index)){setSeatError('🔒 এই সিট লক করা আছে।');return;}
     seatLock.current=true;setSeatBusy(true);setSeatError('');
     const next=seatedIndex===index?null:index;
-    try{await updateDoc(doc(db,'users',auth.currentUser.uid),{roomSeat:next});setSeatedIndex(next);if(next===null)setIsMicOn(false)}catch{setSeatError('সিট সেভ হয়নি। সংযোগ পরীক্ষা করুন।')}finally{seatLock.current=false;setSeatBusy(false)}
+    try{await updateDoc(doc(db,'users',auth.currentUser.uid),{currentRoomId:room.id,roomSeat:next,online:true});setSeatedIndex(next);if(next===null)setIsMicOn(false)}catch{setSeatError('সিট সেভ হয়নি। সংযোগ পরীক্ষা করুন।')}finally{seatLock.current=false;setSeatBusy(false)}
   };
 
   const handleMicToggle = async () => {
@@ -247,7 +249,7 @@ export const VoiceRoomView: React.FC<Props> = ({
         <RoomGiftFlights roomId={room.id} onGift={event=>{setRoomCoinTotal(p=>p+event.cost);setChatMessages(p=>[...p,{id:event.id,type:'gift',sender:event.senderName,text:`${event.senderName} → ${event.receiverName} (ID ${event.receiverPublicId}): ${event.quantity}টি ${event.giftName} · ${event.cost} কয়েন`}])}}/>
         
         {seatError&&<p role="status">{seatError}</p>}
-        <details className="room-voice-status"><summary>🎙️ ভয়েস সংযোগ</summary><p className="text-xs text-cyan-300" role="status">{voice.status}</p><button className="b" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে অডিও চালু করুন</button></details><GameWinFeed roomId={room.id}/>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}
+        <details className="room-voice-status"><summary>🎙️ ভয়েস সংযোগ</summary><p className="text-xs text-cyan-300" role="status">{voice.status}</p><button className="b" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে অডিও চালু করুন</button></details><button className="back-card" onClick={()=>void followRoom()}>{isFollowed?"♥ রুম ফলো করা আছে":"♡ রুম ফলো করুন"}</button><GameWinFeed roomId={room.id}/>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}
         {roomEntry&&mediaAssets.find(a=>a.id===roomEntry.customEntryId)&&<EntryMedia key={roomEntry.uid+roomEntry.at} image={mediaAssets.find(a=>a.id===roomEntry.customEntryId)!.image} name={roomEntry.name}/>}
         <div className="flex gap-2 overflow-x-auto pb-2">{liveMembers.filter(member=>!Number.isInteger(member.roomSeat)).map(member=><button key={member.uid} className="shrink-0 text-center" title={member.name} onClick={()=>onOpenUsers(member.uid)}><span data-gift-uid={member.uid}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===member.customFrameId)?.image}/></span><small className="block">{member.name}</small></button>)}</div>
         <div className="sg3" style={{ gridTemplateColumns: `repeat(${seatCount>=10?5:4}, 1fr)`, margin: 'auto 0' }}>
