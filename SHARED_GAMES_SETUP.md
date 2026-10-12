@@ -4,7 +4,7 @@ Google Cloud billing চালু না হলে **Render-এর বিকল�
 
 ## বর্তমান অবস্থা
 
-ওয়েবসাইটের পাঁচটি বেটিং গেম (`greedy_lion`, `lion_wheel`, `night_wheel`, `jackpot_fruit`, `slots`) এখন নতুন shared-game সার্ভারের client ব্যবহার করে। পুরোনো ডিভাইসভিত্তিক timer, ফলাফল ও নমুনা ranking এই live mode-এ ব্যবহার হয় না। Firebase Functions deploy এবং নিচের নতুন rules প্রকাশ না হওয়া পর্যন্ত লাইভ বেট বন্ধ থাকে। সংযোগের ত্রুটি দেখাবে; কয়েন কাটবে না। Carrom ও Chess এখনও স্থানীয় single-player গেম; তাদের online matchmaking এই পরিবর্তনের অন্তর্ভুক্ত নয়।
+ওয়েবসাইটের পাঁচটি বেটিং গেম (`greedy_lion`, `lion_wheel`, `night_wheel`, `jackpot_fruit`, `slots`) এখন নতুন shared-game সার্ভারের client ব্যবহার করে। পুরোনো ডিভাইসভিত্তিক timer, ফলাফল ও নমুনা ranking এই live mode-এ ব্যবহার হয় না। Firebase Functions deploy এবং নিচের নতুন rules প্রকাশ না হওয়া পর্যন্ত লাইভ বেট বন্ধ থাকে। সংযোগের ত্রুটি দেখাবে; কয়েন কাটবে না। পুরোনো স্থানীয় গেমগুলো সরানো হয়েছে। চারটি নতুন HTML গেম বসানো হয়েছে; স্লটসের নতুন ডিজাইন এবং দাবার জন্য runnable HTML ফাইল পাওয়া বাকি।
 
 Firebase অ্যাপের apiKey, authDomain, appId ও projectId পরিবর্তন করা হয়নি। একই named Firestore database ব্যবহার করা হয়:
 
@@ -46,7 +46,7 @@ Rules হাতে প্রকাশ করলে repository-এর **পুর
 
 নতুন rules সাধারণ ইউজারের নিজের balance বাড়ানোর ক্ষমতা বন্ধ করে। Owner recharge, যাচাইকৃত seller transfer এবং gift debit কাজ করে; ordinary profile edit থেকে coins বদলানো যায় না। পুরোনো local-game payout code আর এই পাঁচটি live game-এ ব্যবহার হয় না। Client-এ arbitrary “জেতা কয়েন” পাঠিয়ে server payout নেওয়া যায় না।
 
-Fruit game-এর live mode-এ fruit multipliers ব্যবহৃত হয়; পুরোনো local random bonus/jackpot pool এখন দেখানো বা credit করা হয় না। Slots-এ একই round-এ একই three-symbol result সবার জন্য হয়; একাধিক accepted bets যোগ হয়। Auto Play নতুন live mode-এ রাখা হয়নি। এগুলো পরে server-controlled ভাবে আলাদা যোগ করা যাবে।
+Fruit game-এর নতুন live mode-এ server-secret ফলাফল, +1/+2/x2/x3 bonus এবং আসল বেটের ৫% থেকে jackpot pool তৈরি হয়। JP হলে pool-এর নির্ধারিত অংশ round-এর stake অনুযায়ী অংশগ্রহণকারীদের মধ্যে ভাগ হয়। Slots-এ একই round-এ একই three-symbol result সবার জন্য হয়; একাধিক accepted bets যোগ হয়। Auto Play নতুন live mode-এ রাখা হয়নি। এগুলো পরে server-controlled ভাবে আলাদা যোগ করা যাবে।
 
 ## যাচাই
 

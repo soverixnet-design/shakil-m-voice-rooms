@@ -83,7 +83,7 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:0}
 <div id="ov"></div><div id="sh"><div id="shb"></div></div><div id="gm"></div></div><div id="toast"></div><div id="gb"></div>
 <script>
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],fm=n=>Math.round(n).toLocaleString();
-const G=[['🦁','সিংহ ফুড হুইল',''],['🌙','নাইট ফুড হুইল',''],['🍒','জ্যাকপট ফ্রুট',''],['🎰','স্লটস',''],['🔴','ক্যারাম',''],['♟️','দাবা ৩ডি','']];
+const G=[['🦁','Greedy Lion',''],['🦁','সিংহ ফুড হুইল',''],['🌙','নাইট ফুড হুইল',''],['🍒','জ্যাকপট ফ্রুট',''],['🎰','স্লটস',''],['♟️','দাবা ৩ডি','']];
 const GF=[['🌹','গোলাপ',10],['🧸','টেডি',100],['💎','ডায়মন্ড',500],['🚗','গাড়ি',2000],['🏰','কেল্লা',10000],['🐉','ড্রাগন',50000]],SV=[['SVIP 1',50000,'#8cf'],['SVIP 2',200000,'#ffd23f'],['SVIP 3',1000000,'#f9f']];
 const GR=['linear-gradient(135deg,#ff5c9d,#8a5cff)','linear-gradient(135deg,#19e6c1,#3a7cff)','linear-gradient(135deg,#ffc94d,#ff5c5c)','linear-gradient(135deg,#8a5cff,#19e6c1)'],TH=[['🌌','#2a1a6a','#0a1024'],['🌅','#7a2a5a','#1a0a2a'],['🌊','#0a4a6a','#08121f'],['🌿','#0a5a3a','#08141a']];
 const def=()=>({name:'ইউজার',id:String(100000+Math.random()*899999|0),av:'😎',img:'',coins:10000,xp:0,svip:0,last:'',streak:0,bn:{t:'ভয়েস রুমে আড্ডা দিন, গিফট পাঠান, গেম খেলুন! 🎉',g:0},rew:[100,200,300,500,800,1000,2000],hist:[],cat:'সব',sigUrl:'',country:'',age:0,dob:'',reg:false,invPct:5,ref:'',inv:{n:0,earn:0,list:[]},siteUrl:'',spent:0,cnt:{msg:0,gift:0,game:0},tk:{d:'',msg:0,gift:0,game:0,cl:[]},posts:[],ownT:[0,1,2,3,4,5],bio:'',fr:0,ownF:[0],en:-1,ownE:[],follow:[],gifts:{sent:0,recv:[]},users:{},pk:[{u:1,c:1000},{u:5,c:5500},{u:10,c:12000},{u:20,c:26000},{u:50,c:70000},{u:100,c:150000}],
@@ -368,7 +368,7 @@ coin=()=>toast('অ্যাকাউন্টের ওয়ালেট থ�
 showReg=()=>{};
 openAdmin=()=>hostSend('admin');
 showAdmin=openAdmin;
-openGame=i=>hostSend('game',['greedy_lion','night_wheel','jackpot_fruit','slots','carrom','chess_3d'][i]);
+openGame=i=>hostSend('game',['greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots','chess_3d'][i]);
 openRoom=id=>hostSend('room',String(id));
 createRoom3=()=>hostSend('create-room');
 search3=()=>hostSend('users');
@@ -383,6 +383,7 @@ recall3=()=>hostSend('page','invite');
 store3=()=>hostSend('page','store');
 items3=()=>hostSend('page','items');
 checkin=()=>hostSend('checkin');
+rank3=()=>hostSend('page','game_rank');
 openCS=()=>hostSend('page','support_chat');
 bonus3=()=>hostSend('nav','wallet');
 $('#adm').onclick=openAdmin;

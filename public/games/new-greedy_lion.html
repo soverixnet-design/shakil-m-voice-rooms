@@ -97,7 +97,7 @@ button{font:inherit;cursor:pointer;border:0}
 #rl2{position:absolute!important;left:5%;top:30%;font-size:54px;z-index:1}
 #rc{position:absolute;right:14px;top:8px;color:#ffe066}
 #ban{background:linear-gradient(#ffcf5a,#b2540f);border:2px solid #fff3a8;box-shadow:0 0 14px #ffb53a}
-</style></head><body><div id="app"><div id="game"><div id="top"><button id="bk">←</button><span id="rn"></span><span class="sp"></span><button id="mu">♪</button><button id="hp">?</button></div>
+</style></head><body data-game="greedy_lion"><div id="app"><div id="game"><div id="top"><button id="bk">←</button><span id="rn"></span><span class="sp"></span><button id="mu">♪</button><button id="hp">?</button></div>
 <div id="stage"><div id="wh"><div id="rim"></div><div id="leg"></div><div id="hub"><div class="ln">🦁</div><b id="tm">20</b></div></div></div>
 <div id="panel"><div id="inf"><div class="card" id="topc"></div><button id="hs">📒 MyHistory ›</button></div>
 <div id="rsr"><i>result</i> <span id="rl"></span></div><div id="ch"></div>
@@ -108,76 +108,4 @@ button{font:inherit;cursor:pointer;border:0}
 <div class="ov" id="gate" style="background:#000c"><div class="box"><h3>🔞 18+ only</h3>This game uses <b>virtual coins only</b> — no real money, no cash-out. You must be 18 or older to play.<br><button id="g1">I am 18+</button><button id="g0" style="background:#888">Leave</button></div></div>
 <div class="ov" id="load"><div class="lg">🦁</div><h1>Greedy Lion</h1><p>Shakil M Gaddy game</p><div class="bar"><i id="lp"></i></div><p id="lt" style="margin-top:8px">Loading… 0%</p></div>
 </div>
-<script>
-const $=id=>document.getElementById(id),S={get(k,d){try{const v=localStorage.getItem('greedy-lion:'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('greedy-lion:'+k,JSON.stringify(v))}catch(e){}}};
-const IT=[{e:'🍗',m:45},{e:'🐙',m:25},{e:'🐟',m:15},{e:'🥩',m:10},{e:'🍇',m:5},{e:'🥬',m:5},{e:'🌽',m:5},{e:'🍓',m:5}];
-const GR=[{e:'🥗',n:'Salad',m:1.25,s:[4,5,6,7]},{e:'🍕',n:'Pizza',m:4.3,s:[0,1,2,3]}];
-const BN=['Xeloi-club','chanda','Rafi','Mim','Sumi','Tuhin','Nila','Arif','vì nè','Jamal'],AV=['👑','🧑','👩','🧔','👧'];
-const f=n=>Math.round(n).toLocaleString('en-US'),k=n=>n>=1e6?n/1e6+'M':n>=1e3?n/1e3+'K':''+n;
-const day=new Date().toDateString();
-let bal=0,round=S.get('rd',36),res=S.get('rs',[4,5,5,4,2,2,6,4]),hist=S.get('hi',[]),tw=S.get('tw',{d:day,v:0}),lb=S.get('lb',{d:day,p:{}});
-if(tw.d!==day)tw={d:day,v:0};if(lb.d!==day)lb={d:day,p:{}};
-if(!lb.u){const NM=['Rafi','Mim','Sumi','Tuhin','Nila','Arif','Jamal','Xeloi-club','chanda','Sakib','Tania','Rony','Lima','Hasan','Mitu','Babu','Shuvo','Nusrat','Imran','Rima'];lb.u=Array.from({length:99},(_,i)=>({n:NM[i%20]+(i>=20?(i*7)%90+10:''),v:Math.round((Math.pow(Math.random(),2.5)*8e6+2e4)/1000)*1000}))}
-let bets=Array(10).fill(0),last=null,auto=false,chip=1000,phase='load',t=0,cur=0,mute=false,topw={n:'chanda',v:210000};
-let walletReady=false,walletBusy=false,pendingWallet=null;
-function wallet(delta){if(!walletReady||walletBusy)return Promise.resolve(false);walletBusy=true;return new Promise(resolve=>{pendingWallet=resolve;parent.postMessage({type:'gl-wallet',delta},location.origin)})}
-window.addEventListener('message',e=>{if(e.source!==parent||e.origin!==location.origin)return;const d=e.data||{};if(d.type==='gl-request-exit'){$('bk').onclick();return;}if(d.type==='gl-init'){bal=d.balance;walletReady=true;document.querySelector('.me span').textContent=d.name||'User';render()}if(d.type==='gl-saved'||d.type==='gl-error'){if(d.type==='gl-saved')bal=d.balance;walletBusy=false;const cb=pendingWallet;pendingWallet=null;cb?.(d.type==='gl-saved');render()}});
-const walletHandshake=setInterval(()=>{if(walletReady){clearInterval(walletHandshake);return;}parent.postMessage({type:'gl-ready'},location.origin)},500);
-parent.postMessage({type:'gl-ready'},location.origin);
-
-let AC;function ctx(){AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();return AC}
-function beep(fr=500,d=.08,v=.15){tone(fr,0,d,'sine',v)}
-function tone(fr,at,d,ty,v,to){if(mute)return;try{ctx();const o=AC.createOscillator(),g=AC.createGain(),t0=AC.currentTime+at;o.type=ty;o.frequency.setValueAtTime(fr,t0);if(to)o.frequency.linearRampToValueAtTime(to,t0+d);g.gain.setValueAtTime(v,t0);g.gain.exponentialRampToValueAtTime(.001,t0+d);o.connect(g);g.connect(AC.destination);o.start(t0);o.stop(t0+d)}catch(e){}}
-const winSnd=()=>[523,659,784,1047,1319,1047,1319].forEach((fr,i)=>tone(fr,i*.12,.28,'triangle',.2)),loseSnd=()=>{tone(392,0,.35,'sawtooth',.14,330);tone(330,.35,.35,'sawtooth',.14,262);tone(233,.7,.8,'sawtooth',.16,140)};
-function toast(m){const e=$('toast');e.textContent=m;e.style.display='block';clearTimeout(e._t);e._t=setTimeout(()=>e.style.display='none',2000)}
-IT.forEach((x,i)=>{const a=i*Math.PI/4,d=document.createElement('div');d.className='st';d.id='s'+i;d.style.left=(50+36*Math.sin(a))+'%';d.style.top=(50-37*Math.cos(a))+'%';d.innerHTML=`<s>HOT</s><em>${x.e}</em><div class=pd></div><u>x${x.m}</u><b></b>`;d.onclick=()=>place(i);$('wh').appendChild(d)});
-GR.forEach((g,j)=>{const d=document.createElement('div');d.className='gs';d.id='s'+(8+j);d.style.left=j?'90%':'10%';d.style.top='90%';d.innerHTML=`<em>${g.e}</em><u>${g.n.toLowerCase()}</u><b></b>`;d.onclick=()=>place(8+j);$('wh').appendChild(d)});
-[1000,10000,100000,1000000].forEach(v=>{const b=document.createElement('button');b.innerHTML='🪙<br>'+k(v);b.dataset.v=v;b.onclick=()=>{chip=v;beep(700,.04);render()};$('ch').appendChild(b)});
-function render(){for(let i=0;i<10;i++){const b=document.querySelector('#s'+i+' b');b.textContent=bets[i]?k(bets[i]):'';b.style.display=bets[i]?'block':'none'}
-$('bl').textContent=f(bal);$('tw2').textContent=' '+f(tw.v);$('rn').textContent='round:'+round;
-$('rl').innerHTML=res.slice(0,8).map(r=>`<span>${IT[r].e}</span>`).join('');
-$('topc').innerHTML=`<span class=av2>👩</span> <span>${topw.n}<br>🪙 ${f(topw.v)}</span> ›`;IT.forEach((x,i)=>$('s'+i).classList.toggle('hot',x.m<=5&&!res.slice(0,4).includes(i)));
-document.querySelectorAll('#ch button').forEach(b=>b.classList.toggle('on',+b.dataset.v===chip));
-$('ap').textContent=auto?'Auto ON':'Auto Play';$('ap').classList.toggle('on',auto);$('app').classList.toggle('lock',phase!=='bet')}
-function save(){S.set('tw',tw);S.set('hi',hist);S.set('rs',res);S.set('lb',lb);S.set('rd',round)}
-async function place(i){if(!walletReady)return toast('ওয়ালেট সংযোগ হচ্ছে — অ্যাপের গেম মেনু থেকে খুলুন');if(phase!=='bet'||walletBusy)return toast('Wait for the next round');if(bal<chip)return toast('Not enough coins');const amount=chip;const ok=await wallet(-amount);if(!ok)return toast('কয়েন সেভ হয়নি — বাজি নেওয়া হয়নি');bets[i]+=amount;tone(1400,0,.08,'triangle',.18);render()}
-async function applyLast(){if(walletBusy||!last)return;const copy=last.slice(),tot=copy.reduce((a,b)=>a+b,0);if(tot>0&&tot<=bal&&await wallet(-tot)){bets=copy;render()}else{auto=false;toast('Auto Play off — balance or connection')}}
-function tick(){if(walletBusy)return;t--;if(phase==='bet'){$('tm').textContent=Math.max(t,0);if(t>5)tone(1200,0,.05,'square',.05);else if(t>0)tone(t<=2?1500:1000,0,.14,'sine',.25);if(t<=0)spin()}else if(phase==='res'){$('rc').textContent=t+'s';if(t<=0)newRound()}}
-function spin(){phase='spin';render();tone(200,0,.6,'sawtooth',.08,900);if(bets.some(x=>x))last=bets.slice();
-const w=IT.map(x=>1/x.m),s=w.reduce((a,b)=>a+b);let r=Math.random()*s,tg=0;for(;tg<7&&r>w[tg];tg++)r-=w[tg];
-const steps=24+((tg-cur+8)%8);let n=0;
-(function go(){document.querySelectorAll('.on').forEach(e=>e.classList.remove('on'));cur=(cur+1)%8;$('s'+cur).classList.add('on');tone(500+cur*60,0,.07,'triangle',.22);n++;if(n<steps)setTimeout(go,50+Math.pow(n/steps,3)*320);else setTimeout(()=>done(tg),500)})()}
-async function done(tg){const bet=bets.reduce((a,b)=>a+b,0),win=Math.round(bets[tg]*IT[tg].m+GR.reduce((a,g,j)=>a+(g.s.includes(tg)?bets[8+j]*g.m:0),0));
-if(win>0){while(!await wallet(win)){toast('জেতা কয়েন সেভ হয়নি — আবার চেষ্টা হচ্ছে');await new Promise(r=>setTimeout(r,3000))}}tw.v+=win;res.unshift(tg);res=res.slice(0,8);
-hist.unshift({r:round,e:IT[tg].e,bet,win,b:bets.map((x,i)=>x?(i<8?IT[i].e:GR[i-8].e)+k(x):'').filter(Boolean).join(' ')});hist=hist.slice(0,50);
-if(bet)lb.p.Shakil=(lb.p.Shakil||0)+win;
-const rows=[];if(win>0)rows.push({n:'Shakil',w:win,av:'👕'});
-[...lb.u].sort(()=>Math.random()-.5).slice(0,5).forEach(U=>{const n=U.n;const bi=Math.floor(Math.random()*8),a=[1e3,1e4,1e5][Math.floor(Math.random()*3)]*(1+Math.floor(Math.random()*3)),gj=Math.random()<.5?(Math.random()<.5?0:1):-1;
-let w=bi===tg?a*IT[tg].m:0;if(gj>=0&&GR[gj].s.includes(tg))w+=a*GR[gj].m;U.v+=w;rows.push({n,w,av:AV[Math.floor(Math.random()*5)]})});
-rows.sort((a,b)=>b.w-a.w);const tp=rows.slice(0,3);topw={n:tp[0].n,v:tp[0].w||topw.v};
-$('rno').textContent=round;$('re').textContent=IT[tg].e;$('ea').textContent=f(win);$('bb').textContent=f(bet);
-const ord=[tp[1],tp[0],tp[2]];$('rk').innerHTML=ord.map((p,i)=>`<div class="${i==1?'f':''}">${i==1?'👑':['🥈','🥉'][i?1:0]}<br>${p.av}<br>${p.n.slice(0,9)}<br>🪙 ${k(Math.round(p.w))}</div>`).join('');
-phase='res';t=6;$('rc').textContent='6s';$('res').classList.add('show');
-tone(160,0,.3,'sine',.35,60);if(win>0)winSnd();else if(bet>0)loseSnd();
-const big=tp[0];if(big.w>=100000||win>0){const bn=$('ban');bn.textContent=`${big.av} ${big.n} — Win ${f(big.w)} coins`;bn.classList.add('show');setTimeout(()=>bn.classList.remove('show'),3500)}
-save();render()}
-function newRound(){round++;bets=Array(10).fill(0);$('res').classList.remove('show');document.querySelectorAll('.on').forEach(e=>e.classList.remove('on'));phase='bet';t=20;$('tm').textContent=20;if(auto&&last)applyLast();save();render()}
-$('ap').onclick=()=>{auto=!auto;if(auto&&phase==='bet'&&last&&!bets.some(x=>x))applyLast();render()};
-let mus=true,mi=0;const MEL=[523,659,784,659,880,784,659,523,587,698,880,698,784,659,587,392];
-setInterval(()=>{if(phase==='load'||!mus||mute)return;const n=MEL[mi++%16];tone(n,0,.22,'triangle',.06);if(mi%4==1)tone(n/2,0,.5,'sine',.08)},260);
-['touchstart','pointerdown','click'].forEach(e=>document.addEventListener(e,()=>{try{ctx()}catch(_){}}));
-$('mu').onclick=()=>{mus=!mus;$('mu').textContent=mus?'♪':'🔇';toast(mus?'Music on':'Music off')};
-$('bk').onclick=()=>{if(walletBusy||bets.some(x=>x)&&phase!=='res')return toast('রাউন্ড শেষ হলে বের হোন');parent.postMessage({type:'gl-exit'},location.origin)};
-$('pl').onclick=()=>toast('কয়েন রিচার্জ করতে অ্যাপের ওয়ালেট খুলুন');
-function modal(h){$('mb').innerHTML=h+'<br><button onclick="$(\'md\').style.display=\'none\'">Close</button>';$('md').style.display='flex'}
-function hview(tab){let h;
-if(tab){const all=[...lb.u,{n:'Shakil',v:lb.p.Shakil||0,me:1}].sort((x,y)=>y.v-x.v).slice(0,100);
-h='<tr><th>#</th><th align=left>User</th><th align=left>Coins won</th></tr>'+all.map((x,i)=>`<tr${x.me?' style="background:#fff3c4"':''}><td>${['🥇','🥈','🥉'][i]||i+1}</td><td>${AV[i%5]} ${x.me?'<b>Shakil (you)</b>':x.n}</td><td class="w">🪙 ${f(x.v)}</td></tr>`).join('')}
-else h=hist.length?hist.map(x=>`<tr><td>#${x.r}</td><td>${x.e}</td><td>${x.b||'—'}<br><small>Bet ${f(x.bet)}</small></td><td class="${x.win?'w':'l'}">${x.win?'+'+f(x.win):'0'}</td></tr>`).join(''):'<tr><td>No rounds played yet</td></tr>';
-modal(`<h3>${tab?'🏆 Ranking — Top 100 today':'📜 My History'}</h3><button onclick="hview(1)">Ranking</button><button onclick="hview(0)">My History</button><table>${h}</table>`)}
-$('hs').onclick=()=>hview(1);
-$('hp').onclick=()=>modal(`<h3>How to play</h3>Tap a chip, then tap food stalls during the 20s betting time. The lion's wheel stops on one food.<table>${IT.map(x=>`<tr><td>${x.e}</td><td>x${x.m}</td></tr>`).join('')}<tr><td>🥗 Salad</td><td>x1.25 — wins on 🍓🌽🥬🍇</td></tr><tr><td>🍕 Pizza</td><td>x4.3 — wins on 🍗🐙🐟🥩</td></tr></table>Rarer food = bigger prize. Auto Play repeats your last bets every round. Virtual coins only; no real money. Other players shown are simulated; rankings are demo rankings.`);
-function start(){phase='bet';t=20;render();setInterval(tick,1000)}
-function gate(){if(S.get('g18',false))return start();$('gate').style.display='flex';$('g1').onclick=()=>{S.set('g18',true);$('gate').style.display='none';beep(600,.1);start()};$('g0').onclick=()=>parent.postMessage({type:'gl-exit'},location.origin)}
-render();let p=0;const li=setInterval(()=>{p++;$('lp').style.width=p+'%';$('lt').textContent='Loading… '+p+'%';if(p>=100){clearInterval(li);$('load').style.display='none';gate()}},10);
-</script></body></html>
+<script src="uploaded-live.js"></script></body></html>

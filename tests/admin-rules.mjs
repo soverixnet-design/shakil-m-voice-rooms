@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {giftFlightOffset} from '../src/lib/giftFlight.ts';
 import {deliverSelectedGifts} from '../src/lib/giftBatch.ts';
-import {sendDirectGift} from '../src/lib/gifts.ts';
+import {sendDirectGift} from '../src/lib/legacyGift.ts';
 import {initializeTestEnvironment,assertSucceeds,assertFails} from '@firebase/rules-unit-testing';
 import {doc,setDoc,getDoc,updateDoc,deleteDoc,runTransaction,serverTimestamp} from 'firebase/firestore';
 const start={left:180,top:640,width:96,height:96},end={left:32,top:180,width:60,height:60},offset=giftFlightOffset(start,end);assert.equal(start.left+start.width/2+offset.x,end.left+end.width/2);assert.equal(start.top+start.height/2+offset.y,end.top+end.height/2);

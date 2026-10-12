@@ -40,8 +40,8 @@ service cloud.firestore {
     }
     match /users/{uid} {
       allow read: if active() || self(uid);
-      allow create: if owner() || (self(uid) && active() && request.resource.data.get('role','user') == 'user' && request.resource.data.get('status','active') == 'active' && request.resource.data.get('email','') == request.auth.token.get('email','') && request.resource.data.get('coins',0) is int && request.resource.data.get('coins',0) >= 0 && request.resource.data.get('coins',0) <= 50000);
-      allow update: if owner() || (self(uid) && active() && validGiftDebit(request.resource.data.get('lastGiftReceipt','missing'))) || (self(uid) && active() && mayEnterRoom(request.resource.data.get('currentRoomId',null)) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','status','email','lastSellerTransfer','coins','lastGiftReceipt','giftSentCount','giftSentCoins'])) || (permission('moderate') && resource.data.get('email','') != 'yfastvpn@gmail.com' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status in ['active','banned']) || (permission('seller') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coins','lastSellerTransfer']) && validSellerTransfer(request.resource.data.get('lastSellerTransfer','missing')));
+      allow create: if owner() || (self(uid) && active() && request.resource.data.get('role','user') == 'user' && request.resource.data.get('status','active') == 'active' && request.resource.data.get('email','') == request.auth.token.get('email','') && request.resource.data.get('coins',0) is int && request.resource.data.get('coins',0) >= 0 && request.resource.data.get('coins',0) <= 50000 && request.resource.data.get('diamond',0) == 0);
+      allow update: if owner() || (self(uid) && active() && validGiftDebit(request.resource.data.get('lastGiftReceipt','missing'))) || (self(uid) && active() && mayEnterRoom(request.resource.data.get('currentRoomId',null)) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','status','email','lastSellerTransfer','coins','lastGiftReceipt','giftSentCount','giftSentCoins','diamond'])) || (permission('moderate') && resource.data.get('email','') != 'yfastvpn@gmail.com' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status in ['active','banned']) || (permission('seller') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coins','lastSellerTransfer']) && validSellerTransfer(request.resource.data.get('lastSellerTransfer','missing')));
       allow delete: if owner();
     }
     match /admins/{uid} { allow read: if owner() || self(uid); allow write: if owner(); }
@@ -130,6 +130,7 @@ service cloud.firestore {
       }
     }
     // Shared games: clients can watch real bets/results but cannot write them.
+    match /sharedGames/{game} { allow read: if active(); allow write: if false; }
     match /sharedGames/{game}/rounds/{round} {
       allow read: if active();
       allow write: if false;
@@ -139,6 +140,24 @@ service cloud.firestore {
       allow read: if active(); allow write: if false;
     }
     match /gameReceipts/{id} { allow read: if owner() || (active() && resource.data.uid == request.auth.uid); allow write: if false; }
+    function inVoiceRoom(room) { return active() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('currentRoomId','') == room && mayEnterRoom(room); }
+    function voiceSeat(room) { let path = /databases/$(database)/documents/rooms/$(room); let count = exists(path) ? get(path).data.get('sc',get(path).data.get('d',false) ? 12 : 8) : 12; let seat = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('roomSeat',null); return seat is int && seat >= 0 && seat < count; }
+    match /rooms/{room}/voicePeers/{uid} {
+      allow read: if inVoiceRoom(room);
+      allow create, update: if self(uid) && inVoiceRoom(room) && request.resource.data.keys().hasOnly(['session','speaking','updatedAt']) && request.resource.data.session is string && request.resource.data.session.size() < 80 && request.resource.data.updatedAt == request.time && request.resource.data.speaking is bool && (!request.resource.data.speaking || (voiceSeat(room) && (!exists(/databases/$(database)/documents/rooms/$(room)/controls/$(uid)) || get(/databases/$(database)/documents/rooms/$(room)/controls/$(uid)).data.get('muted',false) != true)));
+      allow delete: if self(uid);
+    }
+    match /rooms/{room}/voiceSignals/{id} {
+      allow read: if inVoiceRoom(room) && resource.data.to == request.auth.uid;
+      allow create: if inVoiceRoom(room) && request.resource.data.keys().hasOnly(['from','to','type','payload','fromSession','toSession','createdAt']) && request.resource.data.from == request.auth.uid && request.resource.data.type in ['offer','answer','candidate'] && request.resource.data.payload is string && request.resource.data.payload.size() <= 30000 && request.resource.data.createdAt == request.time && get(/databases/$(database)/documents/users/$(request.resource.data.to)).data.get('currentRoomId','') == room;
+      allow delete: if signed() && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
+      allow update: if false;
+    }
+    match /gameRanks/{period}/players/{uid} { allow read: if active(); allow write: if false; }
+    match /rooms/{room}/gameWins/{id} { allow read: if active(); allow write: if false; }
+    match /gameWins/{id} { allow read: if active(); allow write: if false; }
+    match /walletRequests/{id} { allow read, write: if false; }
+    match /sharedGames/{game}/weeks/{week}/ranking/{uid} { allow read: if active(); allow write: if false; }
     match /gameRequests/{id} { allow read, write: if false; }
     match /gameSecrets/{id} { allow read, write: if false; }
     match /{document=**} { allow read, write: if false; }

@@ -1,3 +1,5 @@
+import {useRoomAudio} from '../lib/useRoomAudio';
+import {GameWinFeed} from './GameWinFeed';
 import {useMediaAssets,MediaAvatar,EntryMedia} from './MediaAssets';
 import {RoomGiftFlights} from './RoomGiftFlights';
 import React, { useState, useEffect, useRef } from 'react';
@@ -55,8 +57,7 @@ const ROOM_GAMES = [
   { id: 'night_wheel', name: 'নাইট ফুড হুইল', icon: '🌙', desc: 'রাতের চাকা ঘুরিয়ে কয়েন', bg: 'from-indigo-900 to-purple-950' },
   { id: 'jackpot_fruit', name: 'জ্যাকপট ফ্রুট', icon: '🍒', desc: 'ফল মিলিয়ে ৪০ গুণ পর্যন্ত', bg: 'from-pink-700 to-rose-900' },
   { id: 'slots', name: 'স্লটস (Slots)', icon: '🎰', desc: '৩-রিল ক্লাসিক স্লট', bg: 'from-red-800 to-rose-950' },
-  { id: 'carrom', name: 'ক্যারাম (Carrom)', icon: '🔴', desc: 'আসল ফিজিক্স ক্যারাম বোর্ড', bg: 'from-teal-800 to-emerald-950' },
-  { id: 'chess_3d', name: 'দাবা ৩ডি (Chess 3D)', icon: '♟️', desc: 'থ্রিডি দাবা ও কম্পিউটারের চাল', bg: 'from-stone-800 to-zinc-950' },
+  { id: 'chess_3d', name: 'দাবা ৩ডি (Chess 3D)', icon: '♟️', desc: 'নতুন HTML ফাইল যোগ করা বাকি', bg: 'from-stone-800 to-zinc-950' },
 ];
 
 export const VoiceRoomView: React.FC<Props> = ({
@@ -77,7 +78,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   const [seatedIndex, setSeatedIndex] = useState<number | null>(() => {
     return isCurrentUserHost ? 0 : null;
   });
-  const [isMicOn, setIsMicOn] = useState<boolean>(() => isCurrentUserHost);
+  const [isMicOn, setIsMicOn] = useState<boolean>(false);
   const [isRoomSoundOn, setIsRoomSoundOn] = useState<boolean>(true);
   const [isFollowed, setIsFollowed] = useState<boolean>(false);
   const [chatMessages, setChatMessages] = useState<{ id: string; type: 'chat' | 'gift' | 'notice'; text: string; sender: string }[]>([
@@ -125,6 +126,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   const canModerate=isCurrentUserHost||roomRoles[myUid]?.role==='admin';
   useEffect(()=>{if(!auth.currentUser)return;const a=onSnapshot(collection(db,'rooms',room.id,'roles'),v=>setRoomRoles(Object.fromEntries(v.docs.map(d=>[d.id,d.data()]))),()=>{});const b=onSnapshot(collection(db,'rooms',room.id,'controls'),v=>setRoomControls(Object.fromEntries(v.docs.map(d=>[d.id,d.data()]))),()=>{});return()=>{a();b()}},[room.id]);
   useEffect(()=>{const c=roomControls[myUid];if(c?.muted)setIsMicOn(false);if(c?.blocked){onLeaveRoom()}},[roomControls,myUid]);
+  const voice=useRoomAudio(room.id,isMicOn,isRoomSoundOn,seatedIndex!==null&&!roomControls[myUid]?.muted&&!roomControls[myUid]?.blocked,roomControls);
   async function policyAction(action:string){if(!policyTarget)return;setPolicyStatus('সেভ হচ্ছে…');try{if(action==='admin')await setDoc(doc(db,'rooms',room.id,'roles',policyTarget),{role:'admin'});else if(action==='user')await deleteDoc(doc(db,'rooms',room.id,'roles',policyTarget));else await setDoc(doc(db,'rooms',room.id,'controls',policyTarget),{muted:action==='mute',blocked:action==='block'});setPolicyStatus('✅ সেভ হয়েছে')}catch{setPolicyStatus('সেভ হয়নি। অনুমতি ও নতুন রুম রুলস পরীক্ষা করুন।')}}
 
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -149,13 +151,14 @@ export const VoiceRoomView: React.FC<Props> = ({
     try{await updateDoc(doc(db,'users',auth.currentUser.uid),{roomSeat:next});setSeatedIndex(next);if(next===null)setIsMicOn(false)}catch{setSeatError('সিট সেভ হয়নি। সংযোগ পরীক্ষা করুন।')}finally{seatLock.current=false;setSeatBusy(false)}
   };
 
-  const handleMicToggle = () => {
+  const handleMicToggle = async () => {
     if (seatedIndex === null) {
       alert('মাইক চালু করতে আগে যেকোনো একটি সিটে বসুন!');
       return;
     }
     if(roomControls[myUid]?.muted){setSeatError('রুম অ্যাডমিন আপনার মাইক বন্ধ রেখেছেন।');return;}
-    setIsMicOn(prev => !prev);
+    if(isMicOn){setIsMicOn(false);return;}
+    if(await voice.permission())setIsMicOn(true);
   };
 
   const handleSendMessage = (e: React.FormEvent) => {
@@ -271,7 +274,7 @@ export const VoiceRoomView: React.FC<Props> = ({
           </div>
 
           <button
-            onClick={() => setIsRoomSoundOn(!isRoomSoundOn)}
+            onClick={() => {setIsRoomSoundOn(!isRoomSoundOn);voice.unlock()}}
             className="ib"
             style={{ width: '34px', height: '34px', fontSize: '14px', padding: 0 }}
             title={isRoomSoundOn ? 'সাউন্ড বন্ধ' : 'সাউন্ড চালু'}
@@ -296,7 +299,7 @@ export const VoiceRoomView: React.FC<Props> = ({
         <RoomGiftFlights roomId={room.id} onGift={event=>{setRoomCoinTotal(p=>p+event.cost);setChatMessages(p=>[...p,{id:event.id,type:'gift',sender:event.senderName,text:`${event.senderName} → ${event.receiverName} (ID ${event.receiverPublicId}): ${event.quantity}টি ${event.giftName} · ${event.cost} কয়েন`}])}}/>
         <p className="text-xs text-cyan-200">ছবি বা সিটে চাপ দিয়ে প্রোফাইল দেখুন ও গিফট দিন।</p>
         {seatError&&<p role="status">{seatError}</p>}
-        {seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}
+        <p className="text-xs text-cyan-300" role="status">{voice.status}</p><GameWinFeed roomId={room.id}/>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}
         {roomEntry&&mediaAssets.find(a=>a.id===roomEntry.customEntryId)&&<EntryMedia key={roomEntry.uid+roomEntry.at} image={mediaAssets.find(a=>a.id===roomEntry.customEntryId)!.image} name={roomEntry.name}/>}
         <div className="flex gap-2 overflow-x-auto pb-2">{liveMembers.filter(member=>!Number.isInteger(member.roomSeat)).map(member=><button key={member.uid} className="shrink-0 text-center" title={member.name} onClick={()=>onOpenUsers(member.uid)}><span data-gift-uid={member.uid}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===member.customFrameId)?.image}/></span><small className="block">{member.name}</small></button>)}</div>
         <div className="sg3" style={{ gridTemplateColumns: `repeat(${seatCount <= 8 ? 4 : 4}, 1fr)`, margin: 'auto 0' }}>
@@ -304,7 +307,7 @@ export const VoiceRoomView: React.FC<Props> = ({
             const isUserSeatedHere = seatedIndex === idx;
             return (
               <div key={idx} className="s3w" onClick={() => seat?.uid?onOpenUsers(seat.uid):void handleSeatClick(idx)}>
-                <div data-gift-uid={seat?.uid} data-gift-seat={seat?.uid?'true':undefined} className={`s3 ${seat ? 'on' : ''} ${isUserSeatedHere && isMicOn ? 'talk' : ''}`}>
+                <div data-gift-uid={seat?.uid} data-gift-seat={seat?.uid?'true':undefined} className={`s3 ${seat ? 'on' : ''} ${(isUserSeatedHere && isMicOn || voice.speakers.includes(seat?.uid)&&!roomControls[seat?.uid]?.muted) ? 'talk' : ''}`}>
                   {seat ? (
                     <MediaAvatar avatar={seat.avatar} frame={mediaAssets.find(a=>a.id===seat.customFrameId)?.image} size={48}/>
                   ) : (

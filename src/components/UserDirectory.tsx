@@ -33,13 +33,11 @@ export function UserDirectory({onClose,onJoin,roomId,initialRecipient,onGiftSent
     lock.current=true;setBusy(true);setStatus('পাঠানো হচ্ছে…');
     const senderId=auth.currentUser.uid;
     try{
-      const account=await getDoc(doc(db,'users',senderId));
-      if(Number(account.data()?.coins||0)<totalCost)throw Error(`মোট ${totalCost.toLocaleString()} কয়েন প্রয়োজন।`);
       const batch=await deliverSelectedGifts(ids,uid=>sendDirectGift(db,{senderId,receiverId:uid,roomId,item:{...item},quantity}));
       setRecipients(batch.remaining);
       const paid=batch.delivered.reduce((sum,event)=>sum+event.cost,0);
       const summary=`${batch.delivered.length} জনকে ${quantity}টি করে ${item.name} পৌঁছেছে। খরচ ${paid.toLocaleString()} কয়েন`;
-      if(batch.error){setStatus(`⚠️ ${summary}। বাকি ${batch.remaining.length} জনকে যায়নি। শুধু বাকি ইউজাররা সিলেক্ট আছে। ${(batch.error as any)?.code==='permission-denied'?'অনুমতি / giftEvents রুলস পরীক্ষা করুন।':batch.error instanceof Error?batch.error.message:'সংযোগ পরীক্ষা করুন।'}`);return}
+      if(batch.error){setStatus(`⚠️ ${summary}। বাকি ${batch.remaining.length} জনের প্রাপ্তি নিশ্চিত হয়নি। যাচাইয়ের জন্য বাকি ইউজাররা সিলেক্ট আছে। ${(batch.error as any)?.code==='permission-denied'?'অনুমতি / giftEvents রুলস পরীক্ষা করুন।':batch.error instanceof Error?batch.error.message:'সংযোগ পরীক্ষা করুন।'}`);return}
       setStatus(`✅ ${summary}।`);
       if(onGiftSent&&batch.delivered.length)onGiftSent({...batch.delivered.at(-1),receiverPublicId:batch.delivered.map(e=>e.receiverPublicId).join(', '),quantity:quantity*batch.delivered.length,recipientCount:batch.delivered.length});
     }catch(e){setStatus(`❌ পাঠানো শুরু হয়নি: ${e instanceof Error?e.message:'সংযোগ পরীক্ষা করুন।'}`)}finally{lock.current=false;setBusy(false)}

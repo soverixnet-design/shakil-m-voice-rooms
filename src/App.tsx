@@ -1,3 +1,7 @@
+import {GlobalGameRanks} from './components/GlobalGameRanks';
+import {GameWinFeed} from './components/GameWinFeed';
+import {UploadedSharedGame} from './games/UploadedSharedGame';
+import {DiamondWallet} from './components/DiamondWallet';
 import {SharedRoundGame} from './games/SharedRoundGame';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
@@ -17,13 +21,6 @@ import {AssetShop,EntryMedia,useMediaAssets} from './components/MediaAssets';
 import { UserDirectory } from './components/UserDirectory';
 import { UploadedDesign } from './components/UploadedDesign';
 import { collection, query, where, getDocs, runTransaction, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import {GreedyLionGame} from './games/GreedyLionGame';
-import { JackpotFruitGame } from './games/JackpotFruitGame';
-import { LionFoodWheelGame } from './games/LionFoodWheelGame';
-import { NightFoodWheelGame } from './games/NightFoodWheelGame';
-import { SlotsGame } from './games/SlotsGame';
-import { CarromGame } from './games/CarromGame';
-import { Chess3DGame } from './games/Chess3DGame';
 import { VoiceRoomView } from './components/VoiceRoomView';
 import { AdminPanel } from './components/AdminPanel';
 import { 
@@ -621,12 +618,14 @@ export default function App() {
 
   return (
     <div id="app">
+      {fbUser&&(!activeRoom||isRoomMinimized)&&!activeGame&&<div style={{position:'fixed',top:72,left:8,right:8,zIndex:45,pointerEvents:'none'}}><GameWinFeed/></div>}
+      {activePage==='game_rank'&&<GlobalGameRanks onClose={()=>setActivePage(null)}/>}
       {activePage==='seller'&&<SellerWallet user={fbUser} onClose={()=>setActivePage(null)}/>}
       {activePage==='support_chat'&&<SupportChat user={fbUser} onClose={()=>setActivePage(null)}/>}
       {activePage==='notices'&&<Notices onClose={()=>setActivePage(null)}/>}
       {activeRoom&&customEntry&&<EntryMedia key={activeRoom.id+customEntry.id} image={customEntry.image} name={S.name}/>}
       {showUserDirectory && <UserDirectory initialRecipient={giftRecipient} onGiftSent={event=>{setShowUserDirectory(false);toast(`✅ ID ${event.receiverPublicId}-তে ${event.quantity}টি ${event.giftName} পাঠানো হয়েছে। বাকি ${event.balance} কয়েন।`)}} roomId={activeRoom?.id} onClose={()=>setShowUserDirectory(false)} onJoin={room=>{setActiveRoom(room);setIsRoomMinimized(false);setShowUserDirectory(false)}} />}
-      {incomingGift && (!activeRoom||isRoomMinimized||incomingGift.roomId!==activeRoom.id) && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.giftImage?<img src={incomingGift.giftImage} alt={incomingGift.giftName} className="w-24 h-24 object-contain"/>:incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · মূল্য 🪙 {incomingGift.cost}</p></div>}
+      {incomingGift && (!activeRoom||isRoomMinimized||incomingGift.roomId!==activeRoom.id) && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.giftImage?<img src={incomingGift.giftImage} alt={incomingGift.giftName} className="w-24 h-24 object-contain"/>:incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · 💎 {incomingGift.cost} ডায়মন্ড যোগ হয়েছে</p></div>}
 
       {isAuthenticated && <UploadedDesign state={{...S,customFrameImage:customFrame?.image,mediaBanners:mediaAssets.filter(a=>a.kind==='banner'),sellerEnabled:Boolean(delegatedAccess?.active&&delegatedAccess.permissions?.seller)}} admin={isSuperAdmin}
         visible={!activePage && !activeRoom && !activeGame && tab === 'home' && !showCreateRoomModal && !splashVisible}
@@ -634,13 +633,13 @@ export default function App() {
           if (action === 'users') {setGiftRecipient(undefined);setShowUserDirectory(true);}
           if (action === 'logout') handleLogout();
           if (action === 'admin' && isSuperAdmin) setActivePage('admin');
-          if (action === 'page' && ['edit_profile','hist','frames','entries','svip','tasks','invite','store','items','seller','support_chat','notices'].includes(value || '')) setActivePage(value!);
+          if (action === 'page' && ['game_rank','edit_profile','hist','frames','entries','svip','tasks','invite','store','items','seller','support_chat','notices'].includes(value || '')) setActivePage(value!);
           if (action === 'nav' && ['wallet','msg','moments'].includes(value || '')) setTab(value as any);
           if (action === 'create-room') setShowCreateRoomModal(true);
           if (action === 'checkin') handleCheckin();
           if (action === 'room') { const room = S.rooms.find((r: any) => String(r.id) === value); if (room) { setActiveRoom(room); setIsRoomMinimized(false); } }
           if (action === 'game') {
-            if (['greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots','carrom','chess_3d'].includes(value || '')) { setActiveGame(value!); setIsGameMinimized(false); }
+            if (['greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots','chess_3d'].includes(value || '')) { setActiveGame(value!); setIsGameMinimized(false); }
             else { setTab('explore'); toast('গেম তালিকা থেকে চালু গেম বেছে নিন।'); }
           }
         }} />}
@@ -1219,11 +1218,11 @@ export default function App() {
 
             <h3>🎉 Events & Games</h3>
             <div className="rg">
-              <div className="rc" style={{ background: GR[0] }} onClick={() => setActiveGame('carrom')}>
+              <div className="rc" style={{ background: GR[0] }} onClick={() => setActiveGame('lion_wheel')}>
                 <span className="ls">Game</span>
-                <div className="cvv">🔴</div>
-                <b>ক্যারাম</b>
-                <div className="sm2">আসল ফিজিক্স ক্যারাম</div>
+                <div className="cvv">🦁</div>
+                <b>সিংহ ফুড হুইল</b>
+                <div className="sm2">আসল ফিজিক্স সিংহ ফুড হুইল</div>
               </div>
               <div className="rc" style={{ background: GR[1] }} onClick={() => setActiveGame('chess_3d')}>
                 <span className="ls">Game</span>
@@ -1252,6 +1251,7 @@ export default function App() {
           <>
             <div className="row" style={{ padding: '14px 0 8px' }}>
               <b style={{ fontSize: '23px' }}>Wallet</b>
+              <DiamondWallet/>
               <span className="sp"></span>
               <button className="b" onClick={() => setActivePage('hist')}>
                 🧾 ইতিহাস
@@ -2431,7 +2431,7 @@ export default function App() {
 
                 <div className="gl" style={{ padding: '14px' }}>
                   <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>১. র‍্যান্ডম নাম্বার জেনারেটর (RNG)</b>
-                  <p>জ্যাকপট ফ্রুট, সিংহ ফুড হুইল, নাইট হুইল, ৩-রিল স্লট, ক্যারাম ও দাবা—সব খেলাই ক্রিপ্টোগ্রাফিক অ্যালগরিদমে স্বচ্ছভাবে চলে। কোনো অভ্যন্তরীণ পক্ষপাত নেই।</p>
+                  <p>জ্যাকপট ফ্রুট, সিংহ ফুড হুইল, নাইট হুইল, ৩-রিল স্লট, সিংহ ফুড হুইল ও দাবা—সব খেলাই ক্রিপ্টোগ্রাফিক অ্যালগরিদমে স্বচ্ছভাবে চলে। কোনো অভ্যন্তরীণ পক্ষপাত নেই।</p>
                 </div>
 
                 <div className="gl" style={{ padding: '14px' }}>
@@ -2516,8 +2516,8 @@ export default function App() {
       )}
 
       {/* 6. Active Voice Room View */}
-      {activeRoom && !isRoomMinimized && (
-        <VoiceRoomView
+      {activeRoom && (
+        <div style={{display:isRoomMinimized?'none':undefined}}><VoiceRoomView
           onOpenUsers={uid=>{setGiftRecipient(uid);setShowUserDirectory(true)}}
           room={activeRoom}
           user={S}
@@ -2530,7 +2530,7 @@ export default function App() {
             // Keep room active in background while playing game!
             setActiveGame(gameId);
           }}
-          onOpenWallet={() => setTab('wallet')}
+          onOpenWallet={() => {setTab('wallet');setIsRoomMinimized(true)}}
           onMinimize={() => {
             setIsRoomMinimized(true);
             toast('রুম মিনিমাইজ করা হয়েছে');
@@ -2544,7 +2544,7 @@ export default function App() {
             setActiveRoom(null);
             setIsRoomMinimized(false);
           }}
-        />
+        /></div>
       )}
 
       {/* 6b. Minimized Floating Room Bar */}
@@ -2617,7 +2617,7 @@ export default function App() {
                activeGame === 'lion_wheel' ? 'ফুড হুইল' :
                activeGame === 'night_wheel' ? 'নাইট হুইল' :
                activeGame === 'slots' ? 'স্লটস' :
-               activeGame === 'carrom' ? 'ক্যারাম' : 'দাবা ৩ডি'}
+               activeGame === 'carrom' ? 'সিংহ ফুড হুইল' : 'দাবা ৩ডি'}
             </b>
             <span className="text-[9px] text-yellow-200 block font-bold">▶ খেলুন (ট্যাপ করুন)</span>
           </div>
@@ -2683,40 +2683,12 @@ export default function App() {
             </div>
           )}
 
+          {activeRoom&&<GameWinFeed roomId={activeRoom.id}/>}
           <div className="flex-1 relative overflow-hidden">
-            {['greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots'].includes(activeGame) && <SharedRoundGame key={activeGame} game={activeGame}/>}
+            {['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'].includes(activeGame) && <UploadedSharedGame key={activeGame} game={activeGame} userName={S.name} onClose={()=>setActiveGame(null)} onWallet={()=>{setActiveGame(null);setTab('wallet');setIsRoomMinimized(Boolean(activeRoom))}}/>}
+            {activeGame==='slots'&&<SharedRoundGame game="slots"/>}
 
-            {activeGame === 'carrom' && (
-              <CarromGame
-                userCoins={S.coins}
-                userName={S.name}
-                userAvatar={S.av}
-                onUpdateCoins={(newCoins, note) => {
-                  const diff = newCoins - S.coins;
-                  updateCoins(diff, note);
-                }}
-                onClose={() => {
-                  setActiveGame(null);
-                  setIsGameMinimized(false);
-                }}
-              />
-            )}
-
-            {activeGame === 'chess_3d' && (
-              <Chess3DGame
-                userCoins={S.coins}
-                userName={S.name}
-                userAvatar={S.av}
-                onUpdateCoins={(newCoins, note) => {
-                  const diff = newCoins - S.coins;
-                  updateCoins(diff, note);
-                }}
-                onClose={() => {
-                  setActiveGame(null);
-                  setIsGameMinimized(false);
-                }}
-              />
-            )}
+            {activeGame==='chess_3d'&&<div className="p-8 text-white"><h2>দাবা ৩ডি</h2><p>আপলোড করা ফাইলে গেমের HTML নেই। নতুন দাবার HTML ফাইল যোগ করা প্রয়োজন।</p><button className="b t" onClick={()=>setActiveGame(null)}>ফিরে যান</button></div>}
           </div>
         </div>
       )}
