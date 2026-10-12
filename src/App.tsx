@@ -1,3 +1,4 @@
+import {withTimeout} from './lib/authTimeout';
 import {AuthScreen} from './components/AuthScreen';
 import {RoomWelcome} from './components/RoomWelcome';
 import {galleryPhoto} from './lib/profilePhoto';
@@ -384,26 +385,40 @@ export default function App() {
     throw new Error('Could not allocate user ID');
   };
 
-  useEffect(()=>{let current=true;const unsub=onAuthStateChanged(auth,async u=>{
-    setIsAuthenticated(false);setFbUser(null);setAuthChecking(true);setAuthError('');
-    if(!u){localStorage.removeItem('sv_auth_session');setAuthChecking(false);setActiveRoom(null);setActiveGame(null);return;}
-    try{
-      const ref=doc(db,'users',u.uid),snapshot=await getDoc(ref);
-      if(!current||auth.currentUser?.uid!==u.uid)return;
-      const data=snapshot.data()||{};
-      if(['banned','archived'].includes(data.status)){await signOut(auth);throw Error('blocked-account')}
-      const isOwner=Boolean(u.emailVerified&&u.email&&ADMIN_EMAILS.includes(u.email.toLowerCase()));
-      const publicId=data.id?String(data.id):await makePublicId();
-      const name=data.name||u.displayName||u.email?.split('@')[0]||'User';
-      if(snapshot.exists())await updateDoc(ref,{...(data.id?{}:{id:publicId}),online:true,currentRoomId:null,roomSeat:null,lastSeen:serverTimestamp()});
-      else await setDoc(ref,{id:publicId,userId:u.uid,name,email:u.email||'',avatar:'👤',photoURL:u.photoURL||'',coins:50000,role:isOwner?'admin':'user',status:'active',currentRoomId:null,roomSeat:null,online:true,lastSeen:serverTimestamp(),createdAt:serverTimestamp()});
-      if(!current||auth.currentUser?.uid!==u.uid)return;
-      setS((prev:any)=>({...prev,id:publicId,uid:u.uid,name,img:data.photoURL||u.photoURL||'',role:isOwner?'admin':'user',coins:0}));
-      setFbUser(u);setIsAuthenticated(true);
-      localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
-    }catch(e:any){if(current)setAuthError(e.message==='blocked-account'?'This account is blocked.':`Account setup failed (${e.code||e.message||'connection-error'}). Check Firebase rules and retry.`)}
-    finally{if(current)setAuthChecking(false)}
-  });return()=>{current=false;unsub()}},[authRetry]);
+  useEffect(()=>{
+    let current=true,version=0;
+    setAuthChecking(true);setAuthError('');
+    const startup=setTimeout(()=>{if(current){setAuthChecking(false);setAuthError('Login connection timed out. Check your internet connection and retry.')}},15000);
+    const unsub=onAuthStateChanged(auth,async u=>{
+      clearTimeout(startup);
+      const attempt=++version;
+      const valid=()=>current&&attempt===version&&auth.currentUser?.uid===u?.uid;
+      setIsAuthenticated(false);setFbUser(null);setAuthChecking(true);setAuthError('');
+      if(!u){localStorage.removeItem('sv_auth_session');setAuthChecking(false);setActiveRoom(null);setActiveGame(null);return;}
+      try{
+        await withTimeout((async()=>{
+          const ref=doc(db,'users',u.uid),snapshot=await getDoc(ref);
+          if(!valid())return;
+          const data=snapshot.data()||{};
+          if(['banned','archived'].includes(data.status)){await signOut(auth);throw Error('blocked-account')}
+          const isOwner=Boolean(u.emailVerified&&u.email&&ADMIN_EMAILS.includes(u.email.toLowerCase()));
+          const publicId=data.id?String(data.id):await makePublicId();
+          if(!valid())return;
+          const name=data.name||u.displayName||u.email?.split('@')[0]||'User';
+          if(snapshot.exists())await updateDoc(ref,{...(data.id?{}:{id:publicId}),online:true,currentRoomId:null,roomSeat:null,lastSeen:serverTimestamp()});
+          else await setDoc(ref,{id:publicId,userId:u.uid,name,email:u.email||'',avatar:'👤',photoURL:u.photoURL||'',coins:50000,role:isOwner?'admin':'user',status:'active',currentRoomId:null,roomSeat:null,online:true,lastSeen:serverTimestamp(),createdAt:serverTimestamp()});
+          if(!valid())return;
+          setS((prev:any)=>({...prev,id:publicId,uid:u.uid,name,img:data.photoURL||u.photoURL||'',role:isOwner?'admin':'user',coins:0}));
+          setFbUser(u);setIsAuthenticated(true);
+          localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
+        })(),20000);
+      }catch(e:any){if(current&&attempt===version){
+        version++;setAuthChecking(false);
+        setAuthError(e.message==='blocked-account'?'This account is blocked.':e.code==='account-timeout'?'Google/email sign-in is complete, but the account database did not respond. Check your connection and retry account setup.':`Account setup failed (${e.code||e.message||'connection-error'}). Check Firebase rules and retry.`);
+      }}finally{if(current&&attempt===version)setAuthChecking(false)}
+    },e=>{clearTimeout(startup);if(current){setAuthChecking(false);setAuthError(`Login connection failed (${e.message}). Please retry.`)}});
+    return()=>{current=false;version++;clearTimeout(startup);unsub()};
+  },[authRetry]);
 
   useEffect(() => {
     if (!fbUser?.uid) return;
