@@ -1129,3 +1129,9 @@ html,body,#root{width:100%;height:100%;min-width:0}
 #app>.fixed.inset-0.z-50{max-width:480px;width:100%;margin-inline:auto;height:100dvh}
 .win-ticker{max-width:480px;margin-inline:auto}
 #main{min-height:0;overscroll-behavior:contain}
+
+.back-card{display:inline-flex;align-items:center;justify-content:center;padding:9px 14px;border-radius:14px;border:1px solid #af89ff88;background:linear-gradient(135deg,#252052,#541d83);color:#fff;font-size:13px;font-weight:700;box-shadow:0 3px 10px #0004}
+.neon-room .s3{background:radial-gradient(circle,#111633 45%,#311c60 65%,#080925 75%);border:2px solid #976aff;box-shadow:inset 0 0 9px #26a2ffaa,0 0 12px #7a28bf77;color:#ac89ff;width:clamp(48px,16vw,65px);height:clamp(48px,16vw,65px)}
+.neon-room .nm3{font-size:11px}.neon-room .sg3{gap:16px 8px;padding:18px 0}.neon-room .ct3{background:#0e0b2e77!important;border:0!important}.room-sheet-overlay{position:absolute;inset:0;z-index:80;background:#0008;display:flex;align-items:flex-end}
+.room-more-card,.room-profile-card{width:100%;max-height:85dvh;overflow:auto;padding:18px;background:linear-gradient(150deg,#17142f,#130d27);border-radius:28px 28px 0 0;border-top:1px solid #895adf}
+.room-profile-card{background:radial-gradient(circle at 100% 100%,#762cff99,transparent),linear-gradient(135deg,#113e91,#120833);border:2px solid #845bff;box-shadow:inset 0 0 18px #20c5ff66}.room-profile-card h2{font-size:24px;margin:18px 0}.room-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}.room-info-grid>div,.room-tool{padding:16px;background:#211c3e;border-radius:20px;text-align:center}.room-info-grid b{display:block;font-size:28px;color:#35d5ff}.room-tool span{display:block;font-size:36px;margin-bottom:8px}.room-game-grid button{min-width:0}.room-game-grid button p{display:none}

@@ -89,6 +89,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   const [activeChatTab, setActiveChatTab] = useState<'All' | 'Chat' | 'Gift' | 'Notice'>('All');
   const [showGiftModal, setShowGiftModal] = useState<boolean>(false);
   const [showReactionModal, setShowReactionModal] = useState<boolean>(false);
+  const [moreOpen,setMoreOpen]=useState(false),[roomProfileOpen,setRoomProfileOpen]=useState(false);
   const [showGameDrawer, setShowGameDrawer] = useState<boolean>(false);
   const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
   const [floatingParticles, setFloatingParticles] = useState<{ id: number; emoji: string; x: number }[]>([]);
@@ -221,7 +222,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   };
 
   return (
-    <div className="rv fixed inset-0 z-40 flex flex-col justify-between overflow-hidden select-none pt-safe pb-safe" style={{ background: 'radial-gradient(circle at 50% 20%, #301860, #0a071b 80%)' }}>
+    <div className="rv neon-room fixed inset-0 z-40 flex flex-col justify-between overflow-hidden select-none pt-safe pb-safe" style={{ background: 'radial-gradient(ellipse at 85% 95%,#5923a988,transparent 55%),radial-gradient(ellipse at 0 30%,#28106699,transparent 50%),#060622' }}>
       {/* Top Room Header with Host Pill and Actions */}
       <div className="relative z-10 p-2.5 flex items-center justify-between border-b border-white/10 bg-black/60 backdrop-blur-md">
         <div className="flex items-center gap-2">
@@ -302,7 +303,7 @@ export const VoiceRoomView: React.FC<Props> = ({
         <p className="text-xs text-cyan-300" role="status">{voice.status}</p><button className="b" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে অডিও চালু করুন</button><GameWinFeed roomId={room.id}/>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}
         {roomEntry&&mediaAssets.find(a=>a.id===roomEntry.customEntryId)&&<EntryMedia key={roomEntry.uid+roomEntry.at} image={mediaAssets.find(a=>a.id===roomEntry.customEntryId)!.image} name={roomEntry.name}/>}
         <div className="flex gap-2 overflow-x-auto pb-2">{liveMembers.filter(member=>!Number.isInteger(member.roomSeat)).map(member=><button key={member.uid} className="shrink-0 text-center" title={member.name} onClick={()=>onOpenUsers(member.uid)}><span data-gift-uid={member.uid}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===member.customFrameId)?.image}/></span><small className="block">{member.name}</small></button>)}</div>
-        <div className="sg3" style={{ gridTemplateColumns: `repeat(${seatCount <= 8 ? 4 : 4}, 1fr)`, margin: 'auto 0' }}>
+        <div className="sg3" style={{ gridTemplateColumns: `repeat(${seatCount>=10?5:4}, 1fr)`, margin: 'auto 0' }}>
           {liveSeats.map((seat, idx) => {
             const isUserSeatedHere = seatedIndex === idx;
             return (
@@ -311,7 +312,7 @@ export const VoiceRoomView: React.FC<Props> = ({
                   {seat ? (
                     <MediaAvatar avatar={seat.avatar} frame={mediaAssets.find(a=>a.id===seat.customFrameId)?.image} size={48}/>
                   ) : (
-                    <span style={{ fontSize: '15px', fontWeight: 900, opacity: 0.7 }}>{idx + 1}</span>
+                    <span style={{ fontSize: '15px', fontWeight: 900, opacity: 0.7 }}>🎙️</span>
                   )}
                 </div>
                 <div className="nm3" style={{ color: isUserSeatedHere ? 'var(--t)' : '#fff' }}>
@@ -355,7 +356,7 @@ export const VoiceRoomView: React.FC<Props> = ({
 
       {/* Floating Action Buttons on Right (.fb) */}
       <div className="fb">
-        <button onClick={() => setShowGameDrawer(true)} title="রুমের ভেতর গেমস">🎮</button>
+        <button onClick={()=>setMoreOpen(true)} title="আরও">✨</button><button onClick={()=>setRoomProfileOpen(true)} title="রুম প্রোফাইল">🏠</button><button onClick={() => setShowGameDrawer(true)} title="রুমের ভেতর গেমস">🎮</button>
         <button onClick={onOpenWallet} title="ওয়ালেট">👛</button>
         <button onClick={()=>onOpenUsers()} title="গিফট" style={{ animation: 'bounce 1.5s infinite' }}>🎁</button>
         <button onClick={() => setShowReactionModal(!showReactionModal)} title="রিঅ্যাকশন">😊</button>
@@ -413,6 +414,8 @@ export const VoiceRoomView: React.FC<Props> = ({
       )}
 
       {policyOpen&&<div className="fixed inset-0 z-[75] bg-black/80 flex items-center justify-center p-4"><section className="bg-slate-950 border border-amber-400 rounded-2xl p-4 w-full max-w-md space-y-3"><button className="ib float-right" onClick={()=>setPolicyOpen(false)}>✕</button><h3>🛡️ রুমের নিয়ম ও অনুমতি</h3><p>মালিক: রুম পরিচালনা ও রুম অ্যাডমিন দেওয়া/সরানো।</p><p>রুম অ্যাডমিন: সাধারণ ইউজারের মাইক বন্ধ, রুম থেকে সরানো ও নিষেধাজ্ঞা তুলে নেওয়া।</p><p>ইউজার: নিজের সিট, মাইক, প্রোফাইল, গিফট ও গেম। রুম অ্যাডমিন কয়েন রিচার্জ বা অ্যাপ অ্যাডমিন দিতে পারেন না।</p>{canModerate&&<><select className="in w-full" value={policyTarget} onChange={e=>setPolicyTarget(e.target.value)}><option value="">রুমের ইউজার নির্বাচন করুন</option>{Object.keys(roomControls).filter(uid=>roomControls[uid].blocked&&!liveMembers.some(m=>m.uid===uid)).map(uid=><option key={uid} value={uid}>সরানো ইউজার · {uid}</option>)}{liveMembers.filter(m=>m.uid!==room.hostId&&(isCurrentUserHost||roomRoles[m.uid]?.role!=='admin')).map(m=><option key={m.uid} value={m.uid}>{m.name} · ID {m.id}</option>)}</select><div className="flex flex-wrap gap-2">{isCurrentUserHost&&<><button className="b" onClick={()=>policyAction('admin')}>রুম অ্যাডমিন দিন</button><button className="b" onClick={()=>policyAction('user')}>অ্যাডমিন সরান</button></>}<button className="b" onClick={()=>policyAction('mute')}>মাইক বন্ধ</button><button className="b" onClick={()=>policyAction('block')}>রুম থেকে সরান</button><button className="b" onClick={()=>policyAction('clear')}>মাইক / প্রবেশ চালু</button></div><label>সরানো ইউজারের Firebase UID<input className="in w-full" value={policyTarget} onChange={e=>setPolicyTarget(e.target.value)}/></label><p role="status">{policyStatus}</p></>}</section></div>}
+      {roomProfileOpen&&<div className="room-sheet-overlay"><section className="room-profile-card"><button className="back-card" onClick={()=>setRoomProfileOpen(false)}>‹ ফিরে যান</button><h2>🏠 {room.name}</h2><p>ID: {room.id}</p><div className="room-info-grid"><div>Room Value<b>{roomCoinTotal.toLocaleString()}</b></div><div>Members<b>{liveMembers.length}</b></div></div><h3>📢 Announcement</h3><p>{room.ann||'সবাইকে স্বাগতম!'}</p><h3>রুমের সদস্য</h3>{liveMembers.map(m=><button className="back-card" key={m.uid} onClick={()=>{setRoomProfileOpen(false);onOpenUsers(m.uid)}}>{m.name} · ID {m.id}</button>)}</section></div>}
+      {moreOpen&&<div className="room-sheet-overlay"><section className="room-more-card"><header className="flex justify-between"><h3>✨ More</h3><button className="back-card" onClick={()=>setMoreOpen(false)}>‹ ফিরে যান</button></header><div className="room-info-grid">{[['🎮','Games',()=>setShowGameDrawer(true)],['🏠','Room Profile',()=>setRoomProfileOpen(true)],['🎁','Gift',()=>onOpenUsers('')],['🔊','Audio',()=>{voice.unlock();setIsRoomSoundOn(true)}],['🪙','Wallet',onOpenWallet],['⚙️','Settings',()=>setPolicyOpen(true)]].map(([icon,label,action])=><button className="room-tool" key={String(label)} onClick={()=>{setMoreOpen(false);(action as ()=>void)()}}><span>{String(icon)}</span>{String(label)}</button>)}</div></section></div>}
       {/* In-Room Game Drawer Modal */}
       {showGameDrawer && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-end justify-center p-0">
@@ -421,13 +424,13 @@ export const VoiceRoomView: React.FC<Props> = ({
               <h3 className="font-black text-base text-amber-300 flex items-center gap-1.5">
                 <Gamepad2 size={18} /> রুমের ভিতর গেম খেলুন (Play in Room)
               </h3>
-              <button onClick={() => setShowGameDrawer(false)} className="text-gray-400 hover:text-white text-xl">✕</button>
+              <button onClick={() => setShowGameDrawer(false)} className="back-card">‹ ফিরে যান</button>
             </div>
             <p className="text-xs text-purple-200 mb-3">
               গেম চলাকালীন আপনি রুমের ভেতরেই থাকবেন এবং যেকোনো সময় গেমে বাজি ধরে কয়েন জিততে পারবেন!
             </p>
 
-            <div className="grid grid-cols-2 gap-2.5 overflow-y-auto flex-1 pb-4">
+            <div className="room-game-grid grid grid-cols-3 gap-2.5 overflow-y-auto flex-1 pb-4">
               {ROOM_GAMES.map(g => (
                 <button
                   key={g.id}
@@ -460,7 +463,7 @@ export const VoiceRoomView: React.FC<Props> = ({
               <h3 className="font-black text-base text-pink-300 flex items-center gap-1.5">
                 <Gift size={18} /> গিফট পাঠান (Send Gifts)
               </h3>
-              <button onClick={() => setShowGiftModal(false)} className="text-gray-400 hover:text-white">✕</button>
+              <button onClick={() => setShowGiftModal(false)} className="back-card">‹ ফিরে যান</button>
             </div>
 
             <div className="grid grid-cols-4 gap-2 mb-4">

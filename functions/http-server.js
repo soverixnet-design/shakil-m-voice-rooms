@@ -10,7 +10,7 @@ export function createGameHttpServer({service,verifyToken,origins,ready=true}) {
   if(origin){if(!allowed.has(origin))return failure(res,403,'permission-denied');res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');res.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type');res.setHeader('Access-Control-Allow-Methods','POST, GET, OPTIONS');res.setHeader('Access-Control-Max-Age','600');}
   const path=new URL(req.url,'http://localhost').pathname;
   if(req.method==='OPTIONS'){res.writeHead(204);return res.end()}
-  if(path==='/health'&&req.method==='GET')return reply(res,ready?200:503,{status:ready?'ok':'setup-required',service:'earnbd-shared-games',apiVersion:2,features:['shared-rounds','weekly-ranking','wallet-gifts','diamond-exchange']});
+  if(path==='/health'&&req.method==='GET')return reply(res,ready?200:503,{status:ready?'ok':'setup-required',service:'earnbd-shared-games',apiVersion:2,features:['shared-rounds','weekly-ranking','wallet-gifts','diamond-exchange','rapid-taps']});
   if(!['/api/sync','/api/bet','/api/gift','/api/exchange','/api/voice-config'].includes(path))return failure(res,404,'not-found');
   if(req.method!=='POST')return failure(res,405,'invalid-argument');
   if(!ready)return failure(res,503,'unavailable','server-setup-required');

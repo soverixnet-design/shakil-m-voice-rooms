@@ -1252,7 +1252,7 @@ export default function App() {
         {/* TAB 3: WALLET (ওয়ালেট - ব্যালেন্স, রিচার্জ, কয়েন পাঠান ও গ্রহণ) */}
         {tab === 'wallet' && (
           <>
-            <DiamondWallet/>
+            <DiamondWallet onBack={()=>setTab('home')}/>
             <WalletRanks/>
             <div className="row" style={{ padding: '14px 0 8px' }}>
               <b style={{ fontSize: '23px' }}>Wallet</b>
@@ -2690,7 +2690,7 @@ export default function App() {
           {activeRoom&&<GameWinFeed roomId={activeRoom.id}/>}
           <div className="flex-1 relative overflow-hidden">
             {['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'].includes(activeGame) && <UploadedSharedGame key={activeGame} game={activeGame} userName={S.name} onClose={()=>setActiveGame(null)} onWallet={()=>{setActiveGame(null);setTab('wallet');setIsRoomMinimized(Boolean(activeRoom))}}/>}
-            {activeGame==='slots'&&<SharedRoundGame game="slots"/>}
+            {activeGame==='slots'&&<SharedRoundGame game="slots" onClose={()=>setActiveGame(null)}/>}
 
             {activeGame==='chess_3d'&&<div className="p-8 text-white"><h2>দাবা ৩ডি</h2><p>আপলোড করা ফাইলে গেমের HTML নেই। নতুন দাবার HTML ফাইল যোগ করা প্রয়োজন।</p><button className="b t" onClick={()=>setActiveGame(null)}>ফিরে যান</button></div>}
           </div>
