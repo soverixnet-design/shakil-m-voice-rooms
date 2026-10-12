@@ -69,7 +69,8 @@ export function UserDirectory({onClose,onJoin,roomId,initialRecipient,onGiftSent
     {!roomGiftMode&&target&&<section className="gl p-4 space-y-3"><UserSocialCard user={target} avatarRef={avatar} onGift={()=>setShowGiftForm(true)}/>
       {online(target)&&target.activeRoom&&<button className="b t w-full" onClick={()=>onJoin({...target.activeRoom,own:target.activeRoom.hostId===auth.currentUser?.uid})}>🎙️ এই ইউজারের রুমে যান</button>}
       {showGiftForm&&<><label className="block">গিফট<select disabled={busy} className="in w-full" value={gift} onChange={e=>setGift(Number(e.target.value))}>{gifts.map((g,i)=><option key={g.name} value={i}>{g.emoji} {g.name} — {g.cost} কয়েন</option>)}</select></label>
-      {item?.image&&<img src={item.image} className="h-28 mx-auto object-contain" alt={item.n   <label className="block">সংখ্যা<input className="in w-full" disabled={busy} type="number" min="1" max="999" value={quantity} onChange={e=>setQuantity(Number(e.target.value))} /></label>
+      {item?.image&&<img src={item.image} className="h-28 mx-auto object-contain" alt={item.name}/>}
+      <label className="block">সংখ্যা<input className="in w-full" disabled={busy} type="number" min="1" max="999" value={quantity} onChange={e=>setQuantity(Number(e.target.value))} /></label>
       <p>প্রাপক: ID {target.id} · {quantity}টি · মোট খরচ 🪙 {Number.isSafeInteger(cost)?cost.toLocaleString():'—'}</p>
       <button className="b g w-full" disabled={busy||!item} onClick={sendGift}>{busy?'পাঠানো হচ্ছে…':'🎁 এই ইউজারকে গিফট পাঠান'}</button>
       </>}{animation&&<span ref={particle} className="fixed bottom-20 left-1/2 text-5xl pointer-events-none z-[90]">{animationGift?.giftImage?<img src={animationGift.giftImage} alt={animationGift.giftName} className="w-20 h-20 object-contain"/>:animationGift?.emoji}</span>}

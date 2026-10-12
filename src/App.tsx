@@ -178,7 +178,9 @@ const DEFAULT_USER_LIST = [
 ];
 
 const DEFAULT_CUSTOM_GIFTS = [
-  { id: 'g1', name: 'হার্ট', icon: '❤️', price: 1'স্টার', icon: '⭐', price: 250, type: 'popular' },
+  { id: 'g1', name: 'হার্ট', icon: '❤️', price: 1, type: 'love' },
+  { id: 'g2', name: 'গোলাপ', icon: '🌹', price: 10, type: 'romantic' },
+  { id: 'g3', name: 'স্টার', icon: '⭐', price: 250, type: 'popular' },
   { id: 'g4', name: 'লাভ রিং', icon: '💍', price: 750, type: 'romantic' },
   { id: 'g5', name: 'ডায়মন্ড', icon: '💎', price: 1100, type: 'luxury' },
   { id: 'g6', name: 'VIP কার', icon: '🚗', price: 2000, type: 'luxury' },
@@ -392,7 +394,7 @@ export default function App() {
       if(['banned','archived'].includes(data.status)){await signOut(auth);throw Error('blocked-account')}
       const isOwner=Boolean(u.emailVerified&&u.email&&ADMIN_EMAILS.includes(u.email.toLowerCase()));
       const publicId=data.id?String(data.id):await makePublicId();
-      const name=('@')[0]||'User';
+      const name=data.name||u.displayName||u.email?.split('@')[0]||'User';
       if(snapshot.exists())await updateDoc(ref,{...(data.id?{}:{id:publicId}),online:true,currentRoomId:null,roomSeat:null,lastSeen:serverTimestamp()});
       else await setDoc(ref,{id:publicId,userId:u.uid,name,email:u.email||'',avatar:'👤',photoURL:u.photoURL||'',coins:50000,role:isOwner?'admin':'user',status:'active',currentRoomId:null,roomSeat:null,online:true,lastSeen:serverTimestamp(),createdAt:serverTimestamp()});
       if(!current||auth.currentUser?.uid!==u.uid)return;
@@ -555,7 +557,7 @@ export default function App() {
   const invText = () => `🎙️ Shakil M Voice Rooms-এ আমার সাথে যোগ দিন! সাইন-আপের সময় আমার ইনভাইট কোড দিন: SM${S.id}\n${inviteLink()}`;
 
   async function enterRoom(candidate:any){if(!fbUser?.uid)return;try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await updateDoc(doc(db,'users',fbUser.uid),{currentRoomId:room.id,roomSeat:null,online:true,lastSeen:serverTimestamp()});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}}
-  if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} onRetry={()=>setAuthRetry(n=>/>;
+  if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} onRetry={()=>setAuthRetry(n=>n+1)}/>;
 
   return (
     <div id="app">
@@ -769,7 +771,7 @@ export default function App() {
                 setShowCreateRoomModal(true);
               }}
             >
-              <div style={{ display: 'flex', align, gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div 
                   style={{ 
                     width: '42px', 
@@ -1023,7 +1025,8 @@ export default function App() {
               <span className="sp"></span>
               <span style={{ 
                 fontSize: '11px', 
-                padding:        borderRadius: '8px', 
+                padding: '3px 8px', 
+                borderRadius: '8px', 
                 background: 'rgba(239, 68, 68, 0.15)', 
                 color: '#f87171',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
@@ -1271,7 +1274,8 @@ export default function App() {
 
                 <div className="row" style={{ margin: '10px 0' }}>
                   <div
-                    className={`av ${FR                    style={{ width: '80px', height: '80px', fontSize: '40px', background: FRM[S.fr]?.[2], cursor: 'pointer' }}
+                    className={`av ${FRM[S.fr]?.[4] ? 'fa' : ''}`}
+                    style={{ width: '80px', height: '80px', fontSize: '40px', background: FRM[S.fr]?.[2], cursor: 'pointer' }}
                     onClick={() => setActivePage('frames')}
                   >
                     <div>{S.img ? <img src={S.img} alt="Av" /> : S.av}</div>
@@ -1457,7 +1461,8 @@ export default function App() {
                 <select
                   className="in"
                   value={editCountry}
-                  onChange={e => setEditCountry(e.target.valueidth: '100%' }}
+                  onChange={e => setEditCountry(e.target.value)}
+                  style={{ width: '100%' }}
                 >
                   {COUNTRIES.map(c => (
                     <option key={c[0]} value={`${c[0]} ${c[1]}`}>{c[0]} {c[1]}</option>
@@ -1671,7 +1676,7 @@ export default function App() {
             {activePage === 'badges' && (
               <div className="rg" style={{ marginTop: '8px' }}>
                 {[
-                  ['🎁', 'পnt?.gift || 0) > 0],
+                  ['🎁', 'প্রথম গিফট', (S.cnt?.gift || 0) > 0],
                   ['💬', 'চ্যাটার (১০ মেসেজ)', (S.cnt?.msg || 0) >= 10],
                   ['🎮', 'গেমার', (S.cnt?.game || 0) > 0],
                   ['💰', 'ধনী (১০K খরচ)', (S.spent || 0) >= 10000],
@@ -1874,7 +1879,8 @@ export default function App() {
             )}
 
             {/* SUBPAGE: TRANSACTIONS HIST */}
-            {activePage ===    <>
+            {activePage === 'hist' && (
+              <>
                 {S.hist.map((h: string, idx: number) => (
                   <div key={idx} className="gl" style={{ padding: '10px 12px', margin: '6px 0', fontSize: '13px' }}>
                     {h}
@@ -2045,7 +2051,7 @@ export default function App() {
                   </p>
                 </div>
 
-         <div className="gl" style={{ padding: '14px' }}>
+                <div className="gl" style={{ padding: '14px' }}>
                   <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>১. ভার্চুয়াল আইটেম ও লাইসেন্স</b>
                   <p>অ্যাপের ফ্রেম, এন্ট্রি অ্যানিমেশন, ব্যাজ ও পদকসমূহ ব্যক্তিগত ব্যবহারের সীমিত ও পরিবর্তনযোগ্য লাইসেন্স হিসেবে গণ্য।</p>
                 </div>
@@ -2196,7 +2202,7 @@ export default function App() {
             const diff = newCoins - S.coins;
             updateCoins(diff, reason);
           }}
-          onOpenGame={(gameId: s => {
+          onOpenGame={(gameId: string) => {
             // Keep room active in background while playing game!
             setActiveGame(gameId);
           }}
@@ -2392,7 +2398,7 @@ export default function App() {
             </div>
 
             <div className="space-y-3.5 text-xs">
-              <label className="block rounded-2xl border border-cyan-400/30 bg-indigo-500/10 p-4 text-center cursor-pointer">{newRoomPhoto?<img src={newRoomPhoto} alt="রুমের ছবি" className="w-20 h-20 rounded-2xl object-cover mx-auto mb-2"/>:<span className="blockl mb-2">📷</span>}গ্যালারি থেকে রুমের ছবি দিন<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={async e=>{const file=e.target.files?.[0];if(file)try{setNewRoomPhoto(await galleryPhoto(file))}catch(err){toast(err instanceof Error?err.message:'ছবি যোগ হয়নি')}}}/></label>
+              <label className="block rounded-2xl border border-cyan-400/30 bg-indigo-500/10 p-4 text-center cursor-pointer">{newRoomPhoto?<img src={newRoomPhoto} alt="রুমের ছবি" className="w-20 h-20 rounded-2xl object-cover mx-auto mb-2"/>:<span className="block text-4xl mb-2">📷</span>}গ্যালারি থেকে রুমের ছবি দিন<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={async e=>{const file=e.target.files?.[0];if(file)try{setNewRoomPhoto(await galleryPhoto(file))}catch(err){toast(err instanceof Error?err.message:'ছবি যোগ হয়নি')}}}/></label>
               <div>
                 <label className="block text-gray-300 font-semibold mb-1">রুমের নাম *</label>
                 <input 
@@ -2576,7 +2582,7 @@ export default function App() {
             </div>
 
             {/* Package Summary Box */}
-            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/15 via-black/40 to-purple-900/30 bordert-center mb-4">
+            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/15 via-black/40 to-purple-900/30 border border-amber-400/30 text-center mb-4">
               <div className="text-[11px] text-gray-300 mb-1">নির্বাচিত প্যাকেজ:</div>
               <div className="text-2xl font-black text-amber-300 flex items-center justify-center gap-1.5">
                 <span>🪙</span>
