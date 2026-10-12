@@ -1,3 +1,4 @@
+import {ServerStatus} from '../design/ServerStatus';
 import { db, doc, collection } from '../firebase';
 import { onSnapshot, runTransaction, writeBatch } from 'firebase/firestore';
 import React, { useState, useEffect, useRef } from 'react';
@@ -457,9 +458,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const validPreview = Number.isSafeInteger(previewAmount) && previewAmount > 0;
 
   return (
-    <div className="space-y-3.5 text-xs pb-10">
+    <div className="admin-dashboard space-y-3.5 text-xs pb-10">
       {/* 1. Header Banner & Live Status Bar */}
-      <div className="p-4 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-2 border-amber-400/50 rounded-2xl shadow-2xl flex flex-col gap-3">
+      <div className="admin-hero p-4 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-2 border-amber-400/50 rounded-2xl shadow-2xl flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center text-2xl shadow-lg border border-amber-300">
@@ -472,7 +473,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   👑 যাচাইকৃত ওনার
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/40 animate-pulse">
-                  লাইভ সিস্টেম
+                  Firestore ডেটা
                 </span>
               </div>
               <p className="text-[11px] text-gray-300">
@@ -510,8 +511,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </div>
 
+      <ServerStatus/>
       {/* 2. Navigation Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+      <div className="admin-tabs flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
         {[
           { id: 'users', label: '👥 ইউজার ও কয়েন', icon: Users },
           {
@@ -532,6 +534,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           return (
             <button
               key={t.id}
+              aria-current={isActive?'page':undefined}
               onClick={() => setActiveTab(t.id as any)}
               className={`px-3 py-2 rounded-xl font-bold flex items-center gap-1.5 whitespace-nowrap transition-all active:scale-95 text-[11px] relative ${
                 isActive

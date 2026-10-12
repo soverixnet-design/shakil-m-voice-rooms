@@ -1,0 +1,10 @@
+import React,{useEffect,useState} from 'react';
+import {collection,doc,onSnapshot,query,where} from 'firebase/firestore';
+import {db} from '../firebase';
+import {MediaAvatar} from '../components/MediaAssets';
+export function RoomEntryCard({room,onEnter,onClose}:{room:any;onEnter:(seat:number|null)=>void;onClose:()=>void}){
+  const [members,setMembers]=useState<any[]>([]),[locked,setLocked]=useState<number[]>([]),[loaded,setLoaded]=useState(false),[error,setError]=useState('');
+  useEffect(()=>{const a=onSnapshot(query(collection(db,'users'),where('currentRoomId','==',String(room.id))),v=>{setMembers(v.docs.map(d=>d.data()).filter(u=>u.online&&Date.now()-(u.lastSeen?.toMillis?.()||0)<90000));setLoaded(true)},()=>setError('রুমের তথ্য লোড হয়নি।'));const b=onSnapshot(doc(db,'rooms',String(room.id),'seatPolicy','config'),v=>setLocked(v.data()?.locked||[]),()=>setError('সিটের অনুমতি লোড হয়নি। Rules পরীক্ষা করুন।'));return()=>{a();b()}},[room.id]);
+  const count=room.sc||(room.d?12:8),seat=Array.from({length:count},(_,i)=>i).find(i=>!locked.includes(i)&&!members.some(u=>u.roomSeat===i));
+  return <div className="ref-overlay"><section className="ref-entry"><button className="ref-back" onClick={onClose}>‹ ফিরে যান</button><p className="ref-muted">রুমে ঢুকছেন</p><article className="ref-entry-room"><span className="ref-avatar"><MediaAvatar avatar={room.photoURL||room.cv} size={84}/></span><h2>{room.name}</h2><p>মালিক: {room.host||'রুম ওনার'}</p><div className="ref-chips"><span>{members.filter(m=>Number.isInteger(m.roomSeat)).length}/{count} সিট</span><span>{members.length} জন</span></div></article><article className="ref-entry-options"><h3>সিট বেছে নিন</h3><p>লক করা সিটে বসা যাবে না। মাইক চালাতে আপনার অনুমতি লাগবে।</p><button className="ref-button wide" disabled={!loaded||seat===undefined||!!error} onClick={()=>onEnter(seat!)}>🎙️ {seat===undefined?'খোলা সিট নেই':`সিট ${seat+1}-এ বসুন`}</button><button className="ref-button secondary wide" onClick={()=>onEnter(null)}>শ্রোতা থাকুন</button></article>{error&&<p role="alert">{error}</p>}</section></div>;
+}

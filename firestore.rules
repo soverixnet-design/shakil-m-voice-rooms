@@ -86,6 +86,12 @@ service cloud.firestore {
       allow update: if owner() || (active() && photo(request.resource.data.get('photoURL','')) && resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId);
       allow delete: if owner() || (active() && resource.data.hostId == request.auth.uid);
     }
+    match /rooms/{roomId}/chat/{messageId} {
+      allow read: if active();
+      allow create: if active() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('currentRoomId',null) == roomId && mayEnterRoom(roomId) && request.resource.data.keys().hasOnly(['senderId','senderName','text','createdAt']) && request.resource.data.senderId == request.auth.uid && request.resource.data.senderName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000 && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if roomOwner(roomId) || owner();
+    }
     match /rooms/{roomId}/roles/{uid} {
       allow read: if active();
       allow create, update: if roomOwner(roomId) && uid != get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId && request.resource.data.keys().hasOnly(['role','canLockSeats']) && request.resource.data.get('canLockSeats',false) is bool && request.resource.data.role == 'admin';
@@ -196,6 +202,12 @@ service cloud.firestore {
       allow read: if active();
       allow create, update: if active() && visitor == request.auth.uid && uid != visitor && request.resource.data.keys().hasOnly(['visitorId','createdAt']) && request.resource.data.visitorId == visitor && request.resource.data.createdAt == request.time;
       allow delete: if owner();
+    }
+    match /moments/{id} {
+      allow read: if active();
+      allow create: if active() && request.resource.data.keys().hasOnly(['userId','text','name','avatar','createdAt']) && request.resource.data.userId == request.auth.uid && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000 && request.resource.data.name is string && request.resource.data.name.size() <= 100 && request.resource.data.avatar is string && request.resource.data.avatar.size() <= 300000 && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if owner() || (active() && resource.data.userId == request.auth.uid);
     }
     match /{document=**} { allow read, write: if false; }
   }

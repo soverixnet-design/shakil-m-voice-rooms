@@ -1,3 +1,4 @@
+import {liveGames,roomThemes} from '../design/catalog';
 import {ProfilePhotoEditor} from './ProfilePhotoEditor';
 import {useRoomAudio} from '../lib/useRoomAudio';
 import {GameWinFeed} from './GameWinFeed';
@@ -23,7 +24,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import { auth, db } from '../firebase';
-import { collection, doc, updateDoc, onSnapshot, query, where, setDoc, deleteDoc, runTransaction, getDocs, getDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, orderBy, limit, doc, updateDoc, onSnapshot, query, where, setDoc, deleteDoc, runTransaction, getDocs, getDoc, serverTimestamp } from 'firebase/firestore';
 import { VoiceRoom, UserProfile } from '../types';
 
 interface Props {
@@ -37,6 +38,7 @@ interface Props {
   onLeaveRoom: () => void;
   onClose?: () => void;
   onOpenUsers: (uid?:string) => void;
+  onOpenMessages?:()=>void;
 }
 
 const GIFTS = [
@@ -52,14 +54,7 @@ const GIFTS = [
 
 const REACTIONS = ['❤️', '👏', '😂', '🔥', '😍', '🎉'];
 
-const ROOM_GAMES = [
-  {id:'greedy_lion',name:'Greedy Lion',icon:'🦁',desc:'নতুন লায়ন গেম · একই ওয়ালেট',bg:'from-yellow-700 to-orange-950'},
-  { id: 'lion_wheel', name: 'সিংহ ফুড হুইল', icon: '🦁', desc: 'সালাদ, পিজা ও ৩ডি হুইল', bg: 'from-amber-700 to-orange-900' },
-  { id: 'night_wheel', name: 'নাইট ফুড হুইল', icon: '🌙', desc: 'রাতের চাকা ঘুরিয়ে কয়েন', bg: 'from-indigo-900 to-purple-950' },
-  { id: 'jackpot_fruit', name: 'জ্যাকপট ফ্রুট', icon: '🍒', desc: 'ফল মিলিয়ে ৪০ গুণ পর্যন্ত', bg: 'from-pink-700 to-rose-900' },
-  { id: 'slots', name: 'স্লটস (Slots)', icon: '🎰', desc: '৩-রিল ক্লাসিক স্লট', bg: 'from-red-800 to-rose-950' },
-  { id: 'chess_3d', name: 'দাবা ৩ডি (Chess 3D)', icon: '♟️', desc: 'নতুন HTML ফাইল যোগ করা বাকি', bg: 'from-stone-800 to-zinc-950' },
-];
+const ROOM_GAMES=liveGames.map(g=>({...g,desc:'একই সার্ভার ও ওয়ালেট',bg:'from-purple-800 to-slate-950'}));
 
 export const VoiceRoomView: React.FC<Props> = ({
   room:roomInput,
@@ -72,6 +67,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   onLeaveRoom,
   onClose,
   onOpenUsers,
+  onOpenMessages,
 }) => {
   const [roomData,setRoomData]=useState<Partial<VoiceRoom>>({});
   const room={...roomInput,...roomData};
@@ -80,7 +76,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   const isCurrentUserHost = Boolean(auth.currentUser && room.hostId === auth.currentUser.uid);
   
   const [seatedIndex, setSeatedIndex] = useState<number | null>(() => {
-    return isCurrentUserHost ? 0 : null;
+    return null;
   });
   const [isMicOn, setIsMicOn] = useState<boolean>(false);
   const [isRoomSoundOn, setIsRoomSoundOn] = useState<boolean>(true);
@@ -96,8 +92,14 @@ export const VoiceRoomView: React.FC<Props> = ({
   const [showGiftModal, setShowGiftModal] = useState<boolean>(false);
   const [showReactionModal, setShowReactionModal] = useState<boolean>(false);
   const [moreOpen,setMoreOpen]=useState(false),[roomProfileOpen,setRoomProfileOpen]=useState(false);
+  const [roomNameDraft,setRoomNameDraft]=useState(''),[roomAnnDraft,setRoomAnnDraft]=useState(''),[roomSaveBusy,setRoomSaveBusy]=useState(false);
+  useEffect(()=>{if(roomProfileOpen){setRoomNameDraft(room.name);setRoomAnnDraft(room.ann||'')}},[roomProfileOpen,room.id]);
+  async function saveRoomProfile(){if(!isCurrentUserHost||roomSaveBusy||!roomNameDraft.trim())return;setRoomSaveBusy(true);try{await updateDoc(doc(db,'rooms',room.id),{name:roomNameDraft.trim(),ann:roomAnnDraft.trim()});setSeatError('✅ রুমের প্রোফাইল সেভ হয়েছে')}catch{setSeatError('রুমের প্রোফাইল সেভ হয়নি।')}finally{setRoomSaveBusy(false)}}
   const [showGameDrawer, setShowGameDrawer] = useState<boolean>(false);
   const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
+  const [seatAction,setSeatAction]=useState<number|null>(null),[chatOpen,setChatOpen]=useState(false);
+  const enteredAt=useRef(Date.now());
+  const [roomReady,setRoomReady]=useState(false);
   const [floatingParticles, setFloatingParticles] = useState<{ id: number; emoji: string; x: number }[]>([]);
   const [giftOverlay, setGiftOverlay] = useState<{ emoji: string; text: string } | null>(null);
   const [roomCoinTotal, setRoomCoinTotal] = useState<number>(room.tot || 0);
@@ -139,10 +141,11 @@ export const VoiceRoomView: React.FC<Props> = ({
   const canModerate=isCurrentUserHost||roomRoles[myUid]?.role==='admin';
   useEffect(()=>{if(!auth.currentUser)return;const a=onSnapshot(collection(db,'rooms',room.id,'roles'),v=>setRoomRoles(Object.fromEntries(v.docs.map(d=>[d.id,d.data()]))),()=>{});const b=onSnapshot(collection(db,'rooms',room.id,'controls'),v=>setRoomControls(Object.fromEntries(v.docs.map(d=>[d.id,d.data()]))),()=>{});return()=>{a();b()}},[room.id]);
   useEffect(()=>{const c=roomControls[myUid];if(c?.muted)setIsMicOn(false);if(c?.blocked){onLeaveRoom()}},[roomControls,myUid]);
-  const voice=useRoomAudio(room.id,isMicOn,isRoomSoundOn,seatedIndex!==null&&!roomControls[myUid]?.muted&&!roomControls[myUid]?.blocked,roomControls);
+  const voice=useRoomAudio(room.id,isMicOn,isRoomSoundOn,seatedIndex!==null&&!roomControls[myUid]?.muted&&!roomControls[myUid]?.blocked,roomControls,roomReady);
   async function policyAction(action:string){if(!policyTarget)return;setPolicyStatus('সেভ হচ্ছে…');try{if(action==='admin')await setDoc(doc(db,'rooms',room.id,'roles',policyTarget),{role:'admin',canLockSeats:false});else if(action==='lock-permission'||action==='no-lock-permission')await updateDoc(doc(db,'rooms',room.id,'roles',policyTarget),{canLockSeats:action==='lock-permission'});else if(action==='user')await deleteDoc(doc(db,'rooms',room.id,'roles',policyTarget));else await runTransaction(db,async t=>{const ref=doc(db,'rooms',room.id,'controls',policyTarget),old=await t.get(ref);t.set(ref,{muted:action==='clear'?false:action==='mute'?true:old.data()?.muted===true,blocked:action==='clear'?false:action==='block'?true:old.data()?.blocked===true})});setPolicyStatus('✅ সেভ হয়েছে')}catch{setPolicyStatus('সেভ হয়নি। অনুমতি ও নতুন রুম রুলস পরীক্ষা করুন।')}}
 
   async function toggleSeatLock(index:number){if(!canLockSeats||policyBusy)return;setPolicyBusy(true);setPolicyStatus('সেভ হচ্ছে…');try{await runTransaction(db,async t=>{const ref=doc(db,'rooms',room.id,'seatPolicy','config'),snap=await t.get(ref);const previous:number[]=snap.data()?.locked||[];t.set(ref,{locked:previous.includes(index)?previous.filter(i=>i!==index):[...previous,index].sort((a,b)=>a-b),updatedBy:myUid,updatedAt:serverTimestamp()})});setPolicyStatus('✅ সিটের লক সেভ হয়েছে')}catch{setPolicyStatus('সিট লক সেভ হয়নি। অনুমতি ও নতুন Rules পরীক্ষা করুন।')}finally{setPolicyBusy(false)}}
+  async function lockAllSeats(){if(!canLockSeats||policyBusy)return;setPolicyBusy(true);try{await runTransaction(db,async tx=>{const ref=doc(db,'rooms',room.id,'seatPolicy','config'),snap=await tx.get(ref),old=snap.data()?.locked||[];tx.set(ref,{locked:old.length===seatCount?[]:Array.from({length:seatCount},(_,i)=>i),updatedBy:myUid,updatedAt:serverTimestamp()})});setSeatAction(null);setPolicyStatus('✅ সব সিটের অনুমতি সেভ হয়েছে')}catch{setSeatError('সিটের অনুমতি সেভ হয়নি।')}finally{setPolicyBusy(false)}}
   async function findAdmin(){if(!isCurrentUserHost||!adminId.trim()||policyBusy)return;setPolicyBusy(true);try{const result=await getDocs(query(collection(db,'users'),where('id','==',adminId.trim())));const user=result.docs[0];if(!user||['banned','archived'].includes(user.data().status)){setPolicyStatus('সক্রিয় ইউজার পাওয়া যায়নি।');return}if(user.id===room.hostId){setPolicyStatus('রুম ওনার ইতিমধ্যে সব অনুমতি পান।');return}setPolicyTarget(user.id);await setDoc(doc(db,'rooms',room.id,'roles',user.id),{role:'admin',canLockSeats:false});setPolicyStatus(`✅ ID ${adminId.trim()} রুম অ্যাডমিন হয়েছেন। চাইলে সিট লকের অনুমতি দিন।`)}catch{setPolicyStatus('অ্যাডমিন সেভ হয়নি। সংযোগ ও অনুমতি পরীক্ষা করুন।')}finally{setPolicyBusy(false)}}
 
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -156,7 +159,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   const [seatBusy,setSeatBusy]=useState(false),[seatError,setSeatError]=useState('');
   const seatLock=useRef(false);
   const liveSeats=Array.from({length:seatCount},(_,index)=>liveMembers.filter(m=>m.roomSeat===index).sort((a,b)=>a.uid.localeCompare(b.uid))[0]||null);
-  useEffect(()=>{if(auth.currentUser)void updateDoc(doc(db,'users',auth.currentUser.uid),{currentRoomId:room.id,roomSeat:null,online:true}).catch(()=>setSeatError('সিট সেভ হয়নি। Google লগইন পরীক্ষা করুন।'))},[room.id]);
+  useEffect(()=>{let stopped=false;setRoomReady(false);setSeatedIndex(null);setIsMicOn(false);enteredAt.current=Date.now();const initial=(room as any).entrySeat??null;if(auth.currentUser)void updateDoc(doc(db,'users',auth.currentUser.uid),{currentRoomId:room.id,roomSeat:initial,online:true,lastSeen:serverTimestamp()}).then(()=>{if(!stopped){setSeatedIndex(initial);setRoomReady(true)}}).catch(()=>setSeatError('রুম / সিট সেভ হয়নি। Google লগইন ও Rules পরীক্ষা করুন।'));return()=>{stopped=true}},[room.id]);
   const handleSeatClick = async (index:number) => {
     if(seatLock.current)return;
     if(!auth.currentUser){setSeatError('রুমে বসতে Google দিয়ে লগইন করুন।');return;}
@@ -165,7 +168,7 @@ export const VoiceRoomView: React.FC<Props> = ({
     if(seatedIndex!==index&&lockedSeats.includes(index)){setSeatError('🔒 এই সিট লক করা আছে।');return;}
     seatLock.current=true;setSeatBusy(true);setSeatError('');
     const next=seatedIndex===index?null:index;
-    try{await updateDoc(doc(db,'users',auth.currentUser.uid),{currentRoomId:room.id,roomSeat:next,online:true});setSeatedIndex(next);if(next===null)setIsMicOn(false)}catch{setSeatError('সিট সেভ হয়নি। সংযোগ পরীক্ষা করুন।')}finally{seatLock.current=false;setSeatBusy(false)}
+    try{await updateDoc(doc(db,'users',auth.currentUser.uid),{currentRoomId:room.id,roomSeat:next,online:true,lastSeen:serverTimestamp()});setSeatedIndex(next);if(next===null)setIsMicOn(false)}catch{setSeatError('সিট সেভ হয়নি। সংযোগ পরীক্ষা করুন।')}finally{seatLock.current=false;setSeatBusy(false)}
   };
 
   const handleMicToggle = async () => {
@@ -178,19 +181,12 @@ export const VoiceRoomView: React.FC<Props> = ({
     if(await voice.permission())setIsMicOn(true);
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const [chatBusy,setChatBusy]=useState(false);
+  useEffect(()=>{if(!auth.currentUser)return;return onSnapshot(query(collection(db,'rooms',room.id,'chat'),orderBy('createdAt','desc'),limit(100)),snapshot=>{const messages=snapshot.docs.map(d=>({id:d.id,type:'chat' as const,text:String(d.data().text||''),sender:String(d.data().senderName||'ইউজার')})).reverse();setChatMessages(previous=>[...previous.filter(m=>m.type!=='chat'),...messages])},()=>setSeatError('চ্যাট লোড হয়নি। নতুন Rules প্রকাশ করুন।'))},[room.id]);
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || roomControls[myUid]?.blocked) return;
-    setChatMessages(prev => [
-      ...prev,
-      {
-        id: String(Date.now()),
-        type: 'chat',
-        text: inputText.trim(),
-        sender: user.name,
-      },
-    ]);
-    setInputText('');
+    if(chatBusy||!auth.currentUser||!inputText.trim()||roomControls[myUid]?.blocked)return;
+    setChatBusy(true);try{await addDoc(collection(db,'rooms',room.id,'chat'),{senderId:myUid,senderName:user.name,text:inputText.trim(),createdAt:serverTimestamp()});setInputText('')}catch{setSeatError('মেসেজ সেভ হয়নি। সংযোগ ও Rules পরীক্ষা করুন।')}finally{setChatBusy(false)}
   };
 
   const triggerReaction = (emoji: string) => {
@@ -238,26 +234,26 @@ export const VoiceRoomView: React.FC<Props> = ({
   };
 
   return (
-    <div className="rv neon-room fixed inset-0 z-40 flex flex-col justify-between overflow-hidden select-none pt-safe pb-safe" style={{backgroundColor:'#060622',backgroundImage:`url(${import.meta.env.BASE_URL}room-neon-bg.svg)`,backgroundSize:'cover',backgroundPosition:'center bottom'}}>
+    <div className="rv reference-room fixed inset-0 z-40 flex flex-col justify-between overflow-hidden select-none pt-safe pb-safe" style={{background:roomThemes[Number(room.th||0)%4]}}>
       <header className="room-reference-header relative z-10">
-        <div className="room-header-line"><button className="room-title-pill" onClick={()=>setRoomProfileOpen(true)}><MediaAvatar avatar={room.photoURL||room.cv} size={42}/><span><b>{room.name}</b><small>ID: {room.id}</small></span></button><div className="room-header-actions"><button title="অডিও চালু/বন্ধ" onClick={()=>{voice.unlock();setIsRoomSoundOn(!isRoomSoundOn)}}>{isRoomSoundOn?'🔊':'🔇'}</button><button title="রুম মিনিমাইজ" onClick={onMinimize}>⌄</button><button title="রুম থেকে ফিরুন" onClick={()=>setShowExitConfirm(true)}>✕</button></div></div>
-        <div className="room-header-line"><button className="room-value-pill" onClick={()=>setRoomProfileOpen(true)}>🏆 {roomCoinTotal.toLocaleString()} ›</button><div className="room-header-members">{liveMembers.slice(0,2).map(m=><button key={m.uid} onClick={()=>onOpenUsers(m.uid)}><MediaAvatar avatar={m.avatar} size={30}/></button>)}<button onClick={()=>setRoomProfileOpen(true)}>{liveMembers.length}</button></div></div>
+        <div className="room-header-line"><button className="room-title-pill" onClick={()=>setRoomProfileOpen(true)}><MediaAvatar avatar={room.photoURL||room.cv} size={42}/><span><b>{room.name}</b><small>ID: {(room as any).publicId||room.id}</small></span></button><div className="room-header-actions"><button title="অডিও চালু/বন্ধ" onClick={()=>{voice.unlock();setIsRoomSoundOn(!isRoomSoundOn)}}>{isRoomSoundOn?'🔊':'🔇'}</button><button title="রুম মিনিমাইজ" onClick={onMinimize}>⌄</button><button title="রুম থেকে ফিরুন" onClick={()=>setShowExitConfirm(true)}>✕</button></div></div>
+        <div className="room-header-line"><button className="room-value-pill" onClick={()=>setRoomProfileOpen(true)}>🏆 {roomCoinTotal.toLocaleString()} ›</button><div className="room-header-members">{liveMembers.slice(0,2).map(m=><button key={m.uid} onClick={()=>onOpenUsers(m.uid)}><MediaAvatar avatar={m.avatar} size={30}/></button>)}<button onClick={()=>setRoomProfileOpen(true)}>{liveMembers.length} জন</button><button title="রুমের আরও অপশন" onClick={()=>setMoreOpen(true)}>⋯</button></div></div>
       </header>
 
       {/* Center Seats Grid (.sg3, .s3w, .s3, .nm3, .sc3) */}
-      <div className="relative z-10 flex-1 overflow-y-auto px-2 py-2 flex flex-col justify-between">
-        <RoomGiftFlights roomId={room.id} onGift={event=>{setRoomCoinTotal(p=>p+event.cost);setChatMessages(p=>[...p,{id:event.id,type:'gift',sender:event.senderName,text:`${event.senderName} → ${event.receiverName} (ID ${event.receiverPublicId}): ${event.quantity}টি ${event.giftName} · ${event.cost} কয়েন`}])}}/>
+      <div className="room-stage relative z-10 flex-1 overflow-y-auto px-3 py-2 flex flex-col">
+        <div className="room-live-wins"><GameWinFeed roomId={room.id}/></div><RoomGiftFlights roomId={room.id} onGift={event=>{setRoomCoinTotal(p=>p+event.cost);setChatMessages(p=>[...p,{id:event.id,type:'gift',sender:event.senderName,text:`${event.senderName} → ${event.receiverName} (ID ${event.receiverPublicId}): ${event.quantity}টি ${event.giftName} · ${event.cost} কয়েন`}])}}/>
         
         {seatError&&<p role="status">{seatError}</p>}
-        <details className="room-voice-status"><summary>🎙️ ভয়েস সংযোগ</summary><p className="text-xs text-cyan-300" role="status">{voice.status}</p><button className="b" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে অডিও চালু করুন</button></details><button className="back-card" onClick={()=>void followRoom()}>{isFollowed?"♥ রুম ফলো করা আছে":"♡ রুম ফলো করুন"}</button><GameWinFeed roomId={room.id}/>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}
+
         {roomEntry&&mediaAssets.find(a=>a.id===roomEntry.customEntryId)&&<EntryMedia key={roomEntry.uid+roomEntry.at} image={mediaAssets.find(a=>a.id===roomEntry.customEntryId)!.image} name={roomEntry.name}/>}
         <div className="flex gap-2 overflow-x-auto pb-2">{liveMembers.filter(member=>!Number.isInteger(member.roomSeat)).map(member=><button key={member.uid} className="shrink-0 text-center" title={member.name} onClick={()=>onOpenUsers(member.uid)}><span data-gift-uid={member.uid}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===member.customFrameId)?.image}/></span><small className="block">{member.name}</small></button>)}</div>
-        <div className="sg3" style={{ gridTemplateColumns: `repeat(${seatCount>=10?5:4}, 1fr)`, margin: 'auto 0' }}>
+        <div className={`sg3 ${seatCount%4===2?'center-first':''}`} style={{gridTemplateColumns:'repeat(4,minmax(0,1fr))'}}>
           {liveSeats.map((seat, idx) => {
             const isUserSeatedHere = seatedIndex === idx;
             return (
-              <div key={idx} className="s3w" onClick={() => seat?.uid?onOpenUsers(seat.uid):void handleSeatClick(idx)}>
-                <div data-gift-uid={seat?.uid} data-gift-seat={seat?.uid?'true':undefined} className={`s3 ${lockedSeats.includes(idx)?'seat-is-locked':''} ${seat ? 'on' : ''} ${(isUserSeatedHere && isMicOn || voice.speakers.includes(seat?.uid)&&!roomControls[seat?.uid]?.muted) ? 'talk' : ''}`}>
+              <div key={idx} className="s3w" onClick={() => seat?.uid?onOpenUsers(seat.uid):setSeatAction(idx)}>
+                <button className="sr-only" aria-label={`সিট ${idx+1}`} onClick={e=>{e.stopPropagation();seat?.uid?onOpenUsers(seat.uid):setSeatAction(idx)}}>সিট {idx+1}</button>{canLockSeats&&<button className="seat-edit-trigger" aria-label={`সিট ${idx+1} পরিচালনা`} onClick={e=>{e.stopPropagation();setSeatAction(idx)}}>⚙</button>}<div data-gift-uid={seat?.uid} data-gift-seat={seat?.uid?'true':undefined} className={`s3 ${lockedSeats.includes(idx)?'seat-is-locked':''} ${seat ? 'on' : ''} ${(isUserSeatedHere && isMicOn || voice.speakers.includes(seat?.uid)&&!roomControls[seat?.uid]?.muted) ? 'talk' : ''}`}>
                   {lockedSeats.includes(idx)&&seat&&<small className="seat-lock-badge">🔒</small>}{seat ? (
                     <MediaAvatar avatar={seat.avatar} frame={mediaAssets.find(a=>a.id===seat.customFrameId)?.image} size={48}/>
                   ) : (
@@ -265,7 +261,7 @@ export const VoiceRoomView: React.FC<Props> = ({
                   )}
                 </div>
                 <div className="nm3" style={{ color: isUserSeatedHere ? 'var(--t)' : '#fff' }}>
-                  {seat ? seat.name : `${lockedSeats.includes(idx)?'🔒':'সিট'} ${idx + 1}`}
+                  {seat ? `${seat.name}${seat.uid===room.hostId?' · মালিক':roomRoles[seat.uid]?.role==='admin'?' · অ্যাডমিন':''}` : `${lockedSeats.includes(idx)?'🔒':'মাইক'} ${idx + 1}`} 
                 </div>
                 <span className="sc3">🪙 {isUserSeatedHere ? Number((user as any).giftReceivedCoins || 0).toLocaleString() : Number(seat?.giftReceivedCoins||0).toLocaleString()}</span>
               </div>
@@ -273,6 +269,7 @@ export const VoiceRoomView: React.FC<Props> = ({
           })}
         </div>
 
+        <div className="room-utility-row"><details className="room-voice-status"><summary>🎙️ ভয়েস সংযোগ</summary><p className="text-xs text-cyan-300" role="status">{roomReady?voice.status:'রুমের সংযোগ তৈরি হচ্ছে…'}</p><button className="b" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে অডিও চালু করুন</button></details><button className="back-card" onClick={()=>void followRoom()}>{isFollowed?"♥ রুম ফলো করা আছে":"♡ রুম ফলো করুন"}</button>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}</div>
         {/* Live Chat Container (.ct3, .ctb, #ch3) */}
         <div className="ct3" style={{ maxHeight: '170px', background: 'rgba(0,0,0,0.5)', borderRadius: '20px', padding: '8px 10px', border: '1px solid rgba(255,255,255,0.1)' }}>
           {/* Tabs */}
@@ -303,45 +300,17 @@ export const VoiceRoomView: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Floating Action Buttons on Right (.fb) */}
-      <div className="fb">
-        <button onClick={()=>setMoreOpen(true)} title="আরও">✨</button><button onClick={()=>setRoomProfileOpen(true)} title="রুম প্রোফাইল">🏠</button><button onClick={() => setShowGameDrawer(true)} title="রুমের ভেতর গেমস">🎮</button>
-        <button onClick={onOpenWallet} title="ওয়ালেট">👛</button>
-        <button onClick={()=>onOpenUsers()} title="গিফট" style={{ animation: 'bounce 1.5s infinite' }}>🎁</button>
-        <button onClick={() => setShowReactionModal(!showReactionModal)} title="রিঅ্যাকশন">😊</button>
-      </div>
-
-      {/* Bottom Bar: Chat input, Mic button (.bb, .go) */}
-      <div className="bb">
-        {/* Golden / Green Mic Toggle Button (.go) */}
-        <button
-          onClick={handleMicToggle}
-          className={`go ${isMicOn ? 'on' : ''}`}
-          title={isMicOn ? 'মাইক বন্ধ করুন' : 'মাইক চালু করুন'}
-        >
-          {isMicOn ? '🎙️' : '🔇'}
-        </button>
-
-        {/* Chat input form */}
-        <form onSubmit={handleSendMessage} style={{ display: 'flex', flex: 1, gap: '6px', alignItems: 'center' }}>
-          <input
-            type="text"
-            placeholder="কিছু বলুন... রুমে আড্ডা দিন"
-            value={inputText}
-            onChange={e => setInputText(e.target.value)}
-          />
-          <button type="submit" className="b t" style={{ padding: '8px 16px', borderRadius: '20px', fontSize: '13px' }}>
-            পাঠান
-          </button>
-        </form>
-        {/* Reaction Picker Button */}
-        <button
-          onClick={() => setShowReactionModal(!showReactionModal)}
-          className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center text-amber-300 active:scale-95"
-        >
-          <Smile size={20} />
-        </button>
-      </div>
+      {chatOpen&&<form className="ref-chat-form relative z-20 mx-3" onSubmit={handleSendMessage}><input autoFocus maxLength={1000} placeholder="রুমে কিছু বলুন…" value={inputText} onChange={e=>setInputText(e.target.value)}/><button type="submit" disabled={chatBusy}>{chatBusy?'সেভ হচ্ছে…':'পাঠান'}</button><button type="button" aria-label="চ্যাট বন্ধ" onClick={()=>setChatOpen(false)}>✕</button></form>}
+      <button className="room-wallet-orb" aria-label="রুম থেকে ওয়ালেট খুলুন" onClick={onOpenWallet}>🪙<small>ওয়ালেট</small></button>
+      <nav className="room-bottom-controls" aria-label="রুমের অ্যাকশন">
+        <button onClick={()=>setChatOpen(x=>!x)}><span>💬</span><small>চ্যাট</small></button>
+        <button className={isMicOn?'mic-on':''} onClick={()=>void handleMicToggle()}><span>{isMicOn?'🎙️':'🔇'}</span><small>মাইক</small></button>
+        <button onClick={()=>setShowReactionModal(x=>!x)}><span>😊</span><small>ইমো</small></button>
+        <button onClick={()=>onOpenMessages?onOpenMessages():setMoreOpen(true)}><span>✉️</span><small>মেইল</small></button>
+        <button onClick={()=>setShowGameDrawer(true)}><span>🎮</span><small>গেম</small></button>
+        <button className="gift" onClick={()=>onOpenUsers('')}><span>🎁</span><small>গিফট</small></button>
+      </nav>
+      {seatAction!==null&&<div className="ref-overlay"><section className="ref-seat-dialog"><h3>একটি অ্যাকশন বেছে নিন</h3><p>মাইক {seatAction+1} · {lockedSeats.includes(seatAction)?'লক করা':'খোলা'}</p><button disabled={seatBusy||lockedSeats.includes(seatAction)&&seatedIndex!==seatAction||!!liveSeats[seatAction]&&liveSeats[seatAction].uid!==myUid} onClick={()=>{void handleSeatClick(seatAction);setSeatAction(null)}}>{seatedIndex===seatAction?'সিট ছেড়ে উঠুন':'মাইকে বসুন'}</button>{canLockSeats&&<><button disabled={policyBusy} onClick={()=>{void toggleSeatLock(seatAction);setSeatAction(null)}}>{lockedSeats.includes(seatAction)?'আনলক করুন':'লক করুন'}</button><button disabled={policyBusy} onClick={()=>void lockAllSeats()}>{lockedSeats.length===seatCount?'সব আনলক করুন':'সব লক করুন'}</button></>}<button onClick={()=>setSeatAction(null)}>বাতিল</button></section></div>}
 
       {/* Floating Reaction Animation Overlay */}
       {floatingParticles.map(p => (
@@ -364,7 +333,7 @@ export const VoiceRoomView: React.FC<Props> = ({
 
       {policyOpen&&<div className="room-sheet-overlay"><section className="seat-policy-sheet"><header className="flex justify-between items-center"><h3>⚙️ রুম পরিচালনা</h3><button className="back-card" onClick={()=>setPolicyOpen(false)}>‹ ফিরে যান</button></header><p className="text-xs text-violet-200 my-3">লক করা খালি সিটে কেউ বসতে পারবেন না। আগে বসে থাকা ইউজার থাকবেন; তাঁকে সরাতে আলাদা কন্ট্রোল ব্যবহার করুন।</p><article className="seat-policy-card"><h3>🎙️ সিট লক / আনলক</h3><div className="seat-lock-grid">{Array.from({length:seatCount},(_,i)=><button key={i} disabled={!canLockSeats||policyBusy} className={lockedSeats.includes(i)?'locked':''} onClick={()=>void toggleSeatLock(i)}><span>{lockedSeats.includes(i)?'🔒':'🎙️'}</span><b>সিট {i+1}</b><small>{lockedSeats.includes(i)?'লক':'খোলা'}</small></button>)}</div>{!canLockSeats&&<p className="text-xs mt-3">সিট লকের অনুমতি কেবল ওনার বা অনুমতিপ্রাপ্ত অ্যাডমিনের।</p>}</article>{isCurrentUserHost&&<article className="seat-policy-card"><h3>👑 ইউজার ID দিয়ে অ্যাডমিন দিন</h3><div className="flex gap-2"><input className="in min-w-0 flex-1" inputMode="numeric" placeholder="ইউজার ID" value={adminId} onChange={e=>setAdminId(e.target.value)}/><button disabled={policyBusy} className="b t" onClick={()=>void findAdmin()}>অ্যাডমিন দিন</button></div><p className="text-xs mt-2">ইউজার রুমের বাইরে থাকলেও নিবন্ধিত ID দিয়ে অ্যাডমিন দিতে পারবেন।</p></article>}{canModerate&&<article className="seat-policy-card"><h3>🛡️ ইউজার ও অ্যাডমিনের অনুমতি</h3><select className="in w-full" value={policyTarget} onChange={e=>setPolicyTarget(e.target.value)}><option value="">ইউজার বেছে নিন</option>{Array.from(new Set([...liveMembers.map(m=>m.uid),...Object.keys(roomRoles),...Object.keys(roomControls)])).filter(uid=>uid!==room.hostId&&(isCurrentUserHost||roomRoles[uid]?.role!=='admin')).map(uid=><option key={uid} value={uid}>{liveMembers.find(m=>m.uid===uid)?.name||policyUsers[uid]?.name||'ইউজার'} · {liveMembers.find(m=>m.uid===uid)?.id||policyUsers[uid]?.id||'আইডি লোড হচ্ছে'}{roomRoles[uid]?.role==='admin'?' · অ্যাডমিন':''}</option>)}</select>{policyTarget&&<div className="policy-action-grid">{isCurrentUserHost&&<><button className="back-card" onClick={()=>void policyAction('admin')}>👑 অ্যাডমিন দিন</button><button className="back-card" onClick={()=>void policyAction('user')}>অ্যাডমিন সরান</button>{roomRoles[policyTarget]?.role==='admin'&&<button className="back-card" onClick={()=>void policyAction(roomRoles[policyTarget]?.canLockSeats?'no-lock-permission':'lock-permission')}>{roomRoles[policyTarget]?.canLockSeats?'সিট লকের অনুমতি বন্ধ':'🔑 সিট লকের অনুমতি দিন'}</button>}</>}<button className="back-card" onClick={()=>void policyAction('mute')}>🔇 মাইক বন্ধ</button><button className="back-card" onClick={()=>void policyAction('block')}>🚫 রুম থেকে সরান</button><button className="back-card" onClick={()=>void policyAction('clear')}>মাইক / প্রবেশ চালু</button></div>}</article>}<p className="text-sm text-cyan-200 mt-3" role="status">{policyStatus}</p></section></div>}
 
-      {roomProfileOpen&&<div className="room-sheet-overlay"><section className="room-profile-card"><button className="back-card" onClick={()=>setRoomProfileOpen(false)}>‹ ফিরে যান</button><h2>🏠 {room.name}</h2><p>ID: {room.id}</p>{isCurrentUserHost&&<ProfilePhotoEditor roomId={room.id}/>}<div className="room-info-grid"><div>Room Value<b>{roomCoinTotal.toLocaleString()}</b></div><div>Members<b>{liveMembers.length}</b></div></div><h3>📢 Announcement</h3><p>{room.ann||'সবাইকে স্বাগতম!'}</p><h3>রুমের সদস্য</h3>{liveMembers.map(m=><button className="back-card" key={m.uid} onClick={()=>{setRoomProfileOpen(false);onOpenUsers(m.uid)}}>{m.name} · ID {m.id}</button>)}</section></div>}
+      {roomProfileOpen&&<div className="room-sheet-overlay"><section className="room-profile-card"><button className="back-card" onClick={()=>setRoomProfileOpen(false)}>‹ ফিরে যান</button><h2>🏠 {room.name}</h2><p>ID: {(room as any).publicId||room.id}</p>{isCurrentUserHost&&<><ProfilePhotoEditor roomId={room.id}/><label className="block text-sm my-3">রুমের নাম<input maxLength={80} className="in w-full" value={roomNameDraft} onChange={e=>setRoomNameDraft(e.target.value)}/></label><label className="block text-sm my-3">পরিচিতি / ঘোষণা<textarea maxLength={500} className="in w-full" value={roomAnnDraft} onChange={e=>setRoomAnnDraft(e.target.value)}/></label><button disabled={roomSaveBusy||!roomNameDraft.trim()} className="back-card" onClick={()=>void saveRoomProfile()}>{roomSaveBusy?'সেভ হচ্ছে…':'প্রোফাইল সেভ করুন'}</button></>}<div className="room-info-grid"><div>Room Value<b>{roomCoinTotal.toLocaleString()}</b></div><div>Members<b>{liveMembers.length}</b></div></div><h3>📢 Announcement</h3><p>{room.ann||'সবাইকে স্বাগতম!'}</p><h3>রুমের সদস্য</h3>{liveMembers.map(m=><button className="back-card" key={m.uid} onClick={()=>{setRoomProfileOpen(false);onOpenUsers(m.uid)}}>{m.name} · ID {m.id}</button>)}</section></div>}
       {moreOpen&&<div className="room-sheet-overlay"><section className="room-more-card"><header className="flex justify-between"><h3>✨ More</h3><button className="back-card" onClick={()=>setMoreOpen(false)}>‹ ফিরে যান</button></header><div className="room-info-grid">{[['🎮','Games',()=>setShowGameDrawer(true)],['🏠','Room Profile',()=>setRoomProfileOpen(true)],['🎁','Gift',()=>onOpenUsers('')],['🔊','Audio',()=>{voice.unlock();setIsRoomSoundOn(true)}],['🪙','Wallet',onOpenWallet],['⚙️','Settings',()=>setPolicyOpen(true)]].map(([icon,label,action])=><button className="room-tool" key={String(label)} onClick={()=>{setMoreOpen(false);(action as ()=>void)()}}><span>{String(icon)}</span>{String(label)}</button>)}</div></section></div>}
       {/* In-Room Game Drawer Modal */}
       {showGameDrawer && (
@@ -441,51 +410,7 @@ export const VoiceRoomView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Exit / Leave Confirmation Modal */}
-      {showExitConfirm && (
-        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
-          <div className="w-full max-w-xs bg-gradient-to-b from-indigo-950 to-slate-950 border-2 border-amber-400/50 rounded-3xl p-5 text-center text-white shadow-2xl space-y-3">
-            <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 mx-auto flex items-center justify-center text-2xl">
-              🚪
-            </div>
-            <h3 className="font-black text-base text-white">রুম থেকে বের হবেন?</h3>
-            <p className="text-xs text-gray-300 leading-relaxed">
-              আপনি কি রুম মিনিমাইজ করে রাখতে চান নাকি সম্পূর্ণ লিভ নিয়ে বের হতে চান?
-            </p>
-
-            <div className="space-y-2 pt-1">
-              {/* Option 1: Minimize */}
-              <button
-                onClick={() => {
-                  setShowExitConfirm(false);
-                  onMinimize();
-                }}
-                className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-teal-600 rounded-xl font-black text-xs text-slate-950 shadow flex items-center justify-center gap-1.5 active:scale-95"
-              >
-                <ChevronDown size={16} /> মিনিমাইজ করুন (পরে আবার ফিরুন)
-              </button>
-
-              {/* Option 2: Leave */}
-              <button
-                onClick={() => {
-                  setShowExitConfirm(false);
-                  onLeaveRoom();
-                }}
-                className="w-full py-2.5 bg-rose-600/80 hover:bg-rose-600 rounded-xl font-bold text-xs text-white border border-rose-400/40 flex items-center justify-center gap-1.5 active:scale-95"
-              >
-                <LogOut size={16} /> রুম ত্যাগ করুন (Leave Room)
-              </button>
-
-              <button
-                onClick={() => setShowExitConfirm(false)}
-                className="w-full py-1.5 text-xs text-gray-400 hover:text-white"
-              >
-                বাতিল
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showExitConfirm&&<div className="ref-leave-overlay"><section className="ref-leave-sheet"><h3>রুম থেকে বের হবেন?</h3><div className="ref-leave-stats"><div><b>{Math.floor((Date.now()-enteredAt.current)/60000)} মিনিট</b><small>এই রুমে সময়</small></div><div><b>{liveMembers.length} জন</b><small>রুমের সদস্য</small></div></div><button className="ref-button" onClick={()=>{setShowExitConfirm(false);onMinimize()}}>রুম ছোট করে রাখুন</button><button className="ref-button blue" onClick={()=>{setShowExitConfirm(false);onLeaveRoom()}}>রুম ছেড়ে চলে যান</button><button className="ref-button secondary" onClick={()=>setShowExitConfirm(false)}>বাতিল</button></section></div>}
 
       {/* Reaction Picker Popup */}
       {showReactionModal && (

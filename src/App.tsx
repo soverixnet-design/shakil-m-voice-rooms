@@ -23,7 +23,9 @@ import {
 import {SellerWallet,SupportChat,Notices,useAccess} from './components/AdminExtensions';
 import {AssetShop,EntryMedia,useMediaAssets} from './components/MediaAssets';
 import { UserDirectory } from './components/UserDirectory';
-import { UploadedDesign } from './components/UploadedDesign';
+import {ReferenceLobby,LobbyScreen} from './design/ReferenceLobby';
+import {RoomEntryCard} from './design/RoomEntryCard';
+import {roomThemes} from './design/catalog';
 import { collection, query, where, getDocs, runTransaction, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { VoiceRoomView } from './components/VoiceRoomView';
 import { AdminPanel } from './components/AdminPanel';
@@ -284,6 +286,10 @@ export default function App() {
   const [incomingGift, setIncomingGift] = useState<any>(null);
   const [activePage, setActivePage] = useState<string | null>(null);
   const [activeRoom, setActiveRoom] = useState<any | null>(null);
+  const [pendingRoom,setPendingRoom]=useState<any|null>(null);
+  const [lobbyScreen,setLobbyScreen]=useState<LobbyScreen>('rooms');
+  const lobbyNavigation=useRef(false);
+  useEffect(()=>{if(lobbyNavigation.current){lobbyNavigation.current=false;return;}setLobbyScreen(tab==='wallet'?'wallet':tab==='msg'?'messages':tab==='explore'?'games':tab==='moments'?'moments':'rooms')},[tab]);
   const [isRoomMinimized, setIsRoomMinimized] = useState<boolean>(false);
   const [activeGame, setActiveGame] = useState<string | null>(null);
   const [isGameMinimized, setIsGameMinimized] = useState<boolean>(false);
@@ -336,7 +342,8 @@ export default function App() {
   const [newRoomTag, setNewRoomTag] = useState('আড্ডা');
   const [newRoomIcon, setNewRoomIcon] = useState('🎤');
   const [newRoomAnn, setNewRoomAnn] = useState('');
-  const [newRoomSeatCount, setNewRoomSeatCount] = useState<number>(8);
+  const [newRoomSeatCount, setNewRoomSeatCount] = useState<number>(10);
+  const [newRoomTheme,setNewRoomTheme]=useState(0);
 
   // User Recharge Permission Guard Modal State
   const [selectedRechargePackage, setSelectedRechargePackage] = useState<{ u: number; c: number } | null>(null);
@@ -481,9 +488,8 @@ export default function App() {
   useEffect(() => {
     if (!fbUser?.uid) return;
     return onSnapshot(collection(db,'rooms'),snapshot=>{
-      const archived = snapshot.docs.filter(d=>d.data().archived).map(d=>d.id);
       const remote = snapshot.docs.filter(d=>!d.data().archived).map(d=>({...d.data(),id:d.id,own:d.data().hostId===fbUser.uid}));
-      setS((prev:any)=>({...prev,rooms:[...remote,...prev.rooms.filter((r:any)=>!archived.includes(r.id)&&!remote.some((x:any)=>x.id===r.id))]}));
+      setS((prev:any)=>({...prev,rooms:remote}));
     },()=>setToastText('রুম তালিকা লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
   }, [fbUser?.uid]);
 
@@ -633,7 +639,7 @@ export default function App() {
 
   return (
     <div id="app">
-      {fbUser&&(!activeRoom||isRoomMinimized)&&!activeGame&&<div style={{position:'fixed',top:72,left:8,right:8,zIndex:45,pointerEvents:'none'}}><GameWinFeed/></div>}
+      {fbUser&&(!activeRoom||isRoomMinimized)&&!activeGame&&lobbyScreen!=='rooms'&&<div style={{position:'fixed',top:72,left:8,right:8,zIndex:45,pointerEvents:'none'}}><GameWinFeed/></div>}
       {activePage==='game_rank'&&<GlobalGameRanks onClose={()=>setActivePage(null)}/>}
       {activePage==='seller'&&<SellerWallet user={fbUser} onClose={()=>setActivePage(null)}/>}
       {activePage==='support_chat'&&<SupportChat user={fbUser} onClose={()=>setActivePage(null)}/>}
@@ -642,22 +648,16 @@ export default function App() {
       {showUserDirectory && <UserDirectory initialRecipient={giftRecipient} onGiftSent={event=>{setShowUserDirectory(false);toast(`✅ ID ${event.receiverPublicId}-তে ${event.quantity}টি ${event.giftName} পাঠানো হয়েছে। বাকি ${event.balance} কয়েন।`)}} roomId={activeRoom?.id} onClose={()=>setShowUserDirectory(false)} onJoin={room=>{setActiveRoom(room);setIsRoomMinimized(false);setShowUserDirectory(false)}} />}
       {incomingGift && (!activeRoom||isRoomMinimized||incomingGift.roomId!==activeRoom.id) && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.giftImage?<img src={incomingGift.giftImage} alt={incomingGift.giftName} className="w-24 h-24 object-contain"/>:incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · 💎 {incomingGift.cost} ডায়মন্ড যোগ হয়েছে</p></div>}
 
-      {isAuthenticated && <UploadedDesign state={{...S,myRoomId:S.rooms.find((r:any)=>r.hostId===fbUser?.uid)?.id,roomLibrary,customFrameImage:customFrame?.image,mediaBanners:mediaAssets.filter(a=>a.kind==='banner'),sellerEnabled:Boolean(delegatedAccess?.active&&delegatedAccess.permissions?.seller)}} admin={isSuperAdmin}
-        visible={!activePage && !activeRoom && !activeGame && tab === 'home' && !showCreateRoomModal && !splashVisible}
-        onAction={(action, value) => {
-          if (action === 'users') {setGiftRecipient(undefined);setShowUserDirectory(true);}
-          if (action === 'logout') handleLogout();
-          if (action === 'admin' && isSuperAdmin) setActivePage('admin');
-          if (action === 'page' && ['game_rank','edit_profile','hist','frames','entries','svip','tasks','invite','store','items','seller','support_chat','notices'].includes(value || '')) setActivePage(value!);
-          if (action === 'nav' && ['wallet','msg','moments'].includes(value || '')) setTab(value as any);
-          if (action === 'create-room') {const own=S.rooms.find((r:any)=>r.hostId===fbUser?.uid);if(own){setActiveRoom(own);setIsRoomMinimized(false);}else setShowCreateRoomModal(true);}
-          if (action === 'checkin') handleCheckin();
-          if (action === 'room') { const room = S.rooms.find((r: any) => String(r.id) === value); if (room) { setActiveRoom(room); setIsRoomMinimized(false); } }
-          if (action === 'game') {
-            if (['greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots','chess_3d'].includes(value || '')) { setActiveGame(value!); setIsGameMinimized(false); }
-            else { setTab('explore'); toast('গেম তালিকা থেকে চালু গেম বেছে নিন।'); }
-          }
-        }} />}
+      {isAuthenticated&&!activePage&&(!activeRoom||isRoomMinimized)&&(!activeGame||isGameMinimized)&&!showCreateRoomModal&&!splashVisible&&<ReferenceLobby state={S} screen={lobbyScreen} roomLibrary={roomLibrary} myRoom={S.rooms.find((r:any)=>r.hostId===fbUser?.uid)} media={mediaAssets} admin={isSuperAdmin} seller={Boolean(delegatedAccess?.active&&delegatedAccess.permissions?.seller)} onScreen={screen=>{const next=screen==='wallet'?'wallet':screen==='messages'?'msg':screen==='games'?'explore':screen==='moments'?'moments':'home';if(tab!==next)lobbyNavigation.current=true;setTab(next);setLobbyScreen(screen)}} onAction={(action,value)=>{
+        if(action==='users'){setGiftRecipient(undefined);setShowUserDirectory(true)}
+        if(action==='logout')handleLogout();
+        if(action==='page'&&value){if(value==='admin'&&!isSuperAdmin)return;setActivePage(value)}
+        if(action==='create-room'){const own=S.rooms.find((r:any)=>r.hostId===fbUser?.uid);if(own)setPendingRoom(own);else setShowCreateRoomModal(true)}
+        if(action==='room'){const room=S.rooms.find((r:any)=>String(r.id)===value);if(room)setPendingRoom(room)}
+        if(action==='game'&&['greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots'].includes(value||'')){setActiveGame(value!);setIsGameMinimized(false)}
+        if(action==='recharge'){const pkg=S.pk[Number(value)];if(pkg)setSelectedRechargePackage(pkg)}
+      }}/>} 
+      {pendingRoom&&<RoomEntryCard room={pendingRoom} onClose={()=>setPendingRoom(null)} onEnter={seat=>{setActiveRoom({...pendingRoom,entrySeat:seat});setIsRoomMinimized(false);setPendingRoom(null)}}/>}
 
       {/* 1. Splash Screen */}
       {splashVisible && (
@@ -1562,7 +1562,7 @@ export default function App() {
 
       {/* 5. Subpage Views (#pg) */}
       {activePage && (
-        <div id="pg" className="on">
+        <div id="pg" className={activePage==='admin'?'on':'on reference-subpage'}>
           <div className="row" style={{ padding: '12px 14px' }}>
             <button className="ib" onClick={() => setActivePage(null)}>
               ‹
@@ -2534,7 +2534,8 @@ export default function App() {
 
       {/* 6. Active Voice Room View */}
       {activeRoom && (
-        <div style={{display:isRoomMinimized?'none':undefined}}><VoiceRoomView
+        <div style={{display:isRoomMinimized?'none':undefined}}><VoiceRoomView key={activeRoom.id}
+          onOpenMessages={()=>{setTab('msg');setIsRoomMinimized(true)}}
           onOpenUsers={uid=>{setGiftRecipient(uid);setShowUserDirectory(true)}}
           room={activeRoom}
           user={S}
@@ -2567,7 +2568,7 @@ export default function App() {
       {/* 6b. Minimized Floating Room Bar */}
       {activeRoom && isRoomMinimized && (
         <div 
-          className="fixed bottom-[74px] left-3 right-3 max-w-[456px] mx-auto z-20 bg-[#12082e]/95 border-2 border-cyan-400 rounded-2xl p-2.5 flex items-center justify-between shadow-[0_8px_25px_rgba(0,0,0,0.85)] backdrop-blur-md"
+          className="reference-mini-room fixed bottom-[84px] left-3 right-3 max-w-[456px] mx-auto z-[70] bg-[#12082e]/95 border-2 border-cyan-400 rounded-2xl p-2.5 flex items-center justify-between shadow-[0_8px_25px_rgba(0,0,0,0.85)] backdrop-blur-md"
         >
           <div 
             onClick={() => setIsRoomMinimized(false)}
@@ -2713,11 +2714,11 @@ export default function App() {
       {/* User Create Room Modal */}
       {showCreateRoomModal && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
-          onClick={() => setShowCreateRoomModal(false)}
+          className="ref-create-modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+          onClick={() => !roomCreating&&setShowCreateRoomModal(false)}
         >
           <div 
-            className="w-full max-w-sm max-h-[90dvh] overflow-y-auto bg-[#12092b] border border-cyan-400/40 rounded-3xl p-5 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative text-white"
+            className="ref-create-card w-full max-w-sm max-h-[90dvh] overflow-y-auto bg-[#12092b] border border-cyan-400/40 rounded-3xl p-5 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative text-white"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
@@ -2744,6 +2745,7 @@ export default function App() {
                 <label className="block text-gray-300 font-semibold mb-1">রুমের নাম *</label>
                 <input 
                   type="text"
+                  maxLength={80}
                   value={newRoomName}
                   onChange={e => setNewRoomName(e.target.value)}
                   placeholder="যেমন: বাংলা গান ও আড্ডা"
@@ -2771,7 +2773,7 @@ export default function App() {
                     onChange={e => setNewRoomSeatCount(Number(e.target.value))}
                     className="w-full bg-[#1e133e] border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400"
                   >
-                    <option value={8}>৮ সিট (8 Seats)</option>
+                    <option value={8}>৮ সিট (8 Seats)</option><option value={10}>১০ সিট (10 Seats)</option>
                     <option value={12}>১২ সিট (12 Seats)</option>
                     <option value={20}>২০ সিট (20 Seats)</option>
                   </select>
@@ -2779,7 +2781,7 @@ export default function App() {
               </div>
 
               <div>
-                <label className="block text-gray-300 font-semibold mb-1">রুমের আইকন / কভার</label>
+                <label className="block text-gray-300 font-semibold mb-1">রুমের থিম</label><div className="ref-theme-picker">{roomThemes.map((theme,i)=><button type="button" key={theme} aria-label={`থিম ${i+1}`} aria-pressed={newRoomTheme===i} className={newRoomTheme===i?'selected':''} style={{background:theme}} onClick={()=>setNewRoomTheme(i)}/>)}</div><label className="block text-gray-300 font-semibold mb-1 mt-4">রুমের আইকন / কভার</label>
                 <div className="flex items-center gap-2 overflow-x-auto py-1">
                   {['🎤', '🎶', '🎮', '💬', '🌙', '💞', '🔥', '🎉', '🎸', '☕'].map(icon => (
                     <button
@@ -2839,12 +2841,13 @@ export default function App() {
                   const createdRoom: any = {
                     id: `user-${fbUser?.uid}`,
                     photoURL:newRoomPhoto,
+                    publicId:String(S.id),
                     name: newRoomName.trim(),
                     host: S.name,
                     hostId: S.id,
                     cv: newRoomIcon,
                     c: newRoomCategory,
-                    th: Math.floor(Math.random() * 4),
+                    th: newRoomTheme,
                     d: 0,
                     n: 1,
                     flag: S.country === 'সৌদি' ? '🇸🇦' : S.country === 'ভারত' ? '🇮🇳' : '🇧🇩',
