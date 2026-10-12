@@ -1,3 +1,4 @@
+import {getDoc,setDoc,updateDoc,query,where,getDocs,runTransaction,onSnapshot} from './lib/reliableFirestore';
 import {accountBootstrap} from './lib/accountBootstrap';
 import {withTimeout} from './lib/authTimeout';
 import {AuthScreen} from './components/AuthScreen';
@@ -20,9 +21,6 @@ import {
   onAuthStateChanged,
   db,
   doc,
-  getDoc,
-  setDoc,
-  updateDoc
 } from './firebase';
 import {SellerWallet,SupportChat,Notices,useAccess} from './components/AdminExtensions';
 import {AssetShop,EntryMedia,useMediaAssets} from './components/MediaAssets';
@@ -30,7 +28,7 @@ import { UserDirectory } from './components/UserDirectory';
 import {ReferenceLobby,LobbyScreen} from './design/ReferenceLobby';
 import {RoomEntryCard} from './design/RoomEntryCard';
 import {roomThemes} from './design/catalog';
-import { collection, query, where, getDocs, runTransaction, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, serverTimestamp } from 'firebase/firestore';
 import { VoiceRoomView } from './components/VoiceRoomView';
 import { AdminPanel } from './components/AdminPanel';
 import { 

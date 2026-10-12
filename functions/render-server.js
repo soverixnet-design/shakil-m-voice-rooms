@@ -16,7 +16,7 @@ try{
  const db=getFirestore(app,DATABASE);database=db;service={...createGameService(db),...createWalletService(db),...createAccountService(db)};verifyToken=token=>getAuth(app).verifyIdToken(token);ready=true;
 }catch{console.error('Firebase server credentials missing or invalid. Add the secret file for the configured Firebase project in Render Environment.');}
 const origins=(process.env.ALLOWED_ORIGINS||'https://earnbd.work,https://www.earnbd.work,https://soverixnet-design.github.io').split(',').map(v=>v.trim()).filter(Boolean);
-const server=createGameHttpServer({service,verifyToken,origins,ready,checkReady:()=>database.doc('system/gameServer').get()});
+const server=createGameHttpServer({service,verifyToken,origins,ready,voiceRelayConfigured:Boolean(process.env.TURN_SHARED_SECRET&&process.env.TURN_URLS),checkReady:()=>database.doc('system/gameServer').get()});
 const port=Number(process.env.PORT||10000);server.listen(port,'0.0.0.0',()=>console.log(`EarnBD game server listening on port ${port}; ${ready?'configured':'setup required'}`));
 let sweeping=false;
 async function sweep(){if(!ready||sweeping)return;sweeping=true;try{await service.sweep()}catch(e){console.error('Settlement retry pending:',e.code||'internal')}finally{sweeping=false}}

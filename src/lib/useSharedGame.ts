@@ -1,13 +1,14 @@
+import {limit,onSnapshot,orderBy,query,where} from './reliableFirestore';
 import gameServerConfig from '../../game-server-config.json';
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {collection,doc,limit,onSnapshot,orderBy,query,where} from 'firebase/firestore';
+import {collection,doc} from 'firebase/firestore';
 import {callSharedGame} from './gameTransport';
 import {auth,db} from '../firebase';
 import {clockAnchor,serverTime,sharedPhase,type SharedRound} from './sharedClock';
 export const BET_CHIPS=[1000,10000,100000,1000000];
 export function useSharedGame(game:string){
  const [round,setRound]=useState<SharedRound|null>(null),[jackpotPool,setJackpotPool]=useState(0),[publicRound,setPublicRound]=useState<any>(null),[players,setPlayers]=useState<any[]>([]),[ranking,setRanking]=useState<any[]>([]),[weekly,setWeekly]=useState<any[]>([]),[personalHistory,setPersonalHistory]=useState<any[]>([]),[history,setHistory]=useState<any[]>([]),[error,setError]=useState(''),[dataError,setDataError]=useState(''),[balance,setBalance]=useState(0),[busy,setBusy]=useState(false),[now,setNow]=useState(0),[status,setStatus]=useState('সার্ভারের সাথে যুক্ত হচ্ছে…');
- const [serverUrl,setServerUrl]=useState(gameServerConfig.url),[serverConfigReady,setServerConfigReady]=useState(false);
+ const [serverUrl,setServerUrl]=useState(gameServerConfig.url),[serverConfigReady,setServerConfigReady]=useState(true);
  useEffect(()=>onSnapshot(doc(db,'system','gameServer'),s=>{setServerUrl(String(s.data()?.url||gameServerConfig.url));setServerConfigReady(true)},()=>setServerConfigReady(true)),[]);
  const anchor=useRef<{server:number;local:number;uncertainty:number}|null>(null),lastSync=useRef(0),roundRef=useRef(round),pending=useRef<any>(null),busyRef=useRef(false),active=useRef(true),epoch=useRef(0);
  const tapQueue=useRef<any[]>([]),drain=useRef<()=>void>(()=>{}),tapTimer=useRef<ReturnType<typeof setTimeout>|null>(null);

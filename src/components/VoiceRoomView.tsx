@@ -1,3 +1,4 @@
+import {addDoc,orderBy,limit,updateDoc,onSnapshot,query,where,setDoc,deleteDoc,runTransaction,getDocs,getDoc} from '../lib/reliableFirestore';
 import {LanguagePicker} from '../i18n/LanguagePicker';
 import {RoomWelcome} from './RoomWelcome';
 import {liveGames,roomThemes} from '../design/catalog';
@@ -26,7 +27,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import { auth, db } from '../firebase';
-import { collection, addDoc, orderBy, limit, doc, updateDoc, onSnapshot, query, where, setDoc, deleteDoc, runTransaction, getDocs, getDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { VoiceRoom, UserProfile } from '../types';
 
 interface Props {
