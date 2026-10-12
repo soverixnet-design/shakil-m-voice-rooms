@@ -156,6 +156,7 @@ service cloud.firestore {
     match /gameRanks/{period}/players/{uid} { allow read: if active(); allow write: if false; }
     match /rooms/{room}/gameWins/{id} { allow read: if active(); allow write: if false; }
     match /gameWins/{id} { allow read: if active(); allow write: if false; }
+    match /diamondWallets/{uid} { allow read: if owner() || (self(uid) && active()); allow write: if false; }
     match /walletRequests/{id} { allow read, write: if false; }
     match /sharedGames/{game}/weeks/{week}/ranking/{uid} { allow read: if active(); allow write: if false; }
     match /gameRequests/{id} { allow read, write: if false; }
