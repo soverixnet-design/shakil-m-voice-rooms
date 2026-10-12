@@ -1,0 +1,1 @@
+export function gameServerUrl(value:string){const u=new URL(value.trim());if(u.protocol!=='https:'||u.username||u.password||u.port||u.search||u.hash||u.pathname!=='/'||!(u.hostname.endsWith('.onrender.com')||u.hostname==='api.earnbd.work'))throw Error('Render-এর https://নাম.onrender.com লিংক দিন। শেষে /api বা /health লাগবে না।');return u.origin;}

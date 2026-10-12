@@ -1,5 +1,7 @@
 # লাইভ গেম চালু করার শেষ ধাপ
 
+Google Cloud billing চালু না হলে **Render-এর বিকল্প setup** এখন প্রস্তুত আছে: [RENDER_SETUP.md](RENDER_SETUP.md)। নিচের নির্দেশনা Firebase Functions ব্যবহার করার জন্য।
+
 ## বর্তমান অবস্থা
 
 ওয়েবসাইটের পাঁচটি বেটিং গেম (`greedy_lion`, `lion_wheel`, `night_wheel`, `jackpot_fruit`, `slots`) এখন নতুন shared-game সার্ভারের client ব্যবহার করে। পুরোনো ডিভাইসভিত্তিক timer, ফলাফল ও নমুনা ranking এই live mode-এ ব্যবহার হয় না। Firebase Functions deploy এবং নিচের নতুন rules প্রকাশ না হওয়া পর্যন্ত লাইভ বেট বন্ধ থাকে। সংযোগের ত্রুটি দেখাবে; কয়েন কাটবে না। Carrom ও Chess এখনও স্থানীয় single-player গেম; তাদের online matchmaking এই পরিবর্তনের অন্তর্ভুক্ত নয়।
