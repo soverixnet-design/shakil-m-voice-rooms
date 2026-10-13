@@ -1,4 +1,7 @@
 import pg from 'pg';
+import {readFileSync} from 'node:fs';
+import {rootCertificates} from 'node:tls';
+const supabaseCA = readFileSync(new URL('./certs/supabase-root-2021.crt', import.meta.url), 'utf8');
 const PROJECT = 'rfrmcmeyamndghtiheci';
 
 // Backend only: never expose the connection string through an API or log.
@@ -16,7 +19,7 @@ export function createSupabaseDatabase(connectionString = process.env.SUPABASE_D
   for (const key of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert']) url.searchParams.delete(key);
   const pool = new pg.Pool({connectionString: url.toString(), max: 5,
     connectionTimeoutMillis: 8000, idleTimeoutMillis: 30000,
-    statement_timeout: 10000, ssl: {rejectUnauthorized: true}});
+    statement_timeout: 10000, ssl: {rejectUnauthorized: true, ca: [...rootCertificates, supabaseCA]}});
   pool.on('error', () => console.error('Supabase idle database connection failed.'));
   return {
     pool,
