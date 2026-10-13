@@ -63,3 +63,28 @@ export async function migrateSocialData(source,database){
     client.release();
   }
 }
+
+// Games were frozen at social cutover. Preserve the copied wallet balances and
+// resume pending settlements only after every game document has been copied.
+export async function migrateGameData(source,database){
+ const client=await database.pool.connect();let locked=false,copied=0;
+ async function scan(collection){
+  // listDocuments includes missing ancestors that still have subcollections.
+  for(const ref of await collection.listDocuments()){
+   const document=await ref.get();
+   if(document.exists){const parts=ref.path.split('/'),id=parts.pop(),parent=parts.join('/');
+    copied+=(await client.query('insert into earnbd.social_documents(path,parent,document_id,fields) values($1,$2,$3,$4::jsonb) on conflict(path) do nothing',[ref.path,parent,id,JSON.stringify(encodeFields(document.data()))])).rowCount;
+   }
+   for(const sub of await ref.listCollections())await scan(sub);
+  }
+ }
+ try{
+  locked=(await client.query('select pg_try_advisory_lock(71938105) as locked')).rows[0].locked;
+  if(!locked)throw Error('migration-already-running');
+  if((await client.query("select path from earnbd.social_documents where path='migration/games-v1'")).rowCount)return {status:'already-complete',copied:0};
+  for(const root of ['sharedGames','gameSecrets','gameRanks','gameRequests','gameReceipts','gameWins','userPublicIds'])await scan(source.collection(root));
+  for(const room of await source.collection('rooms').listDocuments())await scan(room.collection('gameWins'));
+  await client.query("insert into earnbd.social_documents(path,parent,document_id,fields) values('migration/games-v1','migration','games-v1',$1::jsonb) on conflict(path) do nothing",[JSON.stringify(encodeFields({completedAt:new Date(),copied}))]);
+  return {status:'complete',copied};
+ }finally{if(locked)await client.query('select pg_advisory_unlock(71938105)').catch(()=>{});client.release();}
+}

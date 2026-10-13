@@ -86,3 +86,20 @@ test('migration codec preserves nested data and Firestore timestamps',()=>{
  const original={coins:12345,roomSeat:null,items:[{name:'Room'}],lastSeen:new Date(now)};
  const result=decodeFields(encodeFields(original));assert.deepEqual(result,{...original,lastSeen:new Date(now).toISOString()});
 });
+
+test('game reads allow public rounds but protect seeds, private receipts and all game writes',async()=>{
+ const {service,put}=fixture();
+ put('sharedGames/slots/rounds/10',{state:'open'});
+ put('sharedGames/slots/rounds/10/players/alice',{bets:[1000]});
+ put('sharedGames/slots/weeks/2026-10-12/ranking/alice',{won:1000});
+ put('gameReceipts/alice-result',{uid:'alice',payout:100});
+ put('gameReceipts/bob-result',{uid:'bob',payout:200});
+ assert((await service.social({action:'get',path:'sharedGames/slots/rounds/10'},identity('alice'))).fields);
+ assert((await service.social({action:'get',path:'sharedGames/slots/rounds/10/players/alice'},identity('alice'))).fields);
+ await assert.rejects(service.social({action:'get',path:'gameSecrets/slots_10'},identity('alice')));
+ await assert.rejects(service.social({action:'get',path:'gameReceipts/bob-result'},identity('alice')),/permission-denied/);
+ await assert.rejects(service.social({action:'commit',writes:[update('sharedGames/slots/rounds/10',{result:{win:1}})]},identity('alice')),/permission-denied/);
+ const found=await service.social({action:'query',structuredQuery:{from:[{collectionId:'gameReceipts'}],where:{fieldFilter:{field:{fieldPath:'uid'},op:'EQUAL',value:{stringValue:'alice'}}}}},identity('alice'));
+ assert.equal(found.length,1);
+ await assert.rejects(service.social({action:'get',path:'sharedGames/slots/rounds/10'},identity('banned')),/permission-denied/);
+});

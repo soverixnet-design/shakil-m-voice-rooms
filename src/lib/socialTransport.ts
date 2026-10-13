@@ -1,6 +1,6 @@
 import {gameServerUrl} from './gameServerUrl';
 import {withTimeout} from './authTimeout';
-const socialRoots=new Set(['users','rooms','roomOwners','follows','moments','diamondWallets','transactions','admins','assets','system','supportTickets','sellerWallets','sellerTransfers']);
+const socialRoots=new Set(['users','rooms','roomOwners','follows','moments','diamondWallets','transactions','admins','assets','system','supportTickets','sellerWallets','sellerTransfers','sharedGames','gameRanks','gameReceipts','gameWins']);
 export function socialPath(path:string){return socialRoots.has(path.split('/')[0]);}
 export function createSocialTransport(url:string,nameRoot:string,request:typeof fetch=fetch){
  return async(suffix:string,options:any,token:string)=>{

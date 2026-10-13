@@ -1,14 +1,14 @@
 import {randomInt,createHmac} from 'node:crypto';
 import {decodeFields,decodeValue,encodeFields} from './social-migration.js';
 const OWNER='yfastvpn@gmail.com';
-const ROOTS=new Set(['users','rooms','roomOwners','follows','moments','diamondWallets','transactions','admins','assets','system','supportTickets','sellerWallets','sellerTransfers']);
+const ROOTS=new Set(['users','rooms','roomOwners','follows','moments','diamondWallets','transactions','admins','assets','system','supportTickets','sellerWallets','sellerTransfers','sharedGames','gameRanks','gameReceipts','gameWins']);
 const PROTECTED=new Set(['role','status','email','id','userId','coins','diamond','lastSellerTransfer','lastGiftReceipt','giftSentCount','giftSentCoins','totalRecharged','giftReceivedCount','giftReceivedCoins']);
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const allowed=(value,keys)=>Object.keys(value).every(k=>keys.includes(k));
 const photo=v=>typeof v==='string'&&v.length<=300000&&(!v||/^https:\/\//.test(v)||/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]*={0,2}$/.test(v));
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const changed=(a,b)=>[...new Set([...Object.keys(a),...Object.keys(b)])].filter(k=>!same(a[k],b[k]));
-export function socialPath(path){return typeof path==='string'&&path.split('/').length<=4&&path.length<=512&&path.split('/').every(v=>v&&!['.','..','__proto__','constructor','prototype'].includes(v))&&ROOTS.has(path.split('/')[0]);}
+export function socialPath(path){return typeof path==='string'&&path.split('/').length<=6&&path.length<=512&&path.split('/').every(v=>v&&!['.','..','__proto__','constructor','prototype'].includes(v))&&ROOTS.has(path.split('/')[0]);}
 export function createSocialService(database,clock=Date.now){
  const nameRoot='projects/gen-lang-client-0043151803/databases/ai-studio-22dd0b7a-14da-47df-9bc8-d4b58ab5ab0b/documents';
  const wire=row=>row?{name:nameRoot+'/'+row.path,fields:row.fields,updateTime:'version-'+String(row.version)}:null;
@@ -33,6 +33,10 @@ export function createSocialService(database,clock=Date.now){
    async function canRead(path,fields){
     if(!socialPath(path))return false;
     const [root,id,sub,child]=path.split('/');
+    if(root==='sharedGames')return Boolean(active)&&(!sub||sub==='rounds'&&(!child||path.split('/').length===4||path.split('/')[4]==='players')||['days','weeks'].includes(sub)&&path.split('/')[4]==='ranking');
+    if(root==='gameRanks')return Boolean(active)&&sub==='players'&&path.split('/').length===4;
+    if(root==='gameWins')return Boolean(active)&&!sub;
+    if(root==='gameReceipts')return Boolean(active)&&!sub&&decodeFields(fields).uid===identity.uid;
     if(root==='system'||root==='assets')return !sub;
     if(root==='admins')return !sub&&(owner||id===identity.uid);
     if(root==='sellerWallets')return !sub&&(owner||active&&id===identity.uid);
@@ -42,7 +46,7 @@ export function createSocialService(database,clock=Date.now){
     if(root==='roomOwners')return !sub&&(id===identity.uid||owner);
     if(root==='rooms'){
      if(!sub)return true;
-     if(['roles','controls','seatPolicy','chat','giftEvents'].includes(sub))return Boolean(active);
+     if(['roles','controls','seatPolicy','chat','giftEvents','gameWins'].includes(sub))return Boolean(active);
      if(sub==='voicePeers')return inRoom(id);
      if(sub==='voiceSignals')return await inRoom(id)&&decodeFields(fields).to===identity.uid;
      return false;
@@ -71,6 +75,7 @@ export function createSocialService(database,clock=Date.now){
      if(owner&&['admins','sellerWallets','sellerTransfers','transactions','supportTickets'].includes(path)){}
      else if(path==='supportTickets'&&permission('support')){}
      else if(path==='sellerTransfers'&&q.where?.fieldFilter&&['sellerId','receiverId'].includes(q.where.fieldFilter.field?.fieldPath)&&q.where.fieldFilter.op==='EQUAL'&&decodeValue(q.where.fieldFilter.value)===identity.uid){}
+     else if(path==='gameReceipts'&&active&&f?.field?.fieldPath==='uid'&&f.op==='EQUAL'&&decodeValue(f.value)===identity.uid){}
      else if(path==='transactions'&&q.where?.fieldFilter&&['userId','senderId','receiverId'].includes(q.where.fieldFilter.field?.fieldPath)&&q.where.fieldFilter.op==='EQUAL'&&decodeValue(q.where.fieldFilter.value)===identity.uid){}
      else if(!(path.endsWith('/voiceSignals')&&await inRoom(parent.split('/')[1])&&f?.field?.fieldPath==='to'&&f.op==='EQUAL'&&decodeValue(f.value)===identity.uid))fail('permission-denied');
     }

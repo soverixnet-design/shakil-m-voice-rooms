@@ -1,5 +1,5 @@
 import {createSupabaseDatabase} from './supabase-database.js';
-import {migrateSocialData} from './social-migration.js';
+import {migrateSocialData,migrateGameData} from './social-migration.js';
 import {createSocialService} from './social-service.js';
 import {createSocialWalletStore} from './social-wallet-store.js';
 import {createAccountService} from './account-service.js';
@@ -35,10 +35,12 @@ if(process.env.SUPABASE_DATABASE_URL){
  let probe;
  try{probe=createSupabaseDatabase();await probe.check();
   if(ready){const migration=await migrateSocialData(database,probe);Object.assign(service,createWalletService(createSocialWalletStore(probe,database)),createSocialService(probe));socialDatabase=probe;
-  // Keep the old game ledger untouched during the social database cutover.
-  // No new stakes or settlements may mutate the old balances after this copy.
+  const store=createSocialWalletStore(probe,database);
   const disabledGame=async()=>{throw Object.assign(Error('game-ledger-not-migrated'),{code:'unavailable'});};
   service.bet=disabledGame;service.sync=disabledGame;service.sweep=async()=>{};
+  const games=await migrateGameData(database,probe);
+  Object.assign(service,createGameService(store),{gamesDatabase:'supabase'});
+  console.log('Supabase game migration:',JSON.stringify(games));
   console.log('Supabase social migration:',JSON.stringify(migration));}
   console.log('Supabase connection verified; profiles and voice rooms use Supabase when migration is complete.');}
  catch(error){const reasons={'28P01':'authentication-failed','3D000':'database-not-found','ENOTFOUND':'host-not-found','ETIMEDOUT':'connection-timeout','supabase-schema-incomplete':'schema-incomplete','wrong-supabase-project':'wrong-project','invalid-supabase-connection':'invalid-connection'};console.error('Supabase startup check failed:',reasons[error.code]||reasons[error.message]||(/^[A-Z0-9_]{2,64}$/.test(String(error.code))?error.code:'connection-failed'));}

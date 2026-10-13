@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createSocialWalletStore} from '../functions/social-wallet-store.js';
 import {createWalletService} from '../functions/wallet-service.js';
 import {encodeFields,decodeFields} from '../functions/social-migration.js';
-function fixture(){
+export function fixture(){
  const rows=new Map();const put=(path,data)=>rows.set(path,{path,fields:encodeFields(data)});
  const clock=()=>Date.parse('2026-10-13T01:00:00Z');
  put('users/sender',{name:'Sender',coins:1000,status:'active'});
@@ -17,7 +17,7 @@ function fixture(){
  }};
  const database={pool:client,transaction:async work=>{const before=new Map(rows);try{return await work(client)}catch(e){rows.clear();for(const [k,v]of before)rows.set(k,v);throw e}}};
  const source={doc:()=>{throw Error('Unexpected Firebase read')},collection:()=>{throw Error('Unexpected Firebase query')}};
- return {service:createWalletService(createSocialWalletStore(database,source),clock),rows};
+ return {service:createWalletService(createSocialWalletStore(database,source),clock),store:createSocialWalletStore(database,source),rows,put};
 }
 test('Supabase gifts debit and credit once while preserving room events and retry receipts',async()=>{
  const {service,rows}=fixture();const data={receiverId:'receiver',item:{name:'Rose',emoji:'🌹',cost:10},quantity:3,requestId:'gift-request-12345678'};
