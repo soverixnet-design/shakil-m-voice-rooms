@@ -1,3 +1,4 @@
+import {setTimeout as pause} from 'node:timers/promises';
 import {Timestamp} from 'firebase-admin/firestore';
 import {encodeFields,decodeValue} from './social-migration.js';
 const roots=new Set(['users','userPublicIds','diamondWallets','walletRequests','transactions','rooms','system','assets','sharedGames','gameSecrets','gameRanks','gameRequests','gameReceipts','gameWins']);
@@ -21,7 +22,9 @@ export function createSocialWalletStore(database,source){
   },limit:n=>build(filters,n),get:()=>readQuery(database.pool,path,filters,cap),filters,cap});return build();
  };
  async function readQuery(client,path,filters,cap){
-  const rows=(await client.query('select path,fields from earnbd.social_documents where parent=$1',[path])).rows;
+  const values=[path],clauses=['parent=$1'];
+  for(const [field,op,value]of filters){values.push(field);const key='$'+values.length;const choices=op==='in'?value:[value];if(!Array.isArray(choices)||!choices.length||choices.length>30)throw Error('invalid-request');const terms=choices.map(v=>{values.push(JSON.stringify(encodeFields({v}).v));return '$'+values.length+'::jsonb';});clauses.push(`fields -> ${key}::text = ANY(ARRAY[${terms.join(',')}])`);}
+  const rows=(await client.query('select path,fields from earnbd.social_documents where '+clauses.join(' and '),values)).rows;
   const docs=rows.map(row=>snapshot(doc(row.path),row)).filter(s=>filters.every(([field,op,value])=>op==='in'?value.includes(s.data()?.[field]):s.data()?.[field]===value)).slice(0,cap);
   return {docs,empty:!docs.length,size:docs.length};
  }
@@ -39,7 +42,7 @@ export function createSocialWalletStore(database,source){
     await client.query('insert into earnbd.social_documents(path,parent,document_id,fields) values($1,$2,$3,$4::jsonb) on conflict(path) do update set fields=excluded.fields,updated_at=now(),version=social_documents.version+1',[write.ref.path,parent,id,JSON.stringify(encodeFields(data))]);
    }
    return result;
-  });}catch(error){if(!['40001','40P01','23505'].includes(error.code)||attempt>=4)throw error;}
+  });}catch(error){if(!['40001','40P01','23505'].includes(error.code)||attempt>=4)throw error;await pause(Math.min(250,20*2**attempt)+Math.floor(Math.random()*20));}
  };
  return {doc,collection,runTransaction};
 }

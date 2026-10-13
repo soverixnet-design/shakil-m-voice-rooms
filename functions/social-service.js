@@ -80,7 +80,16 @@ export function createSocialService(database,clock=Date.now){
      else if(path==='transactions'&&q.where?.fieldFilter&&['userId','senderId','receiverId'].includes(q.where.fieldFilter.field?.fieldPath)&&q.where.fieldFilter.op==='EQUAL'&&decodeValue(q.where.fieldFilter.value)===identity.uid){}
      else if(!(path.endsWith('/voiceSignals')&&await inRoom(parent.split('/')[1])&&f?.field?.fieldPath==='to'&&f.op==='EQUAL'&&decodeValue(f.value)===identity.uid))fail('permission-denied');
     }
-    const rows=(await client.query('select path,fields,updated_at,version from earnbd.social_documents where parent=$1 order by document_id limit 5001',[path])).rows;
+    let rows;
+    const order=q.orderBy?.length===1?q.orderBy[0]:null;
+    const fast=['sharedGames','gameRanks','gameReceipts','gameWins'].includes(path.split('/')[0]);
+    if(fast&&(!q.where||q.where.fieldFilter?.field?.fieldPath==='uid'&&q.where.fieldFilter.op==='EQUAL')&&order&&['createdAt','startAt','won'].includes(order.field?.fieldPath)&&['ASCENDING','DESCENDING'].includes(order.direction)){
+     const cap=q.limit??1000;if(!Number.isInteger(cap)||cap<1||cap>1000)fail('invalid-argument');
+     const values=[path,order.field.fieldPath],f=q.where?.fieldFilter;
+     let filter='';
+     if(f?.field?.fieldPath==='uid'&&f.op==='EQUAL'){values.push(decodeValue(f.value));filter=" and fields->'uid'->>'stringValue'=$3";}
+     values.push(cap);rows=(await client.query(`select path,fields,updated_at,version from earnbd.social_documents where parent=$1${filter} order by coalesce(fields->$2::text->>'integerValue',fields->$2::text->>'doubleValue')::numeric ${order.direction==='DESCENDING'?'desc':'asc'} nulls last limit $${values.length}`,values)).rows;
+    }else rows=(await client.query('select path,fields,updated_at,version from earnbd.social_documents where parent=$1 order by document_id limit 5001',[path])).rows;
     if(rows.length>5000)fail('query-too-large');
     const get=(doc,field)=>field==='__name__'?doc.path:field.split('.').reduce((v,k)=>v?.[k],decodeFields(doc.fields));
     const matches=(row,filter)=>{

@@ -572,7 +572,7 @@ export default function App() {
 
   return (
     <div id="app">
-      {fbUser&&(!activeRoom||isRoomMinimized)&&!activeGame&&lobbyScreen!=='rooms'&&<div style={{position:'fixed',top:72,left:8,right:8,zIndex:45,pointerEvents:'none'}}><GameWinFeed/></div>}
+      {fbUser&&(!activeRoom||isRoomMinimized)&&<div style={{position:'fixed',top:'max(8px, env(safe-area-inset-top))',left:8,right:8,zIndex:150,pointerEvents:'none'}}><GameWinFeed/></div>}
       {activePage==='game_rank'&&<GlobalGameRanks onClose={()=>setActivePage(null)}/>}
       {activePage==='seller'&&<SellerWallet user={fbUser} onClose={()=>setActivePage(null)}/>}
       {activePage==='support_chat'&&<SupportChat user={fbUser} onClose={()=>setActivePage(null)}/>}
