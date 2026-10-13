@@ -147,7 +147,7 @@ export function createSocialService(database,clock=Date.now){
     else if(root==='users'&&sub==='visitors')permitted=!removed&&id!==identity.uid&&child===identity.uid&&allowed(next,['visitorId','createdAt'])&&next.visitorId===identity.uid&&next.createdAt===timestamp;
     else if(root==='roomOwners'&&!sub)permitted=!oldRows.get(path)&&!removed&&id===identity.uid&&allowed(next,['roomId'])&&next.roomId==='user-'+id&&(await after('rooms/'+next.roomId)).hostId===id;
     else if(root==='rooms'&&!sub){
-     permitted=oldRows.get(path)?(await roomOwner(id)||owner)&&(removed||next.hostId===old.hostId):!removed&&id==='user-'+identity.uid&&next.hostId===identity.uid&&(await after('roomOwners/'+identity.uid)).roomId===id;
+     permitted=owner||(oldRows.get(path)?await roomOwner(id)&&(removed||next.hostId===old.hostId):!removed&&id==='user-'+identity.uid&&next.hostId===identity.uid&&(await after('roomOwners/'+identity.uid)).roomId===id);
      if(!removed&&next.photoURL!==undefined&&!photo(next.photoURL))permitted=false;
     }else if(root==='rooms'){
      if(sub==='roles')permitted=await roomOwner(id)&&(removed||child!==(await plain('rooms/'+id)).hostId&&allowed(next,['role','canLockSeats'])&&next.role==='admin'&&(next.canLockSeats===undefined||typeof next.canLockSeats==='boolean'));

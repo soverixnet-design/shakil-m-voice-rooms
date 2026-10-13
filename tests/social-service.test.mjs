@@ -58,6 +58,11 @@ test('room role changes require the existing owner',async()=>{
  await assert.rejects(service.social({action:'commit',writes},identity('alice')),{code:'permission-denied'});
  await service.social({action:'commit',writes},identity('host'));
 });
+test('only the verified existing platform owner can create an official room with a custom ID',async()=>{
+ const {service}=fixture();const writes=[{update:{name:root+'/rooms/official-room',fields:encodeFields({hostId:'host',name:'Official'})}}];
+ await assert.rejects(service.social({action:'commit',writes},identity('alice')),{code:'permission-denied'});
+ await service.social({action:'commit',writes},{uid:'host',email:'yfastvpn@gmail.com',email_verified:true});
+});
 test('voice signals can only be queried for the authenticated recipient',async()=>{
  const {service}=fixture();const structuredQuery={from:[{collectionId:'voiceSignals'}],where:{fieldFilter:{field:{fieldPath:'to'},op:'EQUAL',value:{stringValue:'alice'}}}};
  const result=await service.social({action:'query',parent:'rooms/room',structuredQuery},identity('alice'));
