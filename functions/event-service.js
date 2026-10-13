@@ -26,7 +26,7 @@ export function eventRanking(event,gifts,games,users,rooms){
   const score=event.type==='gift_festival'?row.quantity:event.type==='room_game_wins'?row.payout:gaming?1:row.cost;
   add(id,Number(score),time);
  }
- return [...scores.values()].map(row=>{const room=event.type.startsWith('top_room_')?rooms.get(row.id):null;const uid=room?.hostId||(!event.type.startsWith('top_room_')?row.id:null),user=users.get(uid);return {...row,uid,name:room?.name||user?.name||'User',publicId:user?.id||'',avatar:room?.photoURL||user?.photoURL||user?.avatar||'👤',eligible:validUser(user)};}).filter(r=>r.eligible).sort((a,b)=>b.score-a.score||a.firstAt-b.firstAt||a.id.localeCompare(b.id)).map((r,index)=>({...r,rank:index+1,reward:event.rewards[index]||0}));
+ return [...scores.values()].map(row=>{const room=event.type.startsWith('top_room_')?rooms.get(row.id):null;const uid=room?.hostId||(!event.type.startsWith('top_room_')?row.id:null),user=users.get(uid);return {...row,uid,name:room?.name||user?.name||'User',publicId:user?.id||'',avatar:room?.photoURL||user?.photoURL||user?.avatar||'👤',country:user?.country||'',badge:user?.badge||'',svip:Number(user?.svip||0),giftSentCoins:Number(user?.giftSentCoins||0),customFrameId:user?.customFrameId||'',eligible:validUser(user)};}).filter(r=>r.eligible).sort((a,b)=>b.score-a.score||a.firstAt-b.firstAt||a.id.localeCompare(b.id)).map((r,index)=>({...r,rank:index+1,reward:event.rewards[index]||0}));
 }
 export function rankingWindow(period,now){
  const d=new Date(now);d.setUTCHours(0,0,0,0);
@@ -40,7 +40,7 @@ export function pairRanking(event,gifts,users){
  if(row.type!=='gift_sent'||!Number.isFinite(time)||time<event.startAt||time>=event.endAt||row.senderId===row.receiverId||!validUser(users.get(row.senderId))||!validUser(users.get(row.receiverId))||!Number.isSafeInteger(row.cost)||row.cost<=0)continue;
  const ids=[row.senderId,row.receiverId].sort(),id=JSON.stringify(ids);const previous=pairs.get(id)||{id,ids,score:0,firstAt:time};previous.score+=row.cost;previous.firstAt=Math.min(previous.firstAt,time);if(!Number.isSafeInteger(previous.score))fail('invalid-event-score');pairs.set(id,previous);
  }
- return [...pairs.values()].sort((a,b)=>b.score-a.score||a.firstAt-b.firstAt||a.id.localeCompare(b.id)).slice(0,100).map((row,i)=>({id:row.id,score:row.score,rank:i+1,members:row.ids.map(uid=>{const u=users.get(uid);return {uid,name:u.name||'User',publicId:u.id||'',avatar:u.photoURL||u.avatar||'👤'};})}));
+ return [...pairs.values()].sort((a,b)=>b.score-a.score||a.firstAt-b.firstAt||a.id.localeCompare(b.id)).slice(0,100).map((row,i)=>({id:row.id,score:row.score,rank:i+1,members:row.ids.map(uid=>{const u=users.get(uid);return {uid,name:u.name||'User',publicId:u.id||'',avatar:u.photoURL||u.avatar||'👤',country:u.country||'',badge:u.badge||'',svip:Number(u.svip||0),giftSentCoins:Number(u.giftSentCoins||0),customFrameId:u.customFrameId||''};})}));
 }
 export function createEventService(database,clock=Date.now){
  const read=async(client,path)=>(await client.query('select fields from earnbd.social_documents where path=$1',[path])).rows[0];
