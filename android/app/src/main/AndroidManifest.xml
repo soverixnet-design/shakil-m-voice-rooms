@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
  <uses-permission android:name="android.permission.INTERNET"/>
- <application android:label="EarnBD Shakil" android:icon="@drawable/earnbd_logo" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false" android:usesCleartextTraffic="false">
-  <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+ <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+ <application android:label="EarnBD Shakil" android:icon="@drawable/earnbd_logo" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:enableOnBackInvokedCallback="false" android:allowBackup="false" android:usesCleartextTraffic="false">
+  <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
  </application>
 </manifest>
