@@ -1,3 +1,4 @@
+import {createSupabaseDatabase} from './supabase-database.js';
 import {createAccountService} from './account-service.js';
 import {readFileSync} from 'node:fs';
 import {initializeApp,cert} from 'firebase-admin/app';
@@ -26,6 +27,12 @@ async function checkDatabase(){
  if(writeError)throw writeError;
 }
 const server=createGameHttpServer({service,verifyToken,origins,ready,voiceRelayConfigured:Boolean(process.env.TURN_SHARED_SECRET&&process.env.TURN_URLS),checkReady:checkDatabase});
+if(process.env.SUPABASE_DATABASE_URL){
+ let probe;
+ try{probe=createSupabaseDatabase();await probe.check();console.log('Supabase connection verified; game services still use Firebase.');}
+ catch(error){const reasons={'28P01':'authentication-failed','3D000':'database-not-found','ENOTFOUND':'host-not-found','ETIMEDOUT':'connection-timeout','supabase-schema-incomplete':'schema-incomplete','wrong-supabase-project':'wrong-project','invalid-supabase-connection':'invalid-connection'};console.error('Supabase startup check failed:',reasons[error.code]||reasons[error.message]||'connection-failed');}
+ finally{if(probe)await probe.close();}
+}
 const port=Number(process.env.PORT||10000);server.listen(port,'0.0.0.0',()=>console.log(`EarnBD game server listening on port ${port}; ${ready?'configured':'setup required'}`));
 let sweeping=false;
 async function sweep(){if(!ready||sweeping)return;sweeping=true;try{if(writeError)await checkDatabase();await service.sweep()}catch(e){console.error('Settlement retry pending:',e.code||'internal')}finally{sweeping=false}}
