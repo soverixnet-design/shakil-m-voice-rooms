@@ -1,3 +1,4 @@
+import {captureVoiceMicrophone} from './voiceMicrophone';
 import {updateVoicePublication,voiceFailure} from './voicePublication';
 import {retryableVoiceConnection} from './voiceConnection';
 import {withTimeout} from './authTimeout';
@@ -6,7 +7,7 @@ import type {IAgoraRTCClient,IMicrophoneAudioTrack,IAgoraRTC} from 'agora-rtc-sd
 import {walletApi} from './walletApi';
 export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpeak:boolean,controls:Record<string,any>,enabled=true){
  const [micLevel,setMicLevel]=useState(0),[remoteAudioCount,setRemoteAudioCount]=useState(0),[connectionState,setConnectionState]=useState('DISCONNECTED');
- const [status,setStatus]=useState(''),[speakers,setSpeakers]=useState<string[]>([]),[audioBlocked,setAudioBlocked]=useState(false),[speaking,setSpeaking]=useState(false);
+ const [status,setStatus]=useState(''),[speakers,setSpeakers]=useState<string[]>([]),[audioBlocked,setAudioBlocked]=useState(false),[speaking,setSpeaking]=useState(false),[diagnostic,setDiagnostic]=useState('');
  const flags=useRef({micOn,soundOn,canSpeak,controls});flags.current={micOn,soundOn,canSpeak,controls};
  const error=useRef(''),sdk=useRef<IAgoraRTC|null>(null),intent=useRef(false);
  const local=useRef<IMicrophoneAudioTrack|null>(null),current=useRef<{client?:IAgoraRTCClient;start:()=>Promise<void>;update:(force?:boolean)=>Promise<boolean>;dead:boolean}|null>(null);
@@ -17,7 +18,6 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
   const session=current.current;error.current='';intent.current=true;unlock();
   try{
    if(!session||session.dead)throw Error('voice-not-ready');
-   if(!local.current){const {default:AgoraRTC}=await import('agora-rtc-sdk-ng');const track=await AgoraRTC.createMicrophoneAudioTrack({AEC:true,ANS:true,AGC:true});if(session.dead||current.current!==session){track.close();throw Error('voice-not-ready');}await track.setEnabled(false);local.current=track;}
    await withTimeout(session.start(),120000);
    if(session.dead||current.current!==session)throw Error('voice-not-ready');
    if(!await session.update(true))throw Error('voice-not-ready');
@@ -28,7 +28,7 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
   if(!enabled)return;
   let dead=false,client:IAgoraRTCClient|undefined,queue=Promise.resolve(),published=false,joinedConfig:any,refreshPending:Promise<boolean>|undefined;
   const alive=()=>!dead&&current.current===session;
-  const report=(e:any)=>{if(alive()){error.current=voiceFailure(e);setStatus(error.current);setSpeaking(false);}};
+  const report=(e:any)=>{if(alive()){error.current=voiceFailure(e);setDiagnostic(String(e?.code||e?.name||'VOICE_ERROR').replace(/[^A-Za-z0-9_/-]/g,'').slice(0,80));setStatus(error.current);setSpeaking(false);}};
   function audible(){if(!alive()||!client)return;setSpeakers(client.remoteUsers.filter(u=>u.hasAudio&&!flags.current.controls[String(u.uid)]?.muted&&!flags.current.controls[String(u.uid)]?.blocked).map(u=>String(u.uid)));playback();}
   const connection=retryableVoiceConnection(async()=>{
    if(client){client.removeAllListeners();await client.leave().catch(()=>{});published=false;session.client=undefined;}
@@ -52,10 +52,16 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
     const wants=(force===true||intent.current||flags.current.micOn)&&flags.current.canSpeak;
     if(local.current&&!wants)await local.current.setEnabled(false);
     const config=!force&&joinedConfig?joinedConfig:await walletApi('voice-config',{roomId});joinedConfig=undefined;
-    const result=await updateVoicePublication({client,track:local.current,config,wants,allowed:()=>flags.current.canSpeak&&(force===true||intent.current||flags.current.micOn),alive,published});published=result.published;
+    const allowed=()=>flags.current.canSpeak&&(intent.current||flags.current.micOn);
+    // Acquire only after joining and server approval. All capture changes use this queue.
+    if(wants&&allowed()&&config.canPublish){
+     if(local.current?.getMediaStreamTrack().readyState==='ended'){if(published){await client.unpublish(local.current).catch(()=>{});published=false;}local.current.close();local.current=null;}
+     if(!local.current){local.current=await captureVoiceMicrophone(()=>sdk.current!.createMicrophoneAudioTrack({AEC:true,ANS:true,AGC:true}),()=>alive()&&allowed());}
+    }
+    const result=await updateVoicePublication({client,track:local.current,config,wants,allowed,alive,published});published=result.published;
     if(force===true&&!result.speaking)throw Error('seat-permission-required');
-    if(alive()){for(const remote of client.remoteUsers)if(remote.hasAudio&&!remote.audioTrack)await client.subscribe(remote,'audio').catch(()=>{});error.current='';setSpeaking(result.speaking);setStatus(result.speaking?'মাইক চালু হয়েছে।':'ভয়েস সংযোগ হয়েছে। মাইক বন্ধ আছে।');audible();}return force===true?result.speaking:true;
-   }).catch(async e=>{if(alive()){if(local.current)await local.current.setEnabled(false).catch(()=>{});if(client&&published){await client.unpublish().catch(()=>{});published=false;}report(e);}return false;});queue=task.then(()=>{});if(!force){refreshPending=task;void task.finally(()=>{if(refreshPending===task)refreshPending=undefined;});}return task;
+    if(alive()){for(const remote of client.remoteUsers)if(remote.hasAudio&&!remote.audioTrack)await client.subscribe(remote,'audio').catch(()=>{});error.current='';setDiagnostic('');setSpeaking(result.speaking);setStatus(result.speaking?'মাইক চালু হয়েছে।':'ভয়েস সংযোগ হয়েছে। মাইক বন্ধ আছে।');audible();}return force===true?result.speaking:true;
+   }).catch(async e=>{if(alive()){if(client&&published){await client.unpublish().catch(()=>{});published=false;}local.current?.close();local.current=null;intent.current=false;report(e);}return false;});queue=task.then(()=>{});if(!force){refreshPending=task;void task.finally(()=>{if(refreshPending===task)refreshPending=undefined;});}return task;
   }};
   current.current=session;intent.current=false;error.current='';
   const autoplay=()=>{if(alive())setAudioBlocked(true);};
@@ -65,7 +71,7 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
   const resume=()=>{if(document.visibilityState==='visible'){unlock();void session.update();}};document.addEventListener('visibilitychange',resume);window.addEventListener('online',resume);
   return()=>{dead=true;session.dead=true;clearInterval(timer);clearInterval(meter);document.removeEventListener('visibilitychange',resume);window.removeEventListener('online',resume);sdk.current?.off('autoplay-failed',autoplay);if(current.current===session){current.current=null;local.current?.close();local.current=null;}setSpeakers([]);setSpeaking(false);if(client){client.removeAllListeners();void queue.finally(()=>client!.leave()).catch(()=>{});}};
  },[roomId,enabled]);
- useEffect(()=>{if(!enabled)return;intent.current=micOn;if(local.current&&(!micOn||!canSpeak))void local.current.setEnabled(false);void current.current?.update();},[micOn,canSpeak,enabled]);
+ useEffect(()=>{if(!enabled)return;intent.current=micOn;if(local.current&&(!micOn||!canSpeak))local.current.getMediaStreamTrack().enabled=false;void current.current?.update();},[micOn,canSpeak,enabled]);
  useEffect(()=>{playback();},[soundOn,controls]);
- return {micLevel,remoteAudioCount,connectionState,status,speakers,speaking,audioBlocked,permission,unlock,reconnect:()=>current.current?.update(),failureReason:()=>error.current||'মাইক চালু হয়নি। আবার চেষ্টা করুন।'};
+ return {micLevel,remoteAudioCount,connectionState,status,diagnostic,speakers,speaking,audioBlocked,permission,unlock,reconnect:()=>current.current?.update(),failureReason:()=>error.current||'মাইক চালু হয়নি। আবার চেষ্টা করুন।'};
 }

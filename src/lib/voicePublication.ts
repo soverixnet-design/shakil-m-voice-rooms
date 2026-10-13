@@ -1,5 +1,5 @@
 export async function updateVoicePublication({client,track,config,wants,allowed,alive,published}:any){
- const stop=async()=>{if(track)await track.setEnabled(false);if(published){await client.unpublish();published=false;}await client.setClientRole('audience');return {published:false,speaking:false};};
+ const stop=async()=>{if(published){await client.unpublish();published=false;}if(track)await track.setEnabled(false);await client.setClientRole('audience');return {published:false,speaking:false};};
  if(!alive())return {published:false,speaking:false};
  await client.renewToken(config.token);
  if(!alive())return {published:false,speaking:false};
@@ -8,15 +8,19 @@ export async function updateVoicePublication({client,track,config,wants,allowed,
  if(!alive()||!allowed())return stop();
  await track.setEnabled(true);
  if(!alive()||!allowed())return stop();
+ // Restore the synchronous safety gate only after permission is confirmed.
+ const mediaTrack=track.getMediaStreamTrack?.();if(mediaTrack)mediaTrack.enabled=true;
  try{if(!published)await client.publish(track);}catch(error){await track.setEnabled(false);throw error;}
  if(!alive()||!allowed()){await track.setEnabled(false);await client.unpublish();return {published:false,speaking:false};}
  return {published:true,speaking:true};
 }
 export function voiceFailure(error:any){
  const code=String(error?.code||error?.name||'');
+ if(code==='TRACK_IS_DISABLED')return 'মাইক্রোফোনের অডিও ট্র্যাক বন্ধ হয়ে গেছে। আবার মাইক চাপলে নতুন করে চালু হবে।';
+ if(code==='CONSTRAINT_NOT_SATISFIED'||code==='OverconstrainedError')return 'এই মাইক্রোফোনের অডিও সেটিংস চালু করা যায়নি। আবার মাইক চাপুন।';
  if(['PERMISSION_DENIED','NotAllowedError','SecurityError'].includes(code))return 'মাইক্রোফোনের অনুমতি বন্ধ আছে। ব্রাউজার Site settings → Microphone → Allow করুন।';
  if(['DEVICE_NOT_FOUND','NotFoundError'].includes(code))return 'ফোনের মাইক্রোফোন পাওয়া যায়নি।';
- if(['NOT_READABLE','NotReadableError','TRACK_IS_DISABLED'].includes(code))return 'মাইক্রোফোন অন্য অ্যাপে ব্যস্ত থাকতে পারে। অন্য কল বন্ধ করে আবার চেষ্টা করুন।';
+ if(['NOT_READABLE','NotReadableError'].includes(code))return 'মাইক্রোফোন অন্য অ্যাপে ব্যস্ত থাকতে পারে। অন্য কল বন্ধ করে আবার চেষ্টা করুন।';
  if(code==='functions/permission-denied')return 'রুমের সদস্যপদ বা সিটের অনুমতি পাওয়া যায়নি। রুমে আবার ঢুকুন।';
  if(error?.message==='seat-permission-required')return 'সিটের অনুমতি পাওয়া যায়নি বা অ্যাডমিন মিউট করেছেন। সিটে আবার বসুন।';
  if(error?.message==='agora-not-configured')return 'সার্ভারের Agora App ID ও Certificate সঠিকভাবে সেট করা নেই।';

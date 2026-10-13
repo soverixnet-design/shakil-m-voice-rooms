@@ -40,7 +40,7 @@ public class MainActivity extends Activity {
   setContentView(root);
   WebSettings settings=web.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true); settings.setMediaPlaybackRequiresUserGesture(false);
   settings.setAllowFileAccess(false); settings.setAllowContentAccess(true); settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.3");
+  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.4");
   CookieManager.getInstance().setAcceptCookie(true);
   web.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
