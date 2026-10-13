@@ -26,3 +26,17 @@ test('account bootstrap trusts verified identity and rejects unsigned callers',a
  const response=await fetch(base,request);assert.equal(response.status,200);assert.deepEqual(received,identity);assert.equal((await response.json()).data.role,'user');
  }finally{await new Promise(r=>server.close(r))}
 });
+
+test('API recovers after an expired quota diagnostic without a health-page visit',async t=>{
+ let now=Date.now(),unavailable=true,calls=0;
+ t.mock.method(Date,'now',()=>now);
+ const server=createGameHttpServer({service:{sync:async()=>{calls++;return {id:'recovered'}}},verifyToken:async()=>({uid:'u'}),origins:[origin],checkReady:async()=>{if(unavailable)throw Object.assign(Error('quota'),{code:8})}});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ try{const base=`http://127.0.0.1:${server.address().port}`;
+ await fetch(base+'/health');
+ const request={method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({game:'greedy_lion'})};
+ assert.equal((await fetch(base+'/api/sync',request)).status,503);assert.equal(calls,0);
+ unavailable=false;now+=30001;
+ assert.equal((await fetch(base+'/api/sync',request)).status,200);assert.equal(calls,1);
+ }finally{await new Promise(r=>server.close(r))}
+});
