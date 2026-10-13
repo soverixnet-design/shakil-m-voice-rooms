@@ -450,7 +450,7 @@ export default function App() {
     if (!fbUser?.uid) return;
     const ref = doc(db, 'users', fbUser.uid);
     const room = activeRoom ? {id:activeRoom.id,name:activeRoom.name,host:activeRoom.host||'',hostId:activeRoom.hostId||'',cv:activeRoom.cv||'🎙️',c:activeRoom.c||'চ্যাট',th:activeRoom.th||0,sc:activeRoom.sc||8,d:activeRoom.d||false,ann:activeRoom.ann||''} : null;
-    const beat = () => updateDoc(ref, {online:document.visibilityState==='visible',lastSeen:serverTimestamp(),currentRoomId:room?.id||null,activeRoom:room}).catch(()=>{});
+    const beat = () => updateDoc(ref, {online:Boolean(room)||document.visibilityState==='visible',lastSeen:serverTimestamp()}).catch(()=>{});
     beat(); const timer = setInterval(beat,30000);
     document.addEventListener('visibilitychange',beat);
     return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',beat)};
@@ -579,7 +579,8 @@ export default function App() {
   const inviteLink = () => createInviteLink(window.location.origin+window.location.pathname,String(S.id));
   const invText = () => `🎙️ EarnBD Voice Rooms-এ আমার সাথে যোগ দিন! সাইন-আপের সময় আমার ইনভাইট কোড দিন: SM${S.id}\n${inviteLink()}`;
 
-  async function enterRoom(candidate:any){if(!fbUser?.uid)return;try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await updateDoc(doc(db,'users',fbUser.uid),{currentRoomId:room.id,roomSeat:null,online:true,lastSeen:serverTimestamp()});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='resource-exhausted'?'Firebase daily write quota is exhausted. Rooms, games and voice updates cannot be saved until the quota resets or the database is moved.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}}
+  async function leaveActiveRoom(){const roomId=activeRoom?.id,uid=fbUser?.uid;if(!roomId||!uid)return;try{await runTransaction(db,async tx=>{const ref=doc(db,'users',uid),snap=await tx.get(ref);if(snap.data()?.currentRoomId===roomId)tx.update(ref,{currentRoomId:null,roomSeat:null,activeRoom:null,lastSeen:serverTimestamp()})});setActiveRoom(null);setIsRoomMinimized(false);toast('রুম ত্যাগ করেছেন')}catch{toast('রুম ছাড়ার তথ্য সেভ হয়নি। আবার চেষ্টা করুন।')}}
+  async function enterRoom(candidate:any){if(!fbUser?.uid)return;try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await runTransaction(db,async tx=>{const ref=doc(db,'users',fbUser.uid),snap=await tx.get(ref),profile=snap.data();tx.update(ref,{currentRoomId:room.id,roomSeat:profile?.currentRoomId===room.id?(profile?.roomSeat??null):null,online:true,lastSeen:serverTimestamp(),activeRoom:{id:room.id,name:room.name,host:room.host||'',hostId:room.hostId||'',cv:room.cv||'🎙️',sc:room.sc||8}})});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='resource-exhausted'?'Firebase daily write quota is exhausted. Rooms, games and voice updates cannot be saved until the quota resets or the database is moved.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}}
   if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} stage={authStage} onRetry={()=>setAuthRetry(n=>n+1)}/>;
 
   return (
@@ -2231,15 +2232,8 @@ export default function App() {
             setIsRoomMinimized(true);
             toast('রুম মিনিমাইজ করা হয়েছে');
           }}
-          onLeaveRoom={() => {
-            setActiveRoom(null);
-            setIsRoomMinimized(false);
-            toast('রুম ত্যাগ করেছেন');
-          }}
-          onClose={() => {
-            setActiveRoom(null);
-            setIsRoomMinimized(false);
-          }}
+          onLeaveRoom={() => {void leaveActiveRoom()}}
+          onClose={() => {void leaveActiveRoom()}}
         /></div>
       )}
 

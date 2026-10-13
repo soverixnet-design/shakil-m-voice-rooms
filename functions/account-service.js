@@ -19,9 +19,9 @@ export function createAccountService(db){
           if(reserved.exists||!existing.empty)return null;
           t.set(reservation,{uid});
         }
-        const presence={id,online:true,currentRoomId:null,roomSeat:null,lastSeen:FieldValue.serverTimestamp()};
+        const presence={id,online:true,lastSeen:FieldValue.serverTimestamp()};
         if(previous.exists)t.update(ref,presence);
-        else t.create(ref,{...presence,userId:uid,name,email:identity.email||'',avatar:'👤',photoURL,coins:50000,role:owner?'admin':'user',status:'active',createdAt:FieldValue.serverTimestamp()});
+        else t.create(ref,{...presence,currentRoomId:null,roomSeat:null,userId:uid,name,email:identity.email||'',avatar:'👤',photoURL,coins:50000,role:owner?'admin':'user',status:'active',createdAt:FieldValue.serverTimestamp()});
         return {id,name:old.name||name,photoURL:old.photoURL||photoURL,coins:previous.exists?Number(old.coins||0):50000,role:owner?'admin':'user'};
       });
       if(result)return result;

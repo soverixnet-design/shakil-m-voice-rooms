@@ -205,7 +205,7 @@ export function createSocialService(database,clock=Date.now){
     const collision=await client.query("select path from earnbd.social_documents where parent='users' and fields->'id'->>'stringValue'=$1",[publicId]);
     if(collision.rowCount)fail('failed-precondition');
     fields=encodeFields({id:publicId,userId:identity.uid,name,email:identity.email||'',photoURL:typeof identity.picture==='string'&&identity.picture.startsWith('https://')?identity.picture:'',avatar:'👤',coins:50000,role:owner?'admin':'user',status:'active',createdAt:new Date(clock()),online:true,currentRoomId:null,roomSeat:null,lastSeen:new Date(clock())});
-   }else fields={...fields,...encodeFields({online:true,currentRoomId:null,roomSeat:null,lastSeen:new Date(clock())})};
+   }else fields={...fields,...encodeFields({online:true,lastSeen:new Date(clock())})};
    await client.query("insert into earnbd.social_documents(path,parent,document_id,fields) values($1,'users',$2,$3::jsonb) on conflict(path) do update set fields=excluded.fields,updated_at=now(),version=social_documents.version+1",[path,identity.uid,JSON.stringify(fields)]);
    const user=decodeFields(fields);return {...user,role:owner?'admin':'user',coins:Number(user.coins||0)};
   });

@@ -127,3 +127,7 @@ test('message recipients must be active and nonparticipants cannot query another
  await assert.rejects(service.social({action:'commit',writes:[write]},identity('alice')),{code:'permission-denied'});
  await assert.rejects(service.social({action:'query',structuredQuery:{from:[{collectionId:'directMessages'}],where:{fieldFilter:{field:{fieldPath:'receiverId'},op:'EQUAL',value:{stringValue:'bob'}}}}},identity('host')),{code:'permission-denied'});
 });
+
+test('reconnecting account bootstrap preserves the confirmed room and seat and wallet',async()=>{
+ const {service,docs}=fixture();const user=await service.account({},identity('alice'));assert.equal(user.currentRoomId,'room');assert.equal(user.roomSeat,1);assert.equal(user.coins,12345);const saved=decodeFields(docs.get('users/alice').fields);assert.equal(saved.currentRoomId,'room');assert.equal(saved.roomSeat,1);
+});
