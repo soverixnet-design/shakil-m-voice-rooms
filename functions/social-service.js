@@ -22,6 +22,7 @@ export function createSocialService(database,clock=Date.now){
    const active=own&&!['banned','archived'].includes(profile.status);
    const grant=decodeFields((await read(client,'admins/'+identity.uid))?.fields);
    const permission=name=>Boolean(active&&grant.active&&grant.permissions?.[name]);
+   const publicWire=row=>{const result=wire(row);if(result&&row.path.startsWith('users/')&&row.path.split('/').length===2&&row.path!=='users/'+identity.uid&&!owner&&!permission('seller')){result.fields={...result.fields};delete result.fields.coins;delete result.fields.diamond;}return result;};
    const requireActive=()=>{if(!active)fail('permission-denied');};
    const plain=async path=>decodeFields((await read(client,path))?.fields);
    const roomOwner=async room=>(await plain('rooms/'+room)).hostId===identity.uid;
@@ -61,7 +62,7 @@ export function createSocialService(database,clock=Date.now){
     if(!socialPath(data.path)||data.path.split('/').length%2!==0)fail('invalid-argument');
     const row=await read(client,data.path);
     if(!await canRead(data.path,row?.fields))fail('permission-denied');
-    return wire(row);
+    return publicWire(row);
    }
    if(data.action==='query'){
     const parent=data.parent||'',q=data.structuredQuery;
@@ -70,6 +71,8 @@ export function createSocialService(database,clock=Date.now){
     if(typeof collection!=='string'||collection.includes('/'))fail('invalid-argument');
     const path=(parent?parent+'/':'')+collection;
     if(!socialPath(path)||path.split('/').length%2!==1)fail('invalid-argument');
+    if(path==='users'&&!owner&&!permission('seller')){const privateField=field=>['coins','diamond'].includes(String(field||'').split('.')[0]);const privateFilter=filter=>filter&&(privateField(filter.fieldFilter?.field?.fieldPath)||(filter.compositeFilter?.filters||[]).some(privateFilter));if(privateFilter(q.where)||(q.orderBy||[]).some(order=>privateField(order.field?.fieldPath)))fail('permission-denied');}
+
     const candidate=path+'/query-probe';
     if(!await canRead(candidate,{})){
      // Signals are private to their destination. Require the recipient filter.
@@ -108,7 +111,7 @@ export function createSocialService(database,clock=Date.now){
     }
     const limit=q.limit??1000;if(!Number.isInteger(limit)||limit<1||limit>1000)fail('invalid-argument');
     const result=[];
-    for(const row of found.slice(0,limit))if(await canRead(row.path,row.fields))result.push({document:wire(row)});
+    for(const row of found.slice(0,limit))if(await canRead(row.path,row.fields))result.push({document:publicWire(row)});
     return result;
    }
    if(data.action!=='commit'||!Array.isArray(data.writes)||!data.writes.length||data.writes.length>25)fail('invalid-argument');

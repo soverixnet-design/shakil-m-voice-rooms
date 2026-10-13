@@ -149,3 +149,10 @@ test('private image messages allow selected photos, preserve privacy and reject 
 });
 
 test('users cannot forge ranking reward entitlements',async()=>{const {service}=fixture();await assert.rejects(service.social({action:'commit',writes:[update('users/alice',{rankingAwards:[{frameId:'gold',expiresAt:9999999999999}]})]},identity('alice')),{code:'permission-denied'});});
+
+test('other profiles expose gift totals for levels but hide wallet balances and disallow balance probes',async()=>{
+ const {service}=fixture();const own=await service.social({action:'get',path:'users/alice'},identity('alice'));assert.equal(decodeFields(own.fields).coins,12345);
+ const other=await service.social({action:'get',path:'users/bob'},identity('alice'));assert.equal(decodeFields(other.fields).coins,undefined);assert.equal(decodeFields(other.fields).diamond,undefined);
+ const result=await service.social({action:'query',structuredQuery:{from:[{collectionId:'users'}]}},identity('alice'));for(const row of result){if(!row.document.name.endsWith('/alice'))assert.equal(decodeFields(row.document.fields).coins,undefined);}
+ await assert.rejects(service.social({action:'query',structuredQuery:{from:[{collectionId:'users'}],where:{fieldFilter:{field:{fieldPath:'coins'},op:'GREATER_THAN',value:{integerValue:'0'}}}}},identity('alice')),{code:'permission-denied'});
+});

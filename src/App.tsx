@@ -1,3 +1,4 @@
+import {ProfileLevels} from './components/ProfileLevels';
 import {giftLevel} from './lib/giftLevel';
 import {inviteLink as createInviteLink,captureInvite} from './lib/inviteLink';
 import {walletApi} from './lib/walletApi';
@@ -438,6 +439,7 @@ export default function App() {
       if(data.referralStats)setS((p:any)=>({...p,inv:data.referralStats}));
       if(data.referrerUid)setS((p:any)=>({...p,ref:data.ref}));
       if (data.id) setS((prev: any) => ({...prev, id: String(data.id), uid: fbUser.uid }));
+      if(data.giftReceivedCoins!==undefined)setS((prev:any)=>({...prev,giftReceivedCoins:data.giftReceivedCoins,giftReceivedCount:data.giftReceivedCount||0}));
       if (data.giftSentCount !== undefined) setS((prev:any)=>({...prev,giftSentCount:data.giftSentCount,giftSentCoins:data.giftSentCoins,gifts:{...prev.gifts,sent:data.giftSentCoins||0}}));
       if(data.photoURL!==undefined)setS((prev:any)=>({...prev,img:data.photoURL}));
       for(const field of ['name','svip','badge','customFrameId','customEntryId','rankingAwards']) if(data[field]!==undefined)setS((prev:any)=>({...prev,[field]:data[field]}));
@@ -463,9 +465,7 @@ export default function App() {
     let initial = true; const seen = new Set<string>();
     return onSnapshot(query(collection(db,'transactions'),where('receiverId','==',fbUser.uid)), snapshot=>{
       const gifts = snapshot.docs.filter(d=>!d.metadata.hasPendingWrites&&d.data().type==='gift_sent');
-      const count = gifts.reduce((n,d)=>n+Number(d.data().quantity||0),0);
-      const coins = gifts.reduce((n,d)=>n+Number(d.data().cost||0),0);
-      setS((prev:any)=>({...prev,giftReceivedCount:count,giftReceivedCoins:coins,gifts:{...prev.gifts,recv:gifts.map(d=>`${d.data().emoji} ${d.data().quantity}টি — ${d.data().senderName}`).slice(-30)}}));
+      setS((prev:any)=>({...prev,gifts:{...prev.gifts,recv:gifts.map(d=>`${d.data().emoji} ${d.data().quantity}টি — ${d.data().senderName}`).slice(-30)}}));
       // Received gift totals are maintained by the server transaction.
       if (!initial) for(const gift of gifts) if(!seen.has(gift.id)){setIncomingGift(gift.data());setTimeout(()=>setIncomingGift(null),4000)}
       gifts.forEach(d=>seen.add(d.id)); initial=false;
@@ -1314,8 +1314,7 @@ export default function App() {
                       ID {S.id} 📋
                     </div>
                     <div style={{ marginTop: '6px' }}>
-                      <span className="tg" style={{ background: '#ff5c9d' }}>LV.{lv}</span>{' '}
-                      <span className="tg" style={{ background: '#8a5cff' }}>Wealth {wl}</span>{' '}
+                      <ProfileLevels user={S}/>{' '}
                       <span className="tg" style={{ background: '#19a' }}>{S.country || '🌍'}</span>
                     </div>
                   </div>
@@ -1876,12 +1875,10 @@ export default function App() {
             {/* SUBPAGE: LEVEL & WEALTH */}
             {activePage === 'level' && (
               <section className="gl p-5 space-y-4">
-                <h2>⭐ গিফট লেভেল {giftProgress.level}</h2>
-                <p>প্রতি ১,০০০ কয়েনের সফল গিফটে ১ লেভেল বাড়ে।</p>
-                <p>মোট গিফট খরচ: 🪙 {giftProgress.coins.toLocaleString()}</p>
-                <div className="pb" role="progressbar" aria-label="পরের গিফট লেভেলের অগ্রগতি" aria-valuenow={giftProgress.progress} aria-valuemin={0} aria-valuemax={1000}><i style={{width:`${giftProgress.percent}%`}}/></div>
-                <p>লেভেল {giftProgress.level+1} হতে আরও {giftProgress.remaining.toLocaleString()} কয়েনের গিফট পাঠান।</p>
-                <p className="sm">ব্যর্থ গিফটে পয়েন্ট যোগ হয় না। একই গিফটের পুনরায় অনুরোধে লেভেল দুবার বাড়ে না।</p>
+                <h2>⭐ Sending ও Receiving লেভেল</h2><ProfileLevels user={S}/>
+                <p>প্রতি ১,০০০ কয়েনের সফল গিফটে সংশ্লিষ্ট লেভেল ১ করে বাড়ে।</p>
+                {[['Sending',S.giftSentCoins],['Receiving',S.giftReceivedCoins]].map(([label,coins])=>{const progress=giftLevel(coins);return <div key={String(label)} className="profile-level-progress"><b>{label} Lv.{progress.level}</b><div className="pb" role="progressbar" aria-label={`${label} level progress`} aria-valuenow={progress.progress} aria-valuemin={0} aria-valuemax={1000}><i style={{width:`${progress.percent}%`}}/></div><small>পরের লেভেল হতে আরও {progress.remaining.toLocaleString()} পয়েন্ট।</small></div>;})}
+                <p className="sm">Sending গিফট পাঠালে বাড়ে। Receiving গিফট পেলে বাড়ে। ব্যর্থ গিফট বা একই অনুরোধ আবার পাঠালে বাড়তি পয়েন্ট হয় না।</p>
               </section>
             )}
 
