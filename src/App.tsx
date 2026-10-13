@@ -590,7 +590,7 @@ export default function App() {
   return (
     <div id="app">
       {(offline||authError)&&<div className="app-connection-banner" role="status">{offline?'নেটওয়ার্ক নেই। আপনার লগইন সেভ আছে। সংযোগ ফিরলে আবার চালু হবে।':'সার্ভারে আবার সংযোগ হচ্ছে। আপনার লগইন সেভ আছে।'}{!offline&&<button onClick={()=>setAuthRetry(n=>n+1)}>আবার চেষ্টা করুন</button>}</div>}
-      {fbUser&&(!activeRoom||isRoomMinimized)&&<div style={{position:'fixed',top:'max(8px, env(safe-area-inset-top))',left:8,right:8,zIndex:150,pointerEvents:'none'}}><GameWinFeed/></div>}
+      {fbUser&&<GameWinFeed/>}
       {activePage==='game_rank'&&<GlobalGameRanks onClose={()=>setActivePage(null)}/>}
       {activePage==='seller'&&<SellerWallet user={fbUser} onClose={()=>setActivePage(null)}/>}
       {activePage==='support_chat'&&<SupportChat user={fbUser} onClose={()=>setActivePage(null)}/>}
@@ -2360,7 +2360,6 @@ export default function App() {
             </div>
           )}
 
-          {activeRoom&&<GameWinFeed roomId={activeRoom.id}/>}
           <div className="flex-1 relative overflow-hidden">
             {['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'].includes(activeGame) && <UploadedSharedGame key={activeGame} game={activeGame} userName={S.name} onClose={()=>setActiveGame(null)} onWallet={()=>{setActiveGame(null);setTab('wallet');setIsRoomMinimized(Boolean(activeRoom))}}/>}
             {activeGame==='slots'&&<SharedRoundGame game="slots" onClose={()=>setActiveGame(null)}/>}

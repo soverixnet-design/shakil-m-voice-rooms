@@ -7,7 +7,6 @@ import {RoomWelcome} from './RoomWelcome';
 import {liveGames,roomThemes} from '../design/catalog';
 import {ProfilePhotoEditor} from './ProfilePhotoEditor';
 import {useRoomAudio} from '../lib/useRoomAudio';
-import {GameWinFeed} from './GameWinFeed';
 import {useMediaAssets,MediaAvatar,EntryMedia} from './MediaAssets';
 import {RoomGiftFlights} from './RoomGiftFlights';
 import React, { useState, useEffect, useRef } from 'react';
@@ -257,7 +256,7 @@ export const VoiceRoomView: React.FC<Props> = ({
 
       {/* Center Seats Grid (.sg3, .s3w, .s3, .nm3, .sc3) */}
       <div className="room-stage relative z-10 flex-1 overflow-y-auto px-3 py-2 flex flex-col">
-        <div className="room-live-wins"><GameWinFeed roomId={room.id}/></div><RoomGiftFlights roomId={room.id} onGift={event=>{setRoomCoinTotal(p=>p+event.cost);setChatMessages(p=>[...p,{id:event.id,type:'gift',sender:event.senderName,text:`${event.senderName} → ${event.receiverName} (ID ${event.receiverPublicId}): ${event.quantity}টি ${event.giftName} · ${event.cost} কয়েন`}])}}/>
+        <RoomGiftFlights roomId={room.id} onGift={event=>{setRoomCoinTotal(p=>p+event.cost);setChatMessages(p=>[...p,{id:event.id,type:'gift',sender:event.senderName,text:`${event.senderName} → ${event.receiverName} (ID ${event.receiverPublicId}): ${event.quantity}টি ${event.giftName} · ${event.cost} কয়েন`}])}}/>
         
         {seatError&&<p role="status">{seatError}</p>}
 

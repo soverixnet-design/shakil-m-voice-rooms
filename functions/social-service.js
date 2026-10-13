@@ -2,7 +2,7 @@ import {applyReferralRewards} from './referral-service.js';
 import {randomInt,createHmac} from 'node:crypto';
 import {decodeFields,decodeValue,encodeFields} from './social-migration.js';
 const OWNER='yfastvpn@gmail.com';
-const ROOTS=new Set(['users','rooms','roomOwners','follows','moments','diamondWallets','transactions','admins','assets','system','supportTickets','sellerWallets','sellerTransfers','sharedGames','gameRanks','gameReceipts','gameWins','directMessages']);
+const ROOTS=new Set(['users','rooms','roomOwners','follows','moments','diamondWallets','transactions','admins','assets','system','supportTickets','sellerWallets','sellerTransfers','sharedGames','gameRanks','gameReceipts','gameWins','liveAnnouncements','directMessages']);
 const PROTECTED=new Set(['rankingAwards','ref','referrerUid','referralAt','referralStats','inv','role','status','email','id','userId','coins','diamond','lastSellerTransfer','lastGiftReceipt','giftSentCount','giftSentCoins','totalRecharged','giftReceivedCount','giftReceivedCoins']);
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const allowed=(value,keys)=>Object.keys(value).every(k=>keys.includes(k));
@@ -37,7 +37,7 @@ export function createSocialService(database,clock=Date.now){
     const [root,id,sub,child]=path.split('/');
     if(root==='sharedGames')return Boolean(active)&&(!sub||sub==='rounds'&&(!child||path.split('/').length===4||path.split('/')[4]==='players')||['days','weeks'].includes(sub)&&path.split('/')[4]==='ranking');
     if(root==='gameRanks')return Boolean(active)&&sub==='players'&&path.split('/').length===4;
-    if(root==='gameWins')return Boolean(active)&&!sub;
+    if(root==='gameWins'||root==='liveAnnouncements')return Boolean(active)&&!sub;
     if(root==='gameReceipts')return Boolean(active)&&!sub&&decodeFields(fields).uid===identity.uid;
     if(root==='directMessages'){const d=decodeFields(fields);return !sub&&Boolean(active)&&[d.senderId,d.receiverId].includes(identity.uid);}
     if(root==='system'||root==='assets')return !sub;
@@ -87,7 +87,7 @@ export function createSocialService(database,clock=Date.now){
     }
     let rows;
     const order=q.orderBy?.length===1?q.orderBy[0]:null;
-    const fast=['sharedGames','gameRanks','gameReceipts','gameWins'].includes(path.split('/')[0]);
+    const fast=['sharedGames','gameRanks','gameReceipts','gameWins','liveAnnouncements'].includes(path.split('/')[0]);
     if(fast&&(!q.where||q.where.fieldFilter?.field?.fieldPath==='uid'&&q.where.fieldFilter.op==='EQUAL')&&order&&['createdAt','startAt','won'].includes(order.field?.fieldPath)&&['ASCENDING','DESCENDING'].includes(order.direction)){
      const cap=q.limit??1000;if(!Number.isInteger(cap)||cap<1||cap>1000)fail('invalid-argument');
      const values=[path,order.field.fieldPath],f=q.where?.fieldFilter;

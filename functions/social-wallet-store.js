@@ -1,7 +1,7 @@
 import {setTimeout as pause} from 'node:timers/promises';
 import {Timestamp} from 'firebase-admin/firestore';
 import {encodeFields,decodeValue} from './social-migration.js';
-const roots=new Set(['users','userPublicIds','diamondWallets','walletRequests','transactions','rooms','system','assets','sharedGames','gameSecrets','gameRanks','gameRequests','gameReceipts','gameWins']);
+const roots=new Set(['users','userPublicIds','diamondWallets','walletRequests','transactions','rooms','system','assets','sharedGames','gameSecrets','gameRanks','gameRequests','gameReceipts','gameWins','liveAnnouncements']);
 function unpack(value){
  if(value?.timestampValue)return Timestamp.fromDate(new Date(value.timestampValue));
  if(value?.mapValue)return Object.fromEntries(Object.entries(value.mapValue.fields||{}).map(([k,v])=>[k,unpack(v)]));
