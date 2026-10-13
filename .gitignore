@@ -7,3 +7,12 @@ coverage/
 .env*
 !.env.example
 admin-repo/
+
+# Release signing material and generated Apple build files
+*.jks
+*.keystore
+*.mobileprovision
+*.p12
+ios/build/
+ios/*.xcodeproj/
+ios/Info.plist

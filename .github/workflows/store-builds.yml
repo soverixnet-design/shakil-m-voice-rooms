@@ -1,0 +1,37 @@
+name: Verify store preparation builds
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', 'ios/**', '.github/workflows/store-builds.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - run: gradle -p android bundleRelease lintRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EarnBD-unsigned-release-AAB-not-for-upload
+          path: android/app/build/outputs/bundle/release/app-release.aab
+  ios-simulator:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: cd ios && xcodegen generate
+      - run: xcodebuild -project ios/EarnBD.xcodeproj -scheme EarnBD -sdk iphonesimulator -configuration Release -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EarnBD-iOS-simulator-not-for-App-Store
+          path: ios/build/Build/Products/Release-iphonesimulator/EarnBD.app

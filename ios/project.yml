@@ -1,0 +1,24 @@
+name: EarnBD
+options:
+  deploymentTarget:
+    iOS: '16.0'
+targets:
+  EarnBD:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: work.earnbd.app
+        MARKETING_VERSION: 1.3.0
+        CURRENT_PROJECT_VERSION: 4
+        TARGETED_DEVICE_FAMILY: '1,2'
+        CLANG_ENABLE_OBJC_ARC: YES
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: EarnBD Shakil
+        UILaunchScreen: {}
+        NSMicrophoneUsageDescription: Speak with other members in EarnBD voice rooms.
+        NSPhotoLibraryUsageDescription: Select a profile or room image to upload.
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
