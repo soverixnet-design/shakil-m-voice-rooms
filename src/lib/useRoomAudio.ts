@@ -17,7 +17,7 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
   try{
    if(!session||session.dead)throw Error('voice-not-ready');
    if(!local.current){const {default:AgoraRTC}=await import('agora-rtc-sdk-ng');const track=await AgoraRTC.createMicrophoneAudioTrack({AEC:true,ANS:true,AGC:true});if(session.dead||current.current!==session){track.close();throw Error('voice-not-ready');}await track.setEnabled(false);local.current=track;}
-   await withTimeout(session.start(),90000);
+   await withTimeout(session.start(),120000);
    if(session.dead||current.current!==session)throw Error('voice-not-ready');
    if(!await session.update(true))throw Error('voice-not-ready');
    error.current='';return true;
@@ -25,13 +25,13 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
  }
  useEffect(()=>{
   if(!enabled)return;
-  let dead=false,client:IAgoraRTCClient|undefined,queue=Promise.resolve(),published=false,refreshPending:Promise<boolean>|undefined;
+  let dead=false,client:IAgoraRTCClient|undefined,queue=Promise.resolve(),published=false,joinedConfig:any,refreshPending:Promise<boolean>|undefined;
   const alive=()=>!dead&&current.current===session;
   const report=(e:any)=>{if(alive()){error.current=voiceFailure(e);setStatus(error.current);setSpeaking(false);}};
   function audible(){if(!alive()||!client)return;setSpeakers(client.remoteUsers.filter(u=>u.hasAudio&&!flags.current.controls[String(u.uid)]?.muted&&!flags.current.controls[String(u.uid)]?.blocked).map(u=>String(u.uid)));playback();}
   const connection=retryableVoiceConnection(async()=>{
    if(client){client.removeAllListeners();await client.leave().catch(()=>{});published=false;session.client=undefined;}
-   const config=await walletApi('voice-config',{roomId});if(!alive())throw Error('voice-not-ready');
+   const config=await walletApi('voice-config',{roomId});joinedConfig=config;if(!alive())throw Error('voice-not-ready');
    if(config.provider!=='agora')throw Error('agora-not-configured');
    const {default:AgoraRTC}=await import('agora-rtc-sdk-ng');if(!alive())throw Error('voice-not-ready');sdk.current=AgoraRTC;
    AgoraRTC.setLogLevel(3);client=AgoraRTC.createClient({mode:'live',codec:'vp8'});session.client=client;
@@ -50,7 +50,7 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
    const task=queue.then(async()=>{await connection.start();if(!alive()||!client)return false;
     const wants=(force===true||intent.current||flags.current.micOn)&&flags.current.canSpeak;
     if(local.current&&!wants)await local.current.setEnabled(false);
-    const config=await walletApi('voice-config',{roomId});
+    const config=!force&&joinedConfig?joinedConfig:await walletApi('voice-config',{roomId});joinedConfig=undefined;
     const result=await updateVoicePublication({client,track:local.current,config,wants,allowed:()=>flags.current.canSpeak&&(force===true||intent.current||flags.current.micOn),alive,published});published=result.published;
     if(force===true&&!result.speaking)throw Error('seat-permission-required');
     if(alive()){error.current='';setSpeaking(result.speaking);setStatus(result.speaking?'মাইক চালু হয়েছে।':'ভয়েস সংযোগ হয়েছে। মাইক বন্ধ আছে।');audible();}return force===true?result.speaking:true;
@@ -60,8 +60,8 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
   const autoplay=()=>{if(alive())setAudioBlocked(true);};
   void import('agora-rtc-sdk-ng').then(({default:AgoraRTC})=>{if(alive())AgoraRTC.on('autoplay-failed',autoplay);});
   void session.update();const timer=setInterval(()=>{void session.update();},20000);
-  const resume=()=>{if(document.visibilityState==='visible'){unlock();void session.update();}};document.addEventListener('visibilitychange',resume);
-  return()=>{dead=true;session.dead=true;clearInterval(timer);document.removeEventListener('visibilitychange',resume);sdk.current?.off('autoplay-failed',autoplay);if(current.current===session){current.current=null;local.current?.close();local.current=null;}setSpeakers([]);setSpeaking(false);if(client){client.removeAllListeners();void queue.finally(()=>client!.leave()).catch(()=>{});}};
+  const resume=()=>{if(document.visibilityState==='visible'){unlock();void session.update();}};document.addEventListener('visibilitychange',resume);window.addEventListener('online',resume);
+  return()=>{dead=true;session.dead=true;clearInterval(timer);document.removeEventListener('visibilitychange',resume);window.removeEventListener('online',resume);sdk.current?.off('autoplay-failed',autoplay);if(current.current===session){current.current=null;local.current?.close();local.current=null;}setSpeakers([]);setSpeaking(false);if(client){client.removeAllListeners();void queue.finally(()=>client!.leave()).catch(()=>{});}};
  },[roomId,enabled]);
  useEffect(()=>{if(!enabled)return;intent.current=micOn;if(local.current&&(!micOn||!canSpeak))void local.current.setEnabled(false);void current.current?.update();},[micOn,canSpeak,enabled]);
  useEffect(()=>{playback();},[soundOn,controls]);

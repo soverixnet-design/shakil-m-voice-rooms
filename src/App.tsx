@@ -307,6 +307,9 @@ export default function App() {
   
   // Mandatory Login Gate: অ্যাপসে লগইন ছাড়া কোনোভাবেই প্রবেশ করা যাবে না
   const [isAuthenticated,setIsAuthenticated]=useState(false);
+  const verifiedSession=useRef<string|null>(null);
+  const [offline,setOffline]=useState(()=>!navigator.onLine);
+  useEffect(()=>{const update=()=>setOffline(!navigator.onLine);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[]);
   const [authChecking,setAuthChecking]=useState(true),[authError,setAuthError]=useState(''),[authRetry,setAuthRetry]=useState(0),[authStage,setAuthStage]=useState('Checking saved sign-in…');
   const [loginTab, setLoginTab] = useState<'google' | 'user'>('google');
   const [loginUserName, setLoginUserName] = useState<string>('');
@@ -397,23 +400,32 @@ export default function App() {
       clearTimeout(startup);
       const attempt=++version;
       const valid=()=>current&&attempt===version&&auth.currentUser?.uid===u?.uid;
-      setIsAuthenticated(false);setFbUser(null);setAuthChecking(true);setAuthError('');
+      setFbUser(u);if(!u||verifiedSession.current!==u.uid)setIsAuthenticated(false);setAuthChecking(true);setAuthError('');
       if(!u){localStorage.removeItem('sv_auth_session');setAuthChecking(false);setActiveRoom(null);setActiveGame(null);return;}
       try{
         await withTimeout((async()=>{
           const profile=await accountBootstrap(stage=>{if(valid())setAuthStage(stage)});
           if(!valid())return;
           setS((prev:any)=>({...prev,id:profile.id,uid:u.uid,name:profile.name,img:profile.photoURL,role:profile.role,coins:profile.coins}));
-          setFbUser(u);setIsAuthenticated(true);
+          verifiedSession.current=u.uid;setFbUser(u);setIsAuthenticated(true);
           localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
-        })(),42000);
+        })(),100000);
       }catch(e:any){if(current&&attempt===version){
+        if(e.message==='blocked-account'||e.message==='inactive-user'){verifiedSession.current=null;setIsAuthenticated(false);setActiveRoom(null);setActiveGame(null)}
         version++;setAuthChecking(false);
         setAuthError((e.message==='blocked-account'||e.message==='inactive-user')?'This account is blocked.':e.code?.startsWith('login/')?`${e.message} (${e.code})`:e.code==='account-timeout'?'Google/email sign-in is complete, but the account database did not respond. Check your connection and retry account setup.':`Account setup failed (${e.code||e.message||'connection-error'}). Please retry.`);
       }}finally{if(current&&attempt===version)setAuthChecking(false)}
     },e=>{clearTimeout(startup);if(current){setAuthChecking(false);setAuthError(`Login connection failed (${e.message}). Please retry.`)}});
     return()=>{current=false;version++;clearTimeout(startup);unsub()};
   },[authRetry]);
+
+  useEffect(()=>{
+    if(!fbUser||!authError||authError.includes('blocked'))return;
+    const retry=()=>setAuthRetry(n=>n+1);
+    const timer=setTimeout(retry,5000);
+    window.addEventListener('online',retry);
+    return()=>{clearTimeout(timer);window.removeEventListener('online',retry)};
+  },[fbUser?.uid,authError]);
 
   useEffect(() => {
     if (!fbUser?.uid) return;
@@ -572,6 +584,7 @@ export default function App() {
 
   return (
     <div id="app">
+      {(offline||authError)&&<div className="app-connection-banner" role="status">{offline?'নেটওয়ার্ক নেই। আপনার লগইন সেভ আছে। সংযোগ ফিরলে আবার চালু হবে।':'সার্ভারে আবার সংযোগ হচ্ছে। আপনার লগইন সেভ আছে।'}{!offline&&<button onClick={()=>setAuthRetry(n=>n+1)}>আবার চেষ্টা করুন</button>}</div>}
       {fbUser&&(!activeRoom||isRoomMinimized)&&<div style={{position:'fixed',top:'max(8px, env(safe-area-inset-top))',left:8,right:8,zIndex:150,pointerEvents:'none'}}><GameWinFeed/></div>}
       {activePage==='game_rank'&&<GlobalGameRanks onClose={()=>setActivePage(null)}/>}
       {activePage==='seller'&&<SellerWallet user={fbUser} onClose={()=>setActivePage(null)}/>}

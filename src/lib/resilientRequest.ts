@@ -13,6 +13,7 @@ export async function requestJson(url:string,options:RequestInit,{retryable=fals
   }catch(error:any){
    if(!retryable||attempt>=2||error?.retryable===false||!['TypeError','AbortError'].includes(error?.name)&&!['functions/unavailable','functions/aborted'].includes(error?.code))throw error;
   }finally{clearTimeout(timer);}
-  await pause(250*2**attempt);
+  if(Date.now()>=deadline)throw Object.assign(Error('server-timeout'),{code:'functions/unavailable'});
+  await pause(Math.min(250*2**attempt,Math.max(0,deadline-Date.now())));
  }
 }
