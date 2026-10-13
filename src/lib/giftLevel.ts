@@ -1,8 +1,9 @@
-export const GIFT_COINS_PER_LEVEL = 1000;
-/** Uses only cumulative successful gift spend confirmed by the wallet server. */
+/** Each successive level needs 50% more gift value; existing confirmed gifts are preserved. */
 export function giftLevel(value: unknown) {
  const n=Number(value);const coins=Number.isSafeInteger(n)&&n>=0?n:0;
- const level=Math.floor(coins/GIFT_COINS_PER_LEVEL)+1;
- const progress=coins%GIFT_COINS_PER_LEVEL;
- return {coins,level,progress,remaining:GIFT_COINS_PER_LEVEL-progress,percent:progress/GIFT_COINS_PER_LEVEL*100};
+ const threshold=(level:number)=>Math.ceil(2000*(Math.pow(1.5,level-1)-1));
+ let level=1;
+ while(coins>=threshold(level+1))level++;
+ const start=threshold(level),required=threshold(level+1)-start,progress=coins-start;
+ return {coins,level,progress,required,remaining:required-progress,percent:progress/required*100};
 }

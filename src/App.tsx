@@ -1876,8 +1876,8 @@ export default function App() {
             {activePage === 'level' && (
               <section className="gl p-5 space-y-4">
                 <h2>⭐ Sending ও Receiving লেভেল</h2><ProfileLevels user={S}/>
-                <p>প্রতি ১,০০০ কয়েনের সফল গিফটে সংশ্লিষ্ট লেভেল ১ করে বাড়ে।</p>
-                {[['Sending',S.giftSentCoins],['Receiving',S.giftReceivedCoins]].map(([label,coins])=>{const progress=giftLevel(coins);return <div key={String(label)} className="profile-level-progress"><b>{label} Lv.{progress.level}</b><div className="pb" role="progressbar" aria-label={`${label} level progress`} aria-valuenow={progress.progress} aria-valuemin={0} aria-valuemax={1000}><i style={{width:`${progress.percent}%`}}/></div><small>পরের লেভেল হতে আরও {progress.remaining.toLocaleString()} পয়েন্ট।</small></div>;})}
+                <p>লেভেল ১ থেকে শুরু। লেভেল ২ হতে ১,০০০ গিফট পয়েন্ট; পরের প্রতিটি ধাপে প্রয়োজনীয় পয়েন্ট ৫০% করে বাড়ে।</p>
+                {[['Sending',S.giftSentCoins],['Receiving',S.giftReceivedCoins]].map(([label,coins])=>{const progress=giftLevel(coins);return <div key={String(label)} className="profile-level-progress"><b>{label} Lv.{progress.level}</b><div className="pb" role="progressbar" aria-label={`${label} level progress`} aria-valuenow={progress.progress} aria-valuemin={0} aria-valuemax={progress.required}><i style={{width:`${progress.percent}%`}}/></div><small>পরের লেভেল হতে আরও {progress.remaining.toLocaleString()} পয়েন্ট।</small></div>;})}
                 <p className="sm">Sending গিফট পাঠালে বাড়ে। Receiving গিফট পেলে বাড়ে। ব্যর্থ গিফট বা একই অনুরোধ আবার পাঠালে বাড়তি পয়েন্ট হয় না।</p>
               </section>
             )}
