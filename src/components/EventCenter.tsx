@@ -2,8 +2,8 @@ import React,{useEffect,useState} from 'react';
 import {MediaAvatar} from './MediaAssets';
 import {walletApi} from '../lib/walletApi';
 export const EVENT_LABELS:Record<string,string>={top_sender:'Weekly Top Sender',gift_festival:'নির্দিষ্ট গিফটের উৎসব',top_receiver:'Top Receiver',room_sender:'রুমের Top Sender',room_game_rounds:'রুমে বেশি গেম খেলা',room_game_wins:'রুমে বেশি কয়েন জেতা',top_room_gifts:'Top Room · গিফট',top_room_games:'Top Room · গেম'};
-export function EventCenter({admin=false,rooms=[],gifts=[],compact=false}:{admin?:boolean;rooms?:any[];gifts?:any[];compact?:boolean}){
- const [events,setEvents]=useState<any[]>([]),[selected,setSelected]=useState<string|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[now,setNow]=useState(Date.now());
+export function EventCenter({admin=false,rooms=[],gifts=[],compact=false,initialEventId=null}:{admin?:boolean;rooms?:any[];gifts?:any[];compact?:boolean;initialEventId?:string|null}){
+ const [events,setEvents]=useState<any[]>([]),[selected,setSelected]=useState<string|null>(initialEventId),[error,setError]=useState(''),[busy,setBusy]=useState(false),[now,setNow]=useState(Date.now());
  const defaults=()=>({requestId:crypto.randomUUID(),title:'',type:'top_sender',start:new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16),end:new Date(Date.now()+7*86400000-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16),roomId:'',giftName:'',rewards:'50000,30000,10000',rules:'',banner:'',weekly:false});
  const [form,setForm]=useState(defaults);
  async function load(){try{const result=await walletApi('events',{action:'list'});setEvents(result.events);setError('');}catch{setError('ইভেন্ট লোড হয়নি। আবার চেষ্টা করুন।');}}
