@@ -147,3 +147,5 @@ test('private image messages allow selected photos, preserve privacy and reject 
   await assert.rejects(service.social({action:'commit',writes:[invalid]},identity('alice')),{code:'permission-denied'});
  }
 });
+
+test('users cannot forge ranking reward entitlements',async()=>{const {service}=fixture();await assert.rejects(service.social({action:'commit',writes:[update('users/alice',{rankingAwards:[{frameId:'gold',expiresAt:9999999999999}]})]},identity('alice')),{code:'permission-denied'});});

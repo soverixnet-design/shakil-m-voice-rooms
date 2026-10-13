@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {createEventService,eventRanking,validateEvent,rankingWindow,pairRanking} from '../functions/event-service.js';
+import {createEventService,eventRanking,validateEvent,rankingWindow,pairRanking,rankingPeriodEnd} from '../functions/event-service.js';
 import {encodeFields,decodeFields} from '../functions/social-migration.js';
 function fixture(){let now=1000;const records=new Map();const put=(path,data)=>records.set(path,{path,document_id:path.split('/').at(-1),parent:path.slice(0,path.lastIndexOf('/')),fields:encodeFields(data)});put('users/admin',{userId:'admin',id:'111',name:'Admin',email:'yfastvpn@gmail.com',coins:0,status:'active'});put('users/alice',{userId:'alice',id:'222',name:'Alice',email:'a@example.com',coins:100,status:'active'});put('users/bob',{userId:'bob',id:'333',name:'Bob',email:'b@example.com',coins:200,status:'active'});put('rooms/r',{hostId:'alice',name:'Room'});
  const client={query:async(sql,args=[])=>{if(sql.startsWith('insert')){put(args[0],decodeFields(JSON.parse(args[3])));return {rowCount:1,rows:[]};}if(sql.includes('where path=')){const row=records.get(args[0]);return {rows:row?[row]:[]};}let rows=[...records.values()];if(sql.includes("parent='events'"))rows=rows.filter(r=>r.parent==='events');else if(sql.includes('parent=any'))rows=rows.filter(r=>args[0].includes(r.parent));else if(sql.includes('parent=$1'))rows=rows.filter(r=>r.parent===args[0]);return {rows,rowCount:rows.length};}};
@@ -26,3 +26,17 @@ test('CP gift pairs combine both directions and exclude self gifts, banned profi
  const result=pairRanking(event,[gift('a','b',40),gift('b','a',60),gift('a','a',1000),gift('a','c',2000),gift('a','b',50,200)],users);
  assert.equal(result.length,1);assert.equal(result[0].score,100);assert.deepEqual(result[0].members.map(u=>u.uid),['a','b']);
 });
+
+test('ranking reward cycles publish once, expose rewards and award expiring items once before recurring',async()=>{
+ const f=fixture(),start=Date.parse('2026-10-12T00:00:00Z'),end=rankingPeriodEnd('weekly',start);f.setTime(start+1000);f.put('assets/gold',{kind:'frame',active:true,name:'Gold'});
+ const event={title:'Weekly Rich',type:'top_sender',startAt:start,endAt:end,rankingPeriod:'weekly',recurringPeriod:'weekly',rewards:[5000,4000,3000],rewardDetails:[{frameId:'gold',badgeName:'Week Top 1',durationDays:7}]};
+ const {id}=await f.service.events({action:'create',requestId:'ranking-1',event},owner);
+ await assert.rejects(f.service.events({action:'create',requestId:'ranking-other',event:{...event,rewards:[9000]}},owner),/event-request-conflict/);
+ f.put('transactions/reward-gift',{type:'gift_sent',senderId:'alice',receiverId:'bob',cost:100,createdAt:start+2000});
+ const live=await f.service.events({action:'rankings',period:'weekly',kind:'sending'},{uid:'alice'});assert.equal(live.rewardEvent.id,id);assert.equal(live.rewardEvent.rewards[0],5000);
+ f.setTime(end);await f.service.settleEvent(id);await f.service.settleEvent(id);const user=decodeFields(f.records.get('users/alice').fields);assert.equal(user.coins,5100);assert.equal(user.rankingAwards.length,1);assert.equal(user.rankingAwards[0].expiresAt,end+7*86400000);assert.equal(user.rankingAwards[0].frameId,'gold');
+ const next=await f.service.events({action:'rankings',period:'weekly',kind:'sending'},{uid:'alice'});assert.equal(next.rewardEvent.startAt,end);assert.equal(next.previousWinners.winners[0].uid,'alice');
+});
+test('monthly reward periods follow calendar boundaries, not a fixed thirty days',()=>{const start=Date.parse('2026-02-01T00:00:00Z');assert.equal(new Date(rankingPeriodEnd('monthly',start)).toISOString(),'2026-03-01T00:00:00.000Z');assert.throws(()=>validateEvent({title:'Bad',type:'top_sender',startAt:start,endAt:start+30*86400000,rankingPeriod:'monthly',rewards:[10]},start),/invalid-ranking-cycle/);});
+
+test('only managers can stop recurring ranking rewards while current winners remain entitled',async()=>{const f=fixture(),start=Date.parse('2026-10-12T00:00:00Z'),end=rankingPeriodEnd('weekly',start);f.setTime(start+1);const {id}=await f.service.events({action:'create',event:{title:'Recurring',type:'top_sender',startAt:start,endAt:end,rankingPeriod:'weekly',recurringPeriod:'weekly',rewards:[10]}},owner);await assert.rejects(f.service.events({action:'stop-recurrence',id},{uid:'alice'}),/permission-denied/);await f.service.events({action:'stop-recurrence',id},owner);f.setTime(end);await f.service.settleEvent(id);assert.equal([...f.records.values()].filter(r=>r.parent==='events').length,1);});

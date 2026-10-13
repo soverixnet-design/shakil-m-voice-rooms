@@ -12,7 +12,12 @@ export function validateEvent(input,now){
  if(input.type==='gift_festival'&&(!giftName||giftName.length>100))fail('invalid-event-gift');
  const banner=String(input.banner||'');if(banner.length>600000||banner&&!/^https:\/\//.test(banner)&&!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]*={0,2}$/.test(banner))fail('invalid-event');
  const weekly=input.weekly===true;if(weekly&&endAt-startAt!==7*86400000)fail('weekly-event-must-be-seven-days');
- return {title,type:input.type,roomId,giftName,startAt,endAt,rewards,weekly,banner,rules:String(input.rules||'').slice(0,1500),state:'published'};
+ const rankingPeriod=input.rankingPeriod||null;
+ if(rankingPeriod&&(!['daily','weekly','monthly'].includes(rankingPeriod)||!['top_sender','top_receiver','top_room_gifts'].includes(input.type)||rankingWindow(rankingPeriod,startAt).startAt!==startAt||rankingPeriodEnd(rankingPeriod,startAt)!==endAt))fail('invalid-ranking-cycle');
+ if(!Array.isArray(input.rewardDetails||[]))fail('invalid-reward-detail');
+ const rewardDetails=(input.rewardDetails||[]).map(detail=>{if(!detail||typeof detail!=='object')fail('invalid-reward-detail');const frameId=String(detail.frameId||''),badgeName=String(detail.badgeName||'').trim(),durationDays=Number(detail.durationDays||7);if(frameId.includes('/')||frameId.length>200||badgeName.length>50||!Number.isInteger(durationDays)||durationDays<1||durationDays>365)fail('invalid-reward-detail');return {frameId,badgeName,durationDays};});
+ if(!Array.isArray(input.rewardDetails||[])||rewardDetails.length>rewards.length)fail('invalid-reward-detail');
+ return {title,type:input.type,roomId,giftName,startAt,endAt,rewards,weekly,banner,rules:String(input.rules||'').slice(0,1500),state:'published',rankingPeriod,recurringPeriod:input.recurringPeriod===rankingPeriod?rankingPeriod:null,rewardDetails};
 }
 export function eventRanking(event,gifts,games,users,rooms){
  const scores=new Map();const gaming=event.type.includes('game');
@@ -26,7 +31,7 @@ export function eventRanking(event,gifts,games,users,rooms){
   const score=event.type==='gift_festival'?row.quantity:event.type==='room_game_wins'?row.payout:gaming?1:row.cost;
   add(id,Number(score),time);
  }
- return [...scores.values()].map(row=>{const room=event.type.startsWith('top_room_')?rooms.get(row.id):null;const uid=room?.hostId||(!event.type.startsWith('top_room_')?row.id:null),user=users.get(uid);return {...row,uid,name:room?.name||user?.name||'User',publicId:user?.id||'',avatar:room?.photoURL||user?.photoURL||user?.avatar||'👤',country:user?.country||'',badge:user?.badge||'',svip:Number(user?.svip||0),giftSentCoins:Number(user?.giftSentCoins||0),customFrameId:user?.customFrameId||'',eligible:validUser(user)};}).filter(r=>r.eligible).sort((a,b)=>b.score-a.score||a.firstAt-b.firstAt||a.id.localeCompare(b.id)).map((r,index)=>({...r,rank:index+1,reward:event.rewards[index]||0}));
+ return [...scores.values()].map(row=>{const room=event.type.startsWith('top_room_')?rooms.get(row.id):null;const uid=room?.hostId||(!event.type.startsWith('top_room_')?row.id:null),user=users.get(uid);return {...row,uid,name:room?.name||user?.name||'User',publicId:room?(room.publicId||row.id):(user?.id||''),avatar:room?.photoURL||user?.photoURL||user?.avatar||'👤',country:user?.country||'',badge:user?.badge||'',svip:Number(user?.svip||0),giftSentCoins:Number(user?.giftSentCoins||0),customFrameId:user?.customFrameId||'',rankingAwards:user?.rankingAwards||[],eligible:validUser(user)};}).filter(r=>r.eligible).sort((a,b)=>b.score-a.score||a.firstAt-b.firstAt||a.id.localeCompare(b.id)).map((r,index)=>({...r,rank:index+1,reward:event.rewards[index]||0}));
 }
 export function rankingWindow(period,now){
  const d=new Date(now);d.setUTCHours(0,0,0,0);
@@ -35,6 +40,7 @@ export function rankingWindow(period,now){
  else if(period!=='daily')fail('invalid-ranking-period');
  return {startAt:d.getTime(),endAt:now+1};
 }
+export function rankingPeriodEnd(period,startAt){const d=new Date(startAt);if(period==='monthly')d.setUTCMonth(d.getUTCMonth()+1);else if(period==='weekly')d.setUTCDate(d.getUTCDate()+7);else if(period==='daily')d.setUTCDate(d.getUTCDate()+1);else fail('invalid-ranking-period');return d.getTime();}
 export function pairRanking(event,gifts,users){
  const pairs=new Map();for(const row of gifts){const time=typeof row.createdAt==='string'?Date.parse(row.createdAt):Number(row.createdAt);
  if(row.type!=='gift_sent'||!Number.isFinite(time)||time<event.startAt||time>=event.endAt||row.senderId===row.receiverId||!validUser(users.get(row.senderId))||!validUser(users.get(row.receiverId))||!Number.isSafeInteger(row.cost)||row.cost<=0)continue;
@@ -59,20 +65,29 @@ export function createEventService(database,clock=Date.now){
    const owner=identity.email_verified===true&&identity.email?.toLowerCase()===OWNER;
    const manage=owner||Boolean(grant.active&&grant.permissions?.events);
    if(data.action==='rankings'){
-    const kind=data.kind||'sending';if(!['sending','receiving','cp'].includes(kind))fail('invalid-ranking-kind');
+    const kind=data.kind||'sending';if(!['sending','receiving','cp','room'].includes(kind))fail('invalid-ranking-kind');
     const period=data.period||'weekly',window=rankingWindow(period,clock());
-    const rows=await ranking(client,{...window,type:kind==='cp'?'top_cp':kind==='receiving'?'top_receiver':'top_sender',rewards:[]});
-    return {kind,period,...window,rows:rows.slice(0,100),serverNow:clock()};
+    const rows=await ranking(client,{...window,type:kind==='cp'?'top_cp':kind==='room'?'top_room_gifts':kind==='receiving'?'top_receiver':'top_sender',rewards:[]});
+    const type=kind==='room'?'top_room_gifts':kind==='receiving'?'top_receiver':'top_sender';
+    const candidates=(await client.query("select document_id,fields from earnbd.social_documents where parent='events'")).rows.map(r=>decodeFields(r.fields)).filter(e=>e.rankingPeriod===period&&e.type===type&&e.state!=='cancelled'&&kind!=='cp');
+    const rewardEvent=candidates.find(e=>e.startAt===window.startAt)||null;
+    const previous=candidates.filter(e=>e.state==='settled'&&e.endAt<=window.startAt).sort((a,b)=>b.endAt-a.endAt)[0]||null;
+    return {kind,period,...window,cycleEndAt:rankingPeriodEnd(period,window.startAt),rows:rows.slice(0,100),rewardEvent,previousWinners:previous?{title:previous.title,endAt:previous.endAt,winners:previous.winners}:null,serverNow:clock()};
    }
    if(data.action==='create'){
     if(!manage)throw Object.assign(Error('permission-denied'),{code:'permission-denied'});
     const event=validateEvent(data.event,0),fingerprint=createHash('sha256').update(JSON.stringify(event)).digest('hex');
     const requestId=data.requestId||fingerprint;if(typeof requestId!=='string'||!/^[a-zA-Z0-9_-]{1,80}$/.test(requestId))fail('invalid-request');
-    const id=createHash('sha256').update(identity.uid+':'+requestId).digest('hex'),existing=await read(client,'events/'+id);
+    const id=event.rankingPeriod?`rankreward_${event.type}_${event.rankingPeriod}_${event.startAt}`:createHash('sha256').update(identity.uid+':'+requestId).digest('hex'),existing=await read(client,'events/'+id);
     if(existing){if(decodeFields(existing.fields).fingerprint!==fingerprint)fail('event-request-conflict');return {id};}
     validateEvent(data.event,clock());
     if(event.roomId&&!await read(client,'rooms/'+event.roomId))fail('invalid-event-room');
+    for(const detail of event.rewardDetails){if(detail.frameId){const asset=decodeFields((await read(client,'assets/'+detail.frameId))?.fields);if(asset.kind!=='frame'||asset.active!==true)fail('invalid-reward-frame');}}
     await put(client,'events/'+id,{...event,id,fingerprint,createdBy:identity.uid,createdAt:clock()});return {id};
+   }
+   if(data.action==='stop-recurrence'){
+    if(!manage)throw Object.assign(Error('permission-denied'),{code:'permission-denied'});
+    const id=String(data.id||'');if(!id||id.includes('/'))fail('invalid-request');const path='events/'+id,raw=await read(client,path),event=decodeFields(raw?.fields);if(!raw||event.state!=='published')fail('event-cannot-be-changed');await put(client,path,{...event,weekly:false,recurringPeriod:null});return {ok:true};
    }
    if(data.action==='cancel'){
     if(!manage)throw Object.assign(Error('permission-denied'),{code:'permission-denied'});
@@ -87,9 +102,9 @@ export function createEventService(database,clock=Date.now){
   const path='events/'+id,raw=await read(client,path),event=decodeFields(raw?.fields),grace=event.type?.includes('game')?120000:0;
   if(!raw||event.state!=='published'||clock()<event.endAt+grace)return;
   const winners=(await ranking(client,event)).filter(r=>r.reward>0);
-  const profiles=new Map();for(const winner of winners){const receiptPath='walletRequests/event_'+id+'_'+winner.rank,receipt=await read(client,receiptPath);if(receipt)continue;const userPath='users/'+winner.uid;const user=profiles.get(userPath)||decodeFields((await read(client,userPath))?.fields);if(!validUser(user))continue;const balance=Number(user.coins||0)+winner.reward;if(!Number.isSafeInteger(balance))fail('invalid-event-balance');const next={...user,coins:balance};profiles.set(userPath,next);await put(client,userPath,next);const ledger={type:'event-reward',userId:winner.uid,eventId:id,eventTitle:event.title,rank:winner.rank,score:winner.score,amount:winner.reward,balance,createdAt:clock()};await put(client,receiptPath,ledger);await put(client,'transactions/event_'+id+'_'+winner.rank,ledger);}
+  const profiles=new Map();for(const winner of winners){const receiptPath='walletRequests/event_'+id+'_'+winner.rank,receipt=await read(client,receiptPath);if(receipt)continue;const userPath='users/'+winner.uid;const user=profiles.get(userPath)||decodeFields((await read(client,userPath))?.fields);if(!validUser(user))continue;const balance=Number(user.coins||0)+winner.reward;if(!Number.isSafeInteger(balance))fail('invalid-event-balance');const detail=event.rewardDetails?.[winner.rank-1],award=detail&&(detail.frameId||detail.badgeName)?{eventId:id,title:event.title,rank:winner.rank,...detail,grantedAt:clock(),expiresAt:clock()+detail.durationDays*86400000}:null;const next={...user,coins:balance,...(award?{rankingAwards:[...(user.rankingAwards||[]).filter(a=>a.expiresAt>clock()&&a.eventId!==id).slice(-29),award]}:{})};profiles.set(userPath,next);await put(client,userPath,next);const ledger={type:'event-reward',userId:winner.uid,eventId:id,eventTitle:event.title,rank:winner.rank,score:winner.score,amount:winner.reward,balance,createdAt:clock()};await put(client,receiptPath,ledger);await put(client,'transactions/event_'+id+'_'+winner.rank,ledger);}
   await put(client,path,{...event,state:'settled',winners,settledAt:clock()});
-  if(event.weekly){const nextStart=event.endAt,nextEnd=nextStart+7*86400000,nextId=(event.seriesId||id)+'-'+nextStart;if(!await read(client,'events/'+nextId))await put(client,'events/'+nextId,{...event,id:nextId,seriesId:event.seriesId||id,startAt:nextStart,endAt:nextEnd,state:'published',winners:[],createdAt:clock(),settledAt:null});}
+  if(event.weekly||event.recurringPeriod){const nextStart=event.endAt,nextEnd=event.recurringPeriod?rankingPeriodEnd(event.recurringPeriod,nextStart):nextStart+7*86400000,nextId=(event.seriesId||id)+'-'+nextStart;if(!await read(client,'events/'+nextId))await put(client,'events/'+nextId,{...event,id:nextId,seriesId:event.seriesId||id,startAt:nextStart,endAt:nextEnd,state:'published',winners:[],createdAt:clock(),settledAt:null});}
  });}
  async function sweepEvents(){const rows=(await database.pool.query("select document_id,fields from earnbd.social_documents where parent='events' and fields->'state'->>'stringValue'='published'")).rows;for(const row of rows){const e=decodeFields(row.fields);if(clock()>=e.endAt+(e.type.includes('game')?120000:0))await settleEvent(row.document_id);}}
  return {events,sweepEvents,settleEvent};

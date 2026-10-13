@@ -1,3 +1,4 @@
+import {activeRankingAward} from '../lib/rankingAwards';
 import {ensureVoiceMembership} from '../lib/voiceMembership';
 import {EventCenter} from './EventCenter';
 import {addDoc,orderBy,limit,updateDoc,onSnapshot,query,where,setDoc,deleteDoc,runTransaction,getDocs,getDoc} from '../lib/reliableFirestore';
@@ -261,7 +262,7 @@ export const VoiceRoomView: React.FC<Props> = ({
         {seatError&&<p role="status">{seatError}</p>}
 
         {roomEntry&&(mediaAssets.find(a=>a.id===roomEntry.customEntryId)?<EntryMedia key={roomEntry.uid+roomEntry.at} image={mediaAssets.find(a=>a.id===roomEntry.customEntryId)!.image} name={roomEntry.name}/>:<RoomWelcome key={roomEntry.uid+roomEntry.at} name={roomEntry.name} avatar={roomEntry.avatar}/>) }
-        <div className="flex gap-2 overflow-x-auto pb-2">{liveMembers.filter(member=>!Number.isInteger(member.roomSeat)).map(member=><button key={member.uid} className="shrink-0 text-center" title={member.name} onClick={()=>onOpenUsers(member.uid)}><span data-gift-uid={member.uid}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===member.customFrameId)?.image}/></span><small className="block" data-no-translate="true">{member.name}</small></button>)}</div>
+        <div className="flex gap-2 overflow-x-auto pb-2">{liveMembers.filter(member=>!Number.isInteger(member.roomSeat)).map(member=><button key={member.uid} className="shrink-0 text-center" title={member.name} onClick={()=>onOpenUsers(member.uid)}><span data-gift-uid={member.uid}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===(activeRankingAward(member)?.frameId||member.customFrameId))?.image}/></span><small className="block" data-no-translate="true">{member.name}</small></button>)}</div>
         <div className={`sg3 ${seatCount%4===2?'center-first':''}`} style={{gridTemplateColumns:'repeat(4,minmax(0,1fr))'}}>
           {liveSeats.map((seat, idx) => {
             const isUserSeatedHere = seatedIndex === idx;
@@ -269,7 +270,7 @@ export const VoiceRoomView: React.FC<Props> = ({
               <div key={idx} className="s3w" onClick={() => seat?.uid?onOpenUsers(seat.uid):setSeatAction(idx)}>
                 <button className="sr-only" aria-label={`সিট ${idx+1}`} onClick={e=>{e.stopPropagation();seat?.uid?onOpenUsers(seat.uid):setSeatAction(idx)}}>সিট {idx+1}</button>{canLockSeats&&<button className="seat-edit-trigger" aria-label={`সিট ${idx+1} পরিচালনা`} onClick={e=>{e.stopPropagation();setSeatAction(idx)}}>⚙</button>}<div data-gift-uid={seat?.uid} data-gift-seat={seat?.uid?'true':undefined} className={`s3 ${lockedSeats.includes(idx)?'seat-is-locked':''} ${seat ? 'on' : ''} ${(isUserSeatedHere && isMicOn || voice.speakers.includes(seat?.uid)&&!roomControls[seat?.uid]?.muted) ? 'talk' : ''}`}>
                   {lockedSeats.includes(idx)&&seat&&<small className="seat-lock-badge">🔒</small>}{seat ? (
-                    <MediaAvatar avatar={seat.avatar} frame={mediaAssets.find(a=>a.id===seat.customFrameId)?.image} size={48}/>
+                    <MediaAvatar avatar={seat.avatar} frame={mediaAssets.find(a=>a.id===(activeRankingAward(seat)?.frameId||seat.customFrameId))?.image} size={48}/>
                   ) : (
                     <span className="neon-mic-icon">{lockedSeats.includes(idx)?'🔒':'🎙️'}</span>
                   )}

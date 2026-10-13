@@ -440,7 +440,7 @@ export default function App() {
       if (data.id) setS((prev: any) => ({...prev, id: String(data.id), uid: fbUser.uid }));
       if (data.giftSentCount !== undefined) setS((prev:any)=>({...prev,giftSentCount:data.giftSentCount,giftSentCoins:data.giftSentCoins,gifts:{...prev.gifts,sent:data.giftSentCoins||0}}));
       if(data.photoURL!==undefined)setS((prev:any)=>({...prev,img:data.photoURL}));
-      for(const field of ['name','svip','badge','customFrameId','customEntryId']) if(data[field]!==undefined)setS((prev:any)=>({...prev,[field]:data[field]}));
+      for(const field of ['name','svip','badge','customFrameId','customEntryId','rankingAwards']) if(data[field]!==undefined)setS((prev:any)=>({...prev,[field]:data[field]}));
       const coins = confirmedCoins(data,snapshot.metadata);
       if (Number.isSafeInteger(coins) && coins >= 0) setS((prev: any) => ({ ...prev, coins }));
     }, () => setToastText('লাইভ ব্যালেন্স লোড হয়নি। সংযোগ পরীক্ষা করুন।'));

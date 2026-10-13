@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {activeRankingAward} from '../src/lib/rankingAwards.ts';
+test('reward cosmetics stop being active at expiry and newest active grant takes precedence',()=>{const u={rankingAwards:[{frameId:'expired',grantedAt:1,expiresAt:100},{frameId:'gold',grantedAt:90,expiresAt:200},{frameId:'new',grantedAt:110,expiresAt:300}]};assert.equal(activeRankingAward(u,150).frameId,'new');assert.equal(activeRankingAward(u,300),undefined);assert.equal(activeRankingAward({rankingAwards:[]},0),undefined);});
