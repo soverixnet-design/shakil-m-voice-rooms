@@ -40,3 +40,13 @@ test('API recovers after an expired quota diagnostic without a health-page visit
  assert.equal((await fetch(base+'/api/sync',request)).status,200);assert.equal(calls,1);
  }finally{await new Promise(r=>server.close(r))}
 });
+
+test('live social polling does not consume the separate account-action request budget',async()=>{
+ const server=createGameHttpServer({service:{social:async()=>[],account:async()=>({id:'123',name:'User'})},verifyToken:async()=>({uid:'viewer'}),origins:[origin]});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ try{const base=`http://127.0.0.1:${server.address().port}`;
+ const request={method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({action:'query'})};
+ for(let i=0;i<130;i++)assert.equal((await fetch(base+'/api/social',request)).status,200);
+ assert.equal((await fetch(base+'/api/account',request)).status,200);
+ }finally{await new Promise(r=>server.close(r))}
+});

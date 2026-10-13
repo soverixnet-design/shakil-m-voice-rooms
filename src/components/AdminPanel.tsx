@@ -122,7 +122,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         name: item.data().name || item.data().email || 'ইউজার',
         av: item.data().avatar || '🧑' })));
       setUsersLoading(false); setUsersError('');
-    }, () => { setUsersLoading(false); setUsersError('ইউজার তালিকা লোড হয়নি। Firebase অনুমতি ও সংযোগ পরীক্ষা করুন।'); });
+    }, () => { setUsersLoading(false); setUsersError('ইউজার তালিকা লোড হয়নি। অনুমতি ও সংযোগ পরীক্ষা করুন।'); });
   }, [currentUser?.uid]);
   const roomsList: any[] = appState.rooms || [];
   const giftsList: any[] = appState.customGifts || [];
@@ -158,7 +158,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       await batch.commit();
       onUpdateAppState(()=>next);
       return true;
-    } catch { onToast('সেভ হয়নি। Firebase অনুমতি ও সংযোগ পরীক্ষা করুন।'); return false; }
+    } catch { onToast('সেভ হয়নি। অনুমতি ও সংযোগ পরীক্ষা করুন।'); return false; }
   };
 
   // RECHARGE REQUEST HANDLERS
@@ -226,8 +226,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
-      setRechargeResult({error: message === 'already-approved' ? 'এই রিচার্জ আগে অনুমোদিত হয়েছে। নতুন করে কয়েন যোগ হয়নি।' : message === 'insufficient-coins' ? 'ব্যালেন্সের বেশি কয়েন কাটা যাবে না।' : 'রিচার্জ ব্যর্থ — কয়েন সেভ হয়নি। Firebase অনুমতি ও সংযোগ পরীক্ষা করুন।'});
-      onToast(message === 'already-approved' ? 'এই রিচার্জ আগে অনুমোদিত হয়েছে।' : message === 'insufficient-coins' ? 'ব্যালেন্সের বেশি কয়েন কাটা যাবে না।' : 'রিচার্জ সেভ হয়নি। Firebase অনুমতি ও সংযোগ পরীক্ষা করুন।');
+      setRechargeResult({error: message === 'already-approved' ? 'এই রিচার্জ আগে অনুমোদিত হয়েছে। নতুন করে কয়েন যোগ হয়নি।' : message === 'insufficient-coins' ? 'ব্যালেন্সের বেশি কয়েন কাটা যাবে না।' : 'রিচার্জ ব্যর্থ — কয়েন সেভ হয়নি। অনুমতি ও সংযোগ পরীক্ষা করুন।'});
+      onToast(message === 'already-approved' ? 'এই রিচার্জ আগে অনুমোদিত হয়েছে।' : message === 'insufficient-coins' ? 'ব্যালেন্সের বেশি কয়েন কাটা যাবে না।' : 'রিচার্জ সেভ হয়নি। অনুমতি ও সংযোগ পরীক্ষা করুন।');
       return false;
     } finally { coinLock.current = false; setSavingCoins(false); }
   };
@@ -474,7 +474,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   👑 যাচাইকৃত ওনার
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/40 animate-pulse">
-                  Firestore ডেটা
+                  লাইভ ডেটা
                 </span>
               </div>
               <p className="text-[11px] text-gray-300">
