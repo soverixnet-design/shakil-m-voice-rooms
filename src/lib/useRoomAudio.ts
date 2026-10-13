@@ -1,26 +1,55 @@
-import {addDoc,deleteDoc,onSnapshot,query,setDoc,where} from './reliableFirestore';
-import {walletApi} from './walletApi';
 import {useEffect,useRef,useState} from 'react';
-import {collection,doc,serverTimestamp} from 'firebase/firestore';
-import {auth,db} from '../firebase';
+import type {IAgoraRTCClient,IMicrophoneAudioTrack} from 'agora-rtc-sdk-ng';
+import {walletApi} from './walletApi';
 export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpeak:boolean,controls:Record<string,any>,enabled=true){
- const context=useRef<AudioContext|null>(null),relay=useRef(false);
- const [status,setStatus]=useState(''),[speakers,setSpeakers]=useState<string[]>([]),stream=useRef<MediaStream|null>(null),connections=useRef(new Map<string,{pc:RTCPeerConnection;audio:HTMLAudioElement;session:string;pending:any[];source?:MediaStreamAudioSourceNode;gain?:GainNode}>()),wsSession=useRef(''),ice=useRef<RTCIceServer[]>([{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}]),peerData=useRef<any[]>([]),stopped=useRef(false),flags=useRef({micOn,soundOn,canSpeak,controls});flags.current={micOn,soundOn,canSpeak,controls};
- function unlock(){try{context.current ||= new AudioContext();void context.current.resume().then(playback).catch(()=>setStatus('সাউন্ড চালু করতে আবার টাচ করুন।'));for(const p of connections.current.values()){p.audio.muted=false;void p.audio.play().catch(()=>{})}}catch{}playback()}
- async function permission(){unlock();try{if(!navigator.mediaDevices?.getUserMedia)throw Error('এই ব্রাউজারে মাইক্রোফোন পাওয়া যাচ্ছে না।');if(!stream.current){stream.current=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});if(stopped.current){stream.current.getTracks().forEach(t=>t.stop());stream.current=null;return false;}for(const {pc} of connections.current.values())for(const sender of pc.getSenders())if(sender.track===null||sender.track.kind==='audio')await sender.replaceTrack(stream.current.getAudioTracks()[0]);}stream.current.getAudioTracks().forEach(t=>t.enabled=flags.current.canSpeak);setStatus('মাইক্রোফোন অনুমতি পাওয়া গেছে।');return true}catch(e:any){setStatus(e.name==='NotAllowedError'?'মাইক্রোফোনের অনুমতি দিন: ব্রাউজার Site settings → Microphone → Allow।':e.message||'মাইক্রোফোন চালু হয়নি।');return false}}
- function playback(){for(const [uid,p] of connections.current){const member=peerData.current.find(x=>x.uid===uid);p.audio.muted=!flags.current.soundOn||flags.current.controls[uid]?.muted||flags.current.controls[uid]?.blocked||!member?.speaking;if(p.gain)p.gain.gain.value=p.audio.muted?0:1;if(p.source)p.audio.muted=true;if(!p.source&&!p.audio.muted)void p.audio.play().catch(()=>setStatus('অডিও শুনতে রুমের সাউন্ড বোতামে টাচ করুন।'));}}
- useEffect(()=>{if(!enabled)return;stopped.current=false;const uid=auth.currentUser?.uid||'';if(!uid)return;wsSession.current=crypto.randomUUID();const session=wsSession.current,own=doc(db,'rooms',roomId,'voicePeers',uid);let dead=false,peers:any[]=[],retry:ReturnType<typeof setTimeout>,ownTimer:ReturnType<typeof setInterval>;const backlog=new Map<string,Promise<any>>();
- const signal=async(to:string,type:string,payload:any,toSession:string)=>{if(dead)return;await addDoc(collection(db,'rooms',roomId,'voiceSignals'),{from:uid,to,type,payload:JSON.stringify(payload),fromSession:session,toSession,createdAt:serverTimestamp()})};
- function drop(other:string){const p=connections.current.get(other);if(p){p.pc.close();p.source?.disconnect();p.gain?.disconnect();p.audio.pause();p.audio.srcObject=null;p.audio.remove();connections.current.delete(other)}}
- function connect(other:string,otherSession:string){const existing=connections.current.get(other);if(existing?.session===otherSession)return existing;if(existing)drop(other);const pc=new RTCPeerConnection({iceServers:ice.current});pc.addTransceiver('audio',{direction:'sendrecv'});const audio=document.createElement('audio');audio.autoplay=true;audio.setAttribute('playsinline','');document.body.append(audio);const entry:{pc:RTCPeerConnection;audio:HTMLAudioElement;session:string;pending:any[];source?:MediaStreamAudioSourceNode;gain?:GainNode}={pc,audio,session:otherSession,pending:[]};connections.current.set(other,entry);if(stream.current)void pc.getTransceivers()[0].sender.replaceTrack(stream.current.getAudioTracks()[0]);pc.onicecandidate=e=>{if(e.candidate)void signal(other,'candidate',e.candidate.toJSON(),otherSession).catch(()=>setStatus('অডিও সংযোগের তথ্য পাঠানো যায়নি।'))};pc.ontrack=e=>{const received=e.streams[0]||new MediaStream([e.track]);audio.srcObject=received;if(context.current){entry.source?.disconnect();entry.gain?.disconnect();entry.source=context.current.createMediaStreamSource(received);entry.gain=context.current.createGain();entry.source.connect(entry.gain);entry.gain.connect(context.current.destination);}e.track.onunmute=playback;playback()};pc.onconnectionstatechange=()=>{if(pc.connectionState==='connected'){setStatus('ভয়েস সংযোগ হয়েছে। সাউন্ড চালু রাখুন।');playback()}else if(pc.connectionState==='connecting')setStatus('অন্য ফোনের সাথে অডিও সংযোগ হচ্ছে…');else if(pc.connectionState==='failed'){setStatus(relay.current?'অডিও সংযোগ ব্যর্থ—রুম থেকে বের হয়ে আবার ঢুকুন।':'অডিও নেটওয়ার্ক সংযোগ ব্যর্থ। Render-এ TURN রিলে কনফিগার করা প্রয়োজন।');void configureVoice()}};return entry;}
- async function publish(){try{await setDoc(own,{session,speaking:Boolean(flags.current.micOn&&flags.current.canSpeak),updatedAt:serverTimestamp()});if(!dead&&connections.current.size===0)setStatus('অন্য ফোনের ভয়েস সংযোগের অপেক্ষায়।')}catch{if(!dead){setStatus('ভয়েস সংযোগের অনুমতি পাওয়া যায়নি। রুম ও নতুন Rules পরীক্ষা করুন।');retry=setTimeout(publish,2000)}}}
- async function configureVoice(){try{const data=await walletApi('voice-config',{roomId});if(dead)return;ice.current=data.iceServers;relay.current=data.relayEnabled===true;for(const [other,{pc,session:peerSession}] of connections.current){pc.setConfiguration({iceServers:ice.current});if(pc.connectionState==='failed'&&uid<other&&pc.signalingState==='stable'){await pc.setLocalDescription(await pc.createOffer({iceRestart:true}));await signal(other,'offer',pc.localDescription!.toJSON(),peerSession);}}}catch{}}
- void configureVoice();const relayTimer=setInterval(()=>void configureVoice(),1800000);
- void publish();ownTimer=setInterval(()=>void publish(),20000);
- const offPeers=onSnapshot(collection(db,'rooms',roomId,'voicePeers'),{includeMetadataChanges:true},s=>{peers=s.docs.map(d=>({...d.data(),uid:d.id})).filter((p:any)=>p.uid!==uid&&Date.now()-(p.updatedAt?.toMillis?.()||0)<60000);peerData.current=peers;setSpeakers(peers.filter(p=>p.speaking).map(p=>p.uid));for(const other of [...connections.current.keys()])if(!peers.some(p=>p.uid===other))drop(other);for(const other of peers){const exists=connections.current.get(other.uid)?.session===other.session;const p=connect(other.uid,other.session);if(!exists&&uid<other.uid)void(async()=>{await p.pc.setLocalDescription(await p.pc.createOffer());await signal(other.uid,'offer',p.pc.localDescription!.toJSON(),other.session)})().catch(()=>setStatus('অডিও সংযোগ তৈরি হয়নি।'))}playback()},()=>setStatus('ভয়েস তালিকা পাওয়া যায়নি। নতুন Rules প্রকাশ করুন।'));
- const offSignals=onSnapshot(query(collection(db,'rooms',roomId,'voiceSignals'),where('to','==',uid)),s=>{for(const change of s.docChanges()){if(change.type!=='added'||change.doc.metadata.hasPendingWrites)continue;const data=change.doc.data();const previous=backlog.get(data.from)||Promise.resolve();const job=previous.catch(()=>{}).then(async()=>{try{if(dead||data.toSession!==session||Date.now()-(data.createdAt?.toMillis?.()||0)>60000)return;const p=connect(data.from,data.fromSession),payload=JSON.parse(data.payload);if(data.type==='candidate'){if(p.pc.remoteDescription)await p.pc.addIceCandidate(payload);else p.pending.push(payload);}else if(data.type==='offer'){await p.pc.setRemoteDescription(payload);await p.pc.setLocalDescription(await p.pc.createAnswer());await signal(data.from,'answer',p.pc.localDescription!.toJSON(),data.fromSession);}else if(data.type==='answer'){if(p.pc.signalingState==='have-local-offer')await p.pc.setRemoteDescription(payload);}if(p.pc.remoteDescription)for(const candidate of p.pending.splice(0))await p.pc.addIceCandidate(candidate);}finally{void deleteDoc(change.doc.ref).catch(()=>{})}});backlog.set(data.from,job);void job.catch(()=>setStatus('অডিও সংযোগ ব্যর্থ হয়েছে। রুম আবার খুলুন।'))}},()=>setStatus('অডিও সিগন্যালের অনুমতি পাওয়া যায়নি।'));
- return()=>{dead=true;stopped.current=true;clearTimeout(retry);clearInterval(ownTimer);clearInterval(relayTimer);offPeers();offSignals();for(const other of [...connections.current.keys()])drop(other);stream.current?.getTracks().forEach(t=>t.stop());stream.current=null;void context.current?.close().catch(()=>{});context.current=null;void deleteDoc(own).catch(()=>{})};
+ const [status,setStatus]=useState(''),[speakers,setSpeakers]=useState<string[]>([]);
+ const flags=useRef({micOn,soundOn,canSpeak,controls});flags.current={micOn,soundOn,canSpeak,controls};
+ const local=useRef<IMicrophoneAudioTrack|null>(null),current=useRef<{client:IAgoraRTCClient;update:()=>Promise<void>;dead:boolean}|null>(null);
+ function playback(){for(const user of current.current?.client.remoteUsers||[]){const off=!flags.current.soundOn||flags.current.controls[String(user.uid)]?.muted||flags.current.controls[String(user.uid)]?.blocked;user.audioTrack?.setVolume(off?0:100);if(!off)user.audioTrack?.play();}}
+ function unlock(){playback();}
+ async function permission(){
+  if(!enabled||!flags.current.canSpeak)return false;
+  const session=current.current;
+  try{
+   if(!local.current){const {default:AgoraRTC}=await import('agora-rtc-sdk-ng');const track=await AgoraRTC.createMicrophoneAudioTrack({AEC:true,ANS:true,AGC:true});if(!session||session.dead||current.current!==session){track.close();return false;}await track.setEnabled(false);local.current=track;}
+   return true;
+  }catch(e:any){setStatus(e.code==='PERMISSION_DENIED'?'মাইক্রোফোনের অনুমতি দিন।':'মাইক্রোফোন চালু হয়নি। আবার চেষ্টা করুন।');return false;}
+ }
+ useEffect(()=>{
+  if(!enabled)return;
+  let dead=false,client:IAgoraRTCClient|undefined,timer:ReturnType<typeof setInterval>|undefined,queue=Promise.resolve(),published=false;
+  const session={get client(){return client!},dead:false,update:()=>{queue=queue.then(refresh).catch(()=>{if(!dead)setStatus('ভয়েস সংযোগ ব্যর্থ। রুম আবার খুলুন।');});return queue;}};
+  function audible(){if(dead||!client)return;setSpeakers(client.remoteUsers.filter(u=>u.hasAudio&&!flags.current.controls[String(u.uid)]?.muted&&!flags.current.controls[String(u.uid)]?.blocked).map(u=>String(u.uid)));playback();}
+  async function refresh(){
+   if(dead||!client)return;
+   // Disable immediately on local mute/seat removal, before network work.
+   const wants=flags.current.micOn&&flags.current.canSpeak;
+   if(local.current&&!wants)await local.current.setEnabled(false);
+   let config:any;
+   try{config=await walletApi('voice-config',{roomId});}catch(error){if(local.current)await local.current.setEnabled(false);if(published){await client.unpublish();published=false;}throw error;}
+   if(dead)return;
+   await client.renewToken(config.token);
+   const speaking=wants&&config.canPublish&&!!local.current;
+   if(!speaking){if(local.current)await local.current.setEnabled(false);if(published){await client.unpublish();published=false;}await client.setClientRole('audience');}
+   else{await client.setClientRole('host');await local.current!.setEnabled(true);if(!published){await client.publish(local.current!);published=true;}}
+   if(!dead)setStatus('ভয়েস সংযোগ হয়েছে।');audible();
+  }
+  void(async()=>{
+   const config=await walletApi('voice-config',{roomId});if(dead)return;
+   if(config.provider!=='agora')throw Error('agora-not-configured');
+   const {default:AgoraRTC}=await import('agora-rtc-sdk-ng');if(dead)return;
+   AgoraRTC.setLogLevel(3);client=AgoraRTC.createClient({mode:'live',codec:'vp8'});current.current=session;
+   client.on('user-published',async(user,type)=>{if(type!=='audio'||dead)return;try{await client!.subscribe(user,type);audible();}catch{if(!dead)setStatus('অন্য সদস্যের অডিও পাওয়া যায়নি।');}});
+   client.on('user-unpublished',audible);client.on('user-left',audible);
+   client.on('token-privilege-will-expire',()=>{void session.update();});
+   client.on('token-privilege-did-expire',()=>{void session.update();});
+   client.on('connection-state-change',state=>{if(!dead)setStatus(state==='CONNECTED'?'ভয়েস সংযোগ হয়েছে।':state==='RECONNECTING'?'ভয়েস আবার সংযোগ হচ্ছে…':'ভয়েস সংযোগ হচ্ছে…');});
+   await client.setClientRole('audience');await client.join(config.appId,config.channel,config.token,config.uid);
+   if(dead){await client.leave();return;}
+   timer=setInterval(()=>{void session.update();},20000);await session.update();
+  })().catch(()=>{if(!dead)setStatus('ভয়েস চালু হয়নি। সার্ভারের Agora সেটিংস পরীক্ষা করুন।');});
+  return()=>{dead=true;session.dead=true;clearInterval(timer);if(current.current===session)current.current=null;local.current?.close();local.current=null;setSpeakers([]);if(client){client.removeAllListeners();void queue.finally(()=>client!.leave()).catch(()=>{});}};
  },[roomId,enabled]);
- useEffect(()=>{if(!enabled)return;stream.current?.getAudioTracks().forEach(t=>t.enabled=micOn&&canSpeak);const uid=auth.currentUser?.uid;if(uid&&wsSession.current)void setDoc(doc(db,'rooms',roomId,'voicePeers',uid),{session:wsSession.current,speaking:micOn&&canSpeak,updatedAt:serverTimestamp()}).catch(()=>{});playback()},[micOn,canSpeak,soundOn,controls,roomId,enabled]);
+ useEffect(()=>{if(!enabled)return;if(local.current&&(!micOn||!canSpeak))void local.current.setEnabled(false);void current.current?.update();playback();},[micOn,canSpeak,soundOn,controls,enabled]);
  return {status,speakers,permission,unlock};
 }

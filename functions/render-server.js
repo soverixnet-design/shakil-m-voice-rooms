@@ -1,3 +1,4 @@
+import {createAgoraVoiceConfig} from './agora-voice.js';
 import {createSupabaseDatabase} from './supabase-database.js';
 import {migrateSocialData,migrateGameData} from './social-migration.js';
 import {createSocialService} from './social-service.js';
@@ -40,6 +41,7 @@ if(process.env.SUPABASE_DATABASE_URL){
   service.bet=disabledGame;service.sync=disabledGame;service.sweep=async()=>{};
   const games=await migrateGameData(database,probe);
   Object.assign(service,createGameService(store),{gamesDatabase:'supabase'});
+  if(process.env.AGORA_APP_ID&&process.env.AGORA_APP_CERTIFICATE){service.voiceConfig=createAgoraVoiceConfig(store);service.voiceProvider='agora';}
   console.log('Supabase game migration:',JSON.stringify(games));
   console.log('Supabase social migration:',JSON.stringify(migration));}
   console.log('Supabase connection verified; profiles and voice rooms use Supabase when migration is complete.');}
