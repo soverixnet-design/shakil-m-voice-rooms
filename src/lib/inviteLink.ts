@@ -1,0 +1,2 @@
+export function inviteLink(base:string,id:string){const url=new URL(base);url.search='';url.hash='';url.searchParams.set('ref','SM'+id);return url.toString();}
+export function captureInvite(url:string,storage:Pick<Storage,'setItem'|'getItem'>){const code=new URL(url).searchParams.get('ref')?.trim().toUpperCase();if(code&&/^SM\d{6,12}$/.test(code))storage.setItem('earnbd-pending-ref',code);return storage.getItem('earnbd-pending-ref')||'';}

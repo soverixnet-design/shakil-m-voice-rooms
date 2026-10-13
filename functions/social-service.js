@@ -1,8 +1,9 @@
+import {applyReferralRewards} from './referral-service.js';
 import {randomInt,createHmac} from 'node:crypto';
 import {decodeFields,decodeValue,encodeFields} from './social-migration.js';
 const OWNER='yfastvpn@gmail.com';
 const ROOTS=new Set(['users','rooms','roomOwners','follows','moments','diamondWallets','transactions','admins','assets','system','supportTickets','sellerWallets','sellerTransfers','sharedGames','gameRanks','gameReceipts','gameWins']);
-const PROTECTED=new Set(['role','status','email','id','userId','coins','diamond','lastSellerTransfer','lastGiftReceipt','giftSentCount','giftSentCoins','totalRecharged','giftReceivedCount','giftReceivedCoins']);
+const PROTECTED=new Set(['ref','referrerUid','referralAt','referralStats','inv','role','status','email','id','userId','coins','diamond','lastSellerTransfer','lastGiftReceipt','giftSentCount','giftSentCoins','totalRecharged','giftReceivedCount','giftReceivedCoins']);
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const allowed=(value,keys)=>Object.keys(value).every(k=>keys.includes(k));
 const photo=v=>typeof v==='string'&&v.length<=300000&&(!v||/^https:\/\//.test(v)||/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]*={0,2}$/.test(v));
@@ -168,6 +169,7 @@ export function createSocialService(database,clock=Date.now){
     else if(root==='moments'&&!sub)permitted=removed?owner||old.userId===identity.uid:!oldRows.get(path)&&allowed(next,['userId','text','name','avatar','createdAt'])&&next.userId===identity.uid&&typeof next.text==='string'&&next.text.length>0&&next.text.length<=2000&&typeof next.name==='string'&&next.name.length<=100&&typeof next.avatar==='string'&&next.avatar.length<=300000&&next.createdAt===timestamp;
     if(!permitted)fail('permission-denied');
    }
+   await applyReferralRewards({client,staged,oldRows,read,timestamp});
    for(const [path,fields]of staged){
     if(fields===null){await client.query('delete from earnbd.social_documents where path=$1',[path]);continue;}
     const parts=path.split('/'),id=parts.pop(),parent=parts.join('/');

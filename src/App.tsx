@@ -1,3 +1,5 @@
+import {inviteLink as createInviteLink,captureInvite} from './lib/inviteLink';
+import {walletApi} from './lib/walletApi';
 import {getDoc,setDoc,updateDoc,query,where,getDocs,runTransaction,onSnapshot} from './lib/reliableFirestore';
 import {accountBootstrap} from './lib/accountBootstrap';
 import {withTimeout} from './lib/authTimeout';
@@ -231,7 +233,7 @@ export default function App() {
       reg: true,
       invPct: 5,
       ref: '',
-      inv: { n: 3, earn: 2500, list: [{ n: 'রাফি', c: 20000, r: 1000 }, { n: 'নুসরাত', c: 30000, r: 1500 }] },
+      inv: { n: 0, earn: 0, list: [] },
       siteUrl: '',
       spent: 8000,
       cnt: { msg: 12, gift: 4, game: 5 },
@@ -316,7 +318,10 @@ export default function App() {
   const [sendTargetId, setSendTargetId] = useState('');
   const [sendAmount, setSendAmount] = useState('');
   const [sendNote, setSendNote] = useState('');
-  const [refInput, setRefInput] = useState('');
+  const [refInput, setRefInput] = useState(()=>captureInvite(window.location.href,localStorage));
+  const [refBusy,setRefBusy]=useState(false);
+  async function claimReferral(code:string){setRefBusy(true);try{const result=await walletApi('referral',{action:'claim',code});setS((p:any)=>({...p,ref:result.ref}));localStorage.removeItem('earnbd-pending-ref');toast('ইনভাইট কোড সার্ভারে সেভ হয়েছে ✓');}catch(e:any){const messages:Record<string,string>={'self-referral':'নিজের বা চক্রাকার ইনভাইট ব্যবহার করা যায় না','referral-not-found':'এই ইনভাইট কোডের ব্যবহারকারী পাওয়া যায়নি','referral-already-set':'আপনার ইনভাইট কোড আগে সেভ হয়েছে'};toast(messages[e.message]||'ইনভাইট সেভ হয়নি। কোড ও সংযোগ পরীক্ষা করুন।');}finally{setRefBusy(false);}}
+  useEffect(()=>{if(!isAuthenticated||!fbUser?.uid)return;let stopped=false;void walletApi('referral',{action:'summary'}).then(result=>{if(stopped)return;setS((p:any)=>({...p,ref:result.ref,inv:result.inv}));const pending=localStorage.getItem('earnbd-pending-ref');if(pending&&!result.ref)void claimReferral(pending);}).catch(()=>{});return()=>{stopped=true};},[isAuthenticated,fbUser?.uid,activePage]);
   const [postText, setPostText] = useState('');
 
   // User Room Creation Modal State
@@ -416,6 +421,8 @@ export default function App() {
       if (!snapshot.exists()) return;
       const data = snapshot.data();
       if(['banned','archived'].includes(data.status)){setToastText('আপনার অ্যাকাউন্ট ব্লক করা হয়েছে।');void signOut(auth);localStorage.removeItem('sv_auth_session');setIsAuthenticated(false);setActiveRoom(null);setActiveGame(null);return;}
+      if(data.referralStats)setS((p:any)=>({...p,inv:data.referralStats}));
+      if(data.referrerUid)setS((p:any)=>({...p,ref:data.ref}));
       if (data.id) setS((prev: any) => ({...prev, id: String(data.id), uid: fbUser.uid }));
       if (data.giftSentCount !== undefined) setS((prev:any)=>({...prev,giftSentCount:data.giftSentCount,giftSentCoins:data.giftSentCoins,gifts:{...prev.gifts,sent:data.giftSentCoins||0}}));
       if(data.photoURL!==undefined)setS((prev:any)=>({...prev,img:data.photoURL}));
@@ -513,9 +520,8 @@ export default function App() {
     toast('🚪 সফলভাবে লগআউট হয়েছে। অ্যাপে প্রবেশের জন্য লগইন আবশ্যক।');
   };
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast('কপি হয়েছে ✓');
+  const handleCopy = async (text: string) => {
+    try{await navigator.clipboard.writeText(text);toast('কপি হয়েছে ✓');}catch{window.prompt('কপি করুন',text);}
   };
 
   const handleCheckin = () => {
@@ -558,8 +564,8 @@ export default function App() {
     setActivePage(null);
   };
 
-  const inviteLink = () => `https://shakilm.app/?ref=SM${S.id}`;
-  const invText = () => `🎙️ Shakil M Voice Rooms-এ আমার সাথে যোগ দিন! সাইন-আপের সময় আমার ইনভাইট কোড দিন: SM${S.id}\n${inviteLink()}`;
+  const inviteLink = () => createInviteLink(window.location.origin+window.location.pathname,String(S.id));
+  const invText = () => `🎙️ EarnBD Voice Rooms-এ আমার সাথে যোগ দিন! সাইন-আপের সময় আমার ইনভাইট কোড দিন: SM${S.id}\n${inviteLink()}`;
 
   async function enterRoom(candidate:any){if(!fbUser?.uid)return;try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await updateDoc(doc(db,'users',fbUser.uid),{currentRoomId:room.id,roomSeat:null,online:true,lastSeen:serverTimestamp()});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='resource-exhausted'?'Firebase daily write quota is exhausted. Rooms, games and voice updates cannot be saved until the quota resets or the database is moved.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}}
   if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} stage={authStage} onRetry={()=>setAuthRetry(n=>n+1)}/>;
@@ -1713,7 +1719,7 @@ export default function App() {
                   <div className="bigp">{S.invPct}%</div>
                   <b style={{ fontSize: '17px' }}>বন্ধুকে ইনভাইট করুন, তার রিচার্জের {S.invPct}% রিওয়ার্ড আপনার!</b>
                   <div className="sm" style={{ marginTop: '6px' }}>
-                    বন্ধু যতবার রিচার্জ করবে, প্রতিবার {S.invPct}% কয়েন আপনি পাবেন
+                    বন্ধুর প্রতিটি অ্যাডমিন-অনুমোদিত রিচার্জে {S.invPct}% কয়েন আপনি পাবেন
                   </div>
                 </div>
 
@@ -1752,8 +1758,8 @@ export default function App() {
                 <h3>📖 কীভাবে কাজ করে</h3>
                 <div className="gl" style={{ padding: '14px', lineHeight: 1.9, fontSize: '13px' }}>
                   <b>১.</b> আপনার কোড বা লিংক ফেসবুক, হোয়াটসঅ্যাপ বা যেকোনো জায়গায় শেয়ার করুন।<br />
-                  <b>২.</b> বন্ধু সাইন-আপের সময় আপনার ইনভাইট কোড দেবে।<br />
-                  <b>৩.</b> বন্ধু কয়েন রিচার্জ করলেই আপনি পাবেন তার <b style={{ color: 'var(--g)' }}>{S.invPct}%</b> কয়েন, প্রতিবার, স্বয়ংক্রিয়ভাবে।<br />
+                  <b>২.</b> বন্ধু লিংক থেকে লগইন করলে কোড সেভ হবে; কোড নিজেও দিতে পারবে।<br />
+                  <b>৩.</b> বন্ধুর অ্যাডমিন-অনুমোদিত রিচার্জে আপনি পাবেন তার <b style={{ color: 'var(--g)' }}>{S.invPct}%</b> কয়েন, প্রতিবার, স্বয়ংক্রিয়ভাবে।<br />
                   <b>৪.</b> রিওয়ার্ড আপনার ওয়ালেটে জমা হবে। বন্ধুর কয়েন কমবে না।
                 </div>
 
@@ -1784,19 +1790,15 @@ export default function App() {
                     <div className="row">
                       <input
                         className="in"
-                        placeholder="যেমন: SM123456"
+                        placeholder="যেমন: SM123456789"
                         value={refInput}
                         onChange={e => setRefInput(e.target.value.toUpperCase())}
                         style={{ textTransform: 'uppercase' }}
                       />
                       <button
                         className="b t"
-                        onClick={() => {
-                          if (!/^SM\d{6}$/.test(refInput)) return toast('কোড সঠিক নয়');
-                          if (refInput === `SM${S.id}`) return toast('নিজের কোড ব্যবহার করা যায় না');
-                          setS((prev: any) => ({ ...prev, ref: refInput }));
-                          toast('কোড যোগ হয়েছে ✓');
-                        }}
+                        disabled={refBusy}
+                        onClick={() => void claimReferral(refInput)}
                       >
                         দিন
                       </button>

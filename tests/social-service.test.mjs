@@ -103,3 +103,11 @@ test('game reads allow public rounds but protect seeds, private receipts and all
  assert.equal(found.length,1);
  await assert.rejects(service.social({action:'get',path:'sharedGames/slots/rounds/10'},identity('banned')),/permission-denied/);
 });
+test('approved recharge credits inviter in the same transaction and receipt retries never repeat the reward',async()=>{
+ const {service,put,docs}=fixture();put('users/alice',{id:'111',name:'Alice',coins:100,status:'active',referrerUid:'bob',ref:'SM222',totalRecharged:0});put('users/bob',{id:'222',name:'Bob',coins:50,status:'active',referralStats:{n:1,earn:0,list:[]}});put('system/config',{invPct:5});
+ const writes=[update('users/alice',{coins:1100,totalRecharged:1000}),{update:{name:root+'/transactions/recharge-one',fields:encodeFields({type:'admin-recharge',userId:'alice',amount:1000})}}];
+ const owner={uid:'host',email:'yfastvpn@gmail.com',email_verified:true};
+ await service.social({action:'commit',writes},owner);assert.equal(decodeFields(docs.get('users/bob').fields).coins,100);assert.equal(decodeFields(docs.get('users/bob').fields).referralStats.earn,50);assert(docs.has('transactions/referral_recharge-one'));
+ await assert.rejects(service.social({action:'commit',writes},owner),/permission-denied/);assert.equal(decodeFields(docs.get('users/bob').fields).coins,100);
+ await assert.rejects(service.social({action:'commit',writes:[update('users/alice',{referrerUid:'host'})]},identity('alice')),/permission-denied/);
+});
