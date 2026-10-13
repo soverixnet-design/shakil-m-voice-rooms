@@ -1,3 +1,4 @@
+import {LanguagePicker,useLanguage} from './i18n/LanguagePicker';
 import {ProfileLevels} from './components/ProfileLevels';
 import {giftLevel} from './lib/giftLevel';
 import {inviteLink as createInviteLink,captureInvite} from './lib/inviteLink';
@@ -197,6 +198,7 @@ export const ADMIN_EMAILS = [
 ];
 
 export default function App() {
+  const {language,t}=useLanguage();
   const [splashVisible, setSplashVisible] = useState(true);
   const [splashFade, setSplashFade] = useState(false);
 
@@ -626,7 +628,7 @@ export default function App() {
 
       <>
           {/* 2. Top Header (hd) */}
-          <div id="hd">
+          {!activePage&&<><div id="hd">
             <div
               className={`av ${FRM[S.fr]?.[4] ? 'fa' : ''} ${FRM[S.fr]?.[5] || ''}`}
               data-d={FRM[S.fr]?.[3]}
@@ -1245,11 +1247,12 @@ export default function App() {
         ))}
       </div>
 
+      </>}
       {/* 5. Subpage Views (#pg) */}
       {activePage && (
-        <div id="pg" className={activePage==='admin'?'on':`on reference-subpage ${activePage==='edit_profile'?'profile-edit-page':''}`}>
+        <div id="pg" data-no-translate={activePage==='level'?true:undefined} className={activePage==='admin'?'on':`on reference-subpage ${activePage==='edit_profile'?'profile-edit-page':''}`}>
           <div className="row" style={{ padding: '12px 14px' }}>
-            <button className="ib" aria-label="ফিরে যান" onClick={() => setActivePage(null)}>
+            <button className="ib" aria-label={t("Back","ফিরে যান")} onClick={() => setActivePage(null)}>
               ‹
             </button>
             <b className="sp">
@@ -1263,7 +1266,7 @@ export default function App() {
               {activePage === 'invite' && '🎁 Invite & Earn'}
               {activePage === 'store' && '🏪 Store'}
               {activePage === 'items' && '👕 My Items'}
-              {activePage === 'level' && '⭐ Level'}
+              {activePage === 'level' && t('⭐ Levels','⭐ লেভেল')}
               {activePage === 'hist' && '🧾 লেনদেন'}
               {activePage === 'admin' && '⚙️ অ্যাডমিন প্যানেল'}
               {activePage === 'rankings' && '🏆 Rankings'}
@@ -1277,6 +1280,7 @@ export default function App() {
               {activePage === 'policy_faq' && '❓ সাধারণ জিজ্ঞাসা ও গাইড (FAQ & Guide)'}
               {activePage === 'policy_about' && 'ℹ️ আমাদের সম্পর্কে (About Us)'}
             </b>
+            <LanguagePicker/>
           </div>
 
           <div style={{ flex: 1, overflow: 'auto', padding: '0 14px 24px' }}>
@@ -1875,10 +1879,10 @@ export default function App() {
             {/* SUBPAGE: LEVEL & WEALTH */}
             {activePage === 'level' && (
               <section className="gl p-5 space-y-4">
-                <h2>⭐ Sending ও Receiving লেভেল</h2><ProfileLevels user={S}/>
-                <p>লেভেল ১ থেকে শুরু। লেভেল ২ হতে ১,০০০ গিফট পয়েন্ট; পরের প্রতিটি ধাপে প্রয়োজনীয় পয়েন্ট ৫০% করে বাড়ে।</p>
-                {[['Sending',S.giftSentCoins],['Receiving',S.giftReceivedCoins]].map(([label,coins])=>{const progress=giftLevel(coins);return <div key={String(label)} className="profile-level-progress"><b>{label} Lv.{progress.level}</b><div className="pb" role="progressbar" aria-label={`${label} level progress`} aria-valuenow={progress.progress} aria-valuemin={0} aria-valuemax={progress.required}><i style={{width:`${progress.percent}%`}}/></div><small>পরের লেভেল হতে আরও {progress.remaining.toLocaleString()} পয়েন্ট।</small></div>;})}
-                <p className="sm">Sending গিফট পাঠালে বাড়ে। Receiving গিফট পেলে বাড়ে। ব্যর্থ গিফট বা একই অনুরোধ আবার পাঠালে বাড়তি পয়েন্ট হয় না।</p>
+                <h2>{t('Sending & receiving levels','পাঠানো ও পাওয়ার লেভেল')}</h2><ProfileLevels user={S}/>
+                <p>{t('Start at level 1. Reach level 2 with 1,000 gift points. Each following step needs 50% more points.','লেভেল ১ থেকে শুরু। ১,০০০ গিফট পয়েন্টে লেভেল ২। পরের প্রতিটি ধাপে ৫০% বেশি পয়েন্ট প্রয়োজন।')}</p>
+                {[['sending',S.giftSentCoins],['receiving',S.giftReceivedCoins]].map(([kind,coins])=>{const progress=giftLevel(coins),label=kind==='sending'?t('Sending','পাঠানো'):t('Receiving','পাওয়া');return <div key={String(kind)} className="profile-level-progress"><b>{label} {t('Lv.','লেভেল ')}{progress.level.toLocaleString(language==='bn'?'bn-BD':'en-US')}</b><div className="pb" role="progressbar" aria-label={label} aria-valuenow={progress.progress} aria-valuemin={0} aria-valuemax={progress.required}><i style={{width:`${progress.percent}%`}}/></div><small>{t(`${progress.remaining.toLocaleString('en-US')} more points to the next level.`,`পরের লেভেলের জন্য আরও ${progress.remaining.toLocaleString('bn-BD')} পয়েন্ট প্রয়োজন।`)}</small></div>;})}
+                <p className="sm">{t('Sending grows when you send gifts. Receiving grows when you receive gifts. Failed or repeated requests do not add extra points.','গিফট পাঠালে পাঠানোর লেভেল, পেলে পাওয়ার লেভেল বাড়ে। ব্যর্থ বা একই অনুরোধ পুনরায় পাঠালে বাড়তি পয়েন্ট যোগ হয় না।')}</p>
               </section>
             )}
 
