@@ -1,3 +1,4 @@
+import {getDoc,onSnapshot} from '../lib/reliableFirestore';
 import {UserSocialCard} from './UserSocialCard';
 import {useMediaAssets,MediaAvatar} from './MediaAssets';
 import {RoomGiftBox} from './RoomGiftBox';
@@ -5,7 +6,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { auth, db } from '../firebase';
 import {deliverSelectedGifts} from '../lib/giftBatch';
 import {sendDirectGift} from '../lib/gifts';
-import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import {collection,doc} from 'firebase/firestore';
 const GIFTS = [{emoji:'🌹',name:'গোলাপ',cost:10},{emoji:'❤️',name:'হার্ট',cost:1},{emoji:'⭐',name:'স্টার',cost:250},{emoji:'💎',name:'ডায়মন্ড',cost:1100},{emoji:'🚀',name:'রকেট',cost:5000},{emoji:'👑',name:'ক্রাউন',cost:15000}];
 export function UserDirectory({onClose,onJoin,roomId,initialRecipient,onGiftSent}:{onClose:()=>void;onJoin:(room:any)=>void;roomId?:string;initialRecipient?:string;onGiftSent?:(event:any)=>void}) {
   const [users,setUsers]=useState<any[]>([]),[search,setSearch]=useState(''),[selected,setSelected]=useState(initialRecipient||''),[gift,setGift]=useState(0),[quantity,setQuantity]=useState(1),[busy,setBusy]=useState(false),[status,setStatus]=useState(''),[loading,setLoading]=useState(true),[error,setError]=useState(''),[now,setNow]=useState(Date.now()),[animation,setAnimation]=useState(false),[animationGift,setAnimationGift]=useState<any>(null);

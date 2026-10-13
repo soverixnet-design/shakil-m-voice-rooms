@@ -1,8 +1,9 @@
+import {onSnapshot,runTransaction} from './lib/reliableFirestore';
 import {LanguagePicker} from './i18n/LanguagePicker';
 import React, {useEffect,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {auth,db,googleProvider,onAuthStateChanged,signInWithPopup,signOut} from './firebase';
-import {collection,doc,onSnapshot,runTransaction,serverTimestamp} from 'firebase/firestore';
+import {collection,doc,serverTimestamp} from 'firebase/firestore';
 import {AdminExtensions,useAccess} from './components/AdminExtensions';
 import {AdminPanel} from './components/AdminPanel';
 import {DEFAULT_CUSTOM_GIFTS} from './admin-defaults';

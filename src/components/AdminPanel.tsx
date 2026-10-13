@@ -1,6 +1,7 @@
+import {onSnapshot,runTransaction,writeBatch} from '../lib/reliableFirestore';
 import {ServerStatus} from '../design/ServerStatus';
 import { db, doc, collection } from '../firebase';
-import { onSnapshot, runTransaction, writeBatch } from 'firebase/firestore';
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldCheck,

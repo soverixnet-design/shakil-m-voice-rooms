@@ -1,5 +1,6 @@
+import {limit,onSnapshot,orderBy,query} from '../lib/reliableFirestore';
 import React,{useEffect,useRef,useState} from 'react';
-import {collection,limit,onSnapshot,orderBy,query} from 'firebase/firestore';
+import {collection} from 'firebase/firestore';
 import {giftFlightOffset} from '../lib/giftFlight';
 import {auth,db} from '../firebase';
 export function RoomGiftFlights({roomId,onGift}:{roomId:string;onGift:(event:any)=>void}){

@@ -1,5 +1,6 @@
+import {onSnapshot,query,where} from '../lib/reliableFirestore';
 import React,{useEffect,useState} from 'react';
-import {collection,doc,onSnapshot,query,where} from 'firebase/firestore';
+import {collection,doc} from 'firebase/firestore';
 import {db} from '../firebase';
 import {MediaAvatar} from '../components/MediaAssets';
 export function RoomEntryCard({room,onEnter,onClose}:{room:any;onEnter:(seat:number|null)=>void;onClose:()=>void}){

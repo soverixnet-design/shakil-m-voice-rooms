@@ -1,5 +1,6 @@
+import {onSnapshot} from '../lib/reliableFirestore';
 import React,{useEffect,useState} from 'react';
-import {doc,onSnapshot} from 'firebase/firestore';
+import {doc} from 'firebase/firestore';
 import {db} from '../firebase';
 import fallback from '../../game-server-config.json';
 import {gameServerUrl} from '../lib/gameServerUrl';

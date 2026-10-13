@@ -84,3 +84,14 @@ do $$ declare t text; begin
  end loop;
 end $$;
 grant usage on schema earnbd to service_role;
+
+-- Firebase-compatible social data: backend access only.
+create table if not exists earnbd.social_documents (
+ path text primary key, parent text not null, document_id text not null,
+ fields jsonb not null, version bigint not null default 1,
+ updated_at timestamptz not null default now()
+);
+create index if not exists social_documents_parent_idx on earnbd.social_documents(parent,document_id);
+alter table earnbd.social_documents enable row level security;
+revoke all on table earnbd.social_documents from public,anon,authenticated;
+grant select,insert,update,delete on table earnbd.social_documents to service_role;

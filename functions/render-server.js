@@ -1,4 +1,7 @@
 import {createSupabaseDatabase} from './supabase-database.js';
+import {migrateSocialData} from './social-migration.js';
+import {createSocialService} from './social-service.js';
+import {createSocialWalletStore} from './social-wallet-store.js';
 import {createAccountService} from './account-service.js';
 import {readFileSync} from 'node:fs';
 import {initializeApp,cert} from 'firebase-admin/app';
@@ -8,7 +11,7 @@ import {createWalletService} from './wallet-service.js';
 import {createGameService} from './service.js';
 import {createGameHttpServer} from './http-server.js';
 const PROJECT='gen-lang-client-0043151803',DATABASE='ai-studio-22dd0b7a-14da-47df-9bc8-d4b58ab5ab0b';
-let service,verifyToken,database,serverApp,ready=false;
+let service,verifyToken,database,serverApp,socialDatabase,ready=false;
 try{
  const source=process.env.FIREBASE_SERVICE_ACCOUNT_JSON||readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS||'/etc/secrets/firebase-service-account.json','utf8');
  const account=JSON.parse(source);
@@ -19,6 +22,7 @@ try{
 const origins=(process.env.ALLOWED_ORIGINS||'https://earnbd.work,https://www.earnbd.work,https://soverixnet-design.github.io').split(',').map(v=>v.trim()).filter(Boolean);
 let lastWriteCheck=0,writeError;
 async function checkDatabase(){
+ if(socialDatabase){await socialDatabase.pool.query('select 1');return;}
  await database.doc('system/gameServer').get();
  if(Date.now()-lastWriteCheck>(writeError?30000:900000)){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),4500);
@@ -29,9 +33,16 @@ async function checkDatabase(){
 const server=createGameHttpServer({service,verifyToken,origins,ready,voiceRelayConfigured:Boolean(process.env.TURN_SHARED_SECRET&&process.env.TURN_URLS),checkReady:checkDatabase});
 if(process.env.SUPABASE_DATABASE_URL){
  let probe;
- try{probe=createSupabaseDatabase();await probe.check();console.log('Supabase connection verified; game services still use Firebase.');}
+ try{probe=createSupabaseDatabase();await probe.check();
+  if(ready){const migration=await migrateSocialData(database,probe);Object.assign(service,createWalletService(createSocialWalletStore(probe,database)),createSocialService(probe));socialDatabase=probe;
+  // Keep the old game ledger untouched during the social database cutover.
+  // No new stakes or settlements may mutate the old balances after this copy.
+  const disabledGame=async()=>{throw Object.assign(Error('game-ledger-not-migrated'),{code:'unavailable'});};
+  service.bet=disabledGame;service.sync=disabledGame;service.sweep=async()=>{};
+  console.log('Supabase social migration:',JSON.stringify(migration));}
+  console.log('Supabase connection verified; profiles and voice rooms use Supabase when migration is complete.');}
  catch(error){const reasons={'28P01':'authentication-failed','3D000':'database-not-found','ENOTFOUND':'host-not-found','ETIMEDOUT':'connection-timeout','supabase-schema-incomplete':'schema-incomplete','wrong-supabase-project':'wrong-project','invalid-supabase-connection':'invalid-connection'};console.error('Supabase startup check failed:',reasons[error.code]||reasons[error.message]||(/^[A-Z0-9_]{2,64}$/.test(String(error.code))?error.code:'connection-failed'));}
- finally{if(probe)await probe.close();}
+ finally{if(probe&&probe!==socialDatabase)await probe.close();}
 }
 const port=Number(process.env.PORT||10000);server.listen(port,'0.0.0.0',()=>console.log(`EarnBD game server listening on port ${port}; ${ready?'configured':'setup required'}`));
 let sweeping=false;

@@ -1,5 +1,6 @@
+import {onSnapshot} from '../lib/reliableFirestore';
 import React,{useEffect,useRef,useState} from 'react';
-import {doc,onSnapshot} from 'firebase/firestore';
+import {doc} from 'firebase/firestore';
 import {auth,db} from '../firebase';
 import {walletApi} from '../lib/walletApi';
 import {useLanguage} from '../i18n/LanguagePicker';

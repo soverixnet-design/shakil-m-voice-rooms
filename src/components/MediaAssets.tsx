@@ -1,5 +1,6 @@
+import {onSnapshot,updateDoc} from '../lib/reliableFirestore';
 import React,{useEffect,useState} from 'react';
-import {collection,doc,onSnapshot,updateDoc} from 'firebase/firestore';
+import {collection,doc} from 'firebase/firestore';
 import {db} from '../firebase';
 export const useMediaAssets=()=>{const [items,setItems]=useState<any[]>([]);useEffect(()=>onSnapshot(collection(db,'assets'),s=>setItems(s.docs.map(d=>({...d.data(),id:d.id})).filter((a:any)=>a.active&&/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]*={0,2}$/.test(a.image||''))),()=>setItems([])),[]);return items};
 export function AssetShop({kind,user,items}:{kind:'frame'|'entry';user:any;items:any[]}){

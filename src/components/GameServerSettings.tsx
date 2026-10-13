@@ -1,5 +1,6 @@
+import {onSnapshot,setDoc} from '../lib/reliableFirestore';
 import React,{useEffect,useState} from 'react';
-import {doc,onSnapshot,setDoc,serverTimestamp} from 'firebase/firestore';
+import {doc,serverTimestamp} from 'firebase/firestore';
 import {auth,db} from '../firebase';
 import {gameServerUrl} from '../lib/gameServerUrl';
 export function GameServerSettings(){const [url,setUrl]=useState(''),[status,setStatus]=useState(''),[busy,setBusy]=useState(false);const user=auth.currentUser;

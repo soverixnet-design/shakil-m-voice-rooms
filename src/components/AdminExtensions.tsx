@@ -1,9 +1,10 @@
+import {onSnapshot,query,where,getDocs,runTransaction,setDoc,deleteDoc,writeBatch} from '../lib/reliableFirestore';
 import {GameServerSettings} from './GameServerSettings';
 import React,{useEffect,useRef,useState} from 'react';
 import rulesSource from '../../firestore.rules?raw';
 import firebaseConfig from '../../firebase-applet-config.json';
 import {auth,db} from '../firebase';
-import {collection,doc,onSnapshot,query,where,getDocs,runTransaction,setDoc,deleteDoc,writeBatch,serverTimestamp} from 'firebase/firestore';
+import {collection,doc,serverTimestamp} from 'firebase/firestore';
 export const owner=(u:any)=>Boolean(u?.emailVerified&&u.email?.toLowerCase()==='yfastvpn@gmail.com');
 export const useAccess=(user:any)=>{const [access,setAccess]=useState<any>(null);useEffect(()=>{setAccess(null);if(!user)return;return onSnapshot(doc(db,'admins',user.uid),s=>setAccess(s.data()||{}),()=>setAccess({}))},[user?.uid]);return access};
 export async function galleryImage(file:File):Promise<string>{
