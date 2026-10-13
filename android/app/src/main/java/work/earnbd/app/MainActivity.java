@@ -40,7 +40,7 @@ public class MainActivity extends Activity {
   setContentView(root);
   WebSettings settings=web.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true); settings.setMediaPlaybackRequiresUserGesture(false);
   settings.setAllowFileAccess(false); settings.setAllowContentAccess(true); settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.1");
+  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.2");
   CookieManager.getInstance().setAcceptCookie(true);
   web.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
@@ -70,7 +70,7 @@ public class MainActivity extends Activity {
    @Override public boolean onShowFileChooser(WebView view,ValueCallback<Uri[]> callback,FileChooserParams params){
     if(!trusted(Uri.parse(view.getUrl()==null?"":view.getUrl()))){callback.onReceiveValue(null);return true;}
     if(uploadCallback!=null)uploadCallback.onReceiveValue(null);uploadCallback=callback;
-    Intent pick=new Intent(Intent.ACTION_GET_CONTENT);pick.setType("image/*");pick.addCategory(Intent.CATEGORY_OPENABLE);
+    Intent pick=new Intent(Intent.ACTION_GET_CONTENT);pick.setType("image/*");pick.addCategory(Intent.CATEGORY_OPENABLE);pick.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,params.getMode()==FileChooserParams.MODE_OPEN_MULTIPLE);
     try{startActivityForResult(Intent.createChooser(pick,"ছবি নির্বাচন করুন"),UPLOAD);}catch(android.content.ActivityNotFoundException e){uploadCallback.onReceiveValue(null);uploadCallback=null;}
     return true;
    }
@@ -84,7 +84,7 @@ public class MainActivity extends Activity {
    if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED&&trusted(request.getOrigin())&&trusted(Uri.parse(web.getUrl()==null?"":web.getUrl())))request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});else request.deny();
   }
  }
- @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){super.onActivityResult(requestCode,resultCode,data);if(requestCode==UPLOAD&&uploadCallback!=null){uploadCallback.onReceiveValue(resultCode==RESULT_OK&&data!=null&&data.getData()!=null?new Uri[]{data.getData()}:null);uploadCallback=null;}}
+ @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){super.onActivityResult(requestCode,resultCode,data);if(requestCode==UPLOAD&&uploadCallback!=null){Uri[] selected=null;if(resultCode==RESULT_OK&&data!=null){if(data.getClipData()!=null){int count=data.getClipData().getItemCount();selected=new Uri[count];for(int i=0;i<count;i++)selected[i]=data.getClipData().getItemAt(i).getUri();}else if(data.getData()!=null)selected=new Uri[]{data.getData()};}uploadCallback.onReceiveValue(selected);uploadCallback=null;}}
  @Override protected void onSaveInstanceState(Bundle out){web.saveState(out);super.onSaveInstanceState(out);}
  @Override public void onBackPressed(){if(web.canGoBack())web.goBack();else new AlertDialog.Builder(this).setMessage("EarnBD বন্ধ করবেন?").setNegativeButton("থাকুন",null).setPositiveButton("বন্ধ করুন",(d,w)->finish()).show();}
  @Override protected void onDestroy(){if(microphoneRequest!=null)microphoneRequest.deny();if(uploadCallback!=null)uploadCallback.onReceiveValue(null);if(web!=null){web.stopLoading();web.destroy();}super.onDestroy();}

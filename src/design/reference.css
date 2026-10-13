@@ -22,3 +22,22 @@ body:has(.admin-portal) #root{max-width:1200px}#app.admin-portal{overflow-y:auto
 .server-diagnostic{font-size:11px;line-height:1.6;margin:8px 16px;padding:10px 12px;background:#371120aa;color:#FFE0A0;border:1px solid #F5C45155;border-radius:14px;overflow-wrap:anywhere}.auth-form .auth-password-hint{font-size:11px}
 
 .event-rank > span.relative{flex:0 0 auto}.event-rank > span:not(.relative){min-width:0;overflow-wrap:anywhere}
+
+/* Compact mobile room layout and consistent round uploaded photos. */
+.reference-room{height:100%;padding-top:env(safe-area-inset-top,0);padding-bottom:0}
+.reference-room::before,.reference-room::after{content:none}
+.reference-room .room-reference-header{padding:10px 12px 0;flex-shrink:0}
+.reference-room .room-header-line{margin-bottom:8px}
+.reference-room .room-stage{min-height:0;overscroll-behavior:contain}
+.reference-room .room-title-pill img,.ref-room-row .ref-avatar{border-radius:50%}
+.reference-room .sg3{margin:8px 0 16px!important;gap:16px 6px}
+.reference-room .room-bottom-controls{padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));background:#160e2de6}
+.room-voice-status summary,.ref-home-extras summary{cursor:pointer;min-height:36px;display:flex;align-items:center;font-size:12px}
+.ref-home-extras{margin-top:24px;padding:12px;border-radius:18px;background:#ede3ff}
+.screen-rooms .ref-hero{margin:6px 16px 12px}.screen-rooms .ref-hero h1{font-size:19px}.screen-rooms .ref-hero>span{font-size:28px}
+.screen-rooms .ref-top-tabs{padding-top:10px}.screen-rooms .ref-surface{padding-top:8px}
+.ref-room-cover{background:linear-gradient(145deg,#ebe1ff,#c1a0eb)!important}
+.ref-room-cover img{border-radius:50%;object-fit:cover;aspect-ratio:1}
+.ref-nav{padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+
+.reference-room .seat-availability[hidden]{display:none}

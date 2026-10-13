@@ -196,7 +196,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   };
 
   const [chatBusy,setChatBusy]=useState(false);
-  useEffect(()=>{if(!auth.currentUser)return;return onSnapshot(query(collection(db,'rooms',room.id,'chat'),orderBy('createdAt','desc'),limit(100)),snapshot=>{const messages=snapshot.docs.map(d=>({id:d.id,type:'chat' as const,text:String(d.data().text||''),sender:String(d.data().senderName||'ইউজার')})).reverse();setChatMessages(previous=>[...previous.filter(m=>m.type!=='chat'),...messages])},()=>setSeatError('চ্যাট লোড হয়নি। নতুন Rules প্রকাশ করুন।'))},[room.id]);
+  useEffect(()=>{if(!auth.currentUser)return;return onSnapshot(query(collection(db,'rooms',room.id,'chat'),orderBy('createdAt','desc'),limit(100)),snapshot=>{const messages=snapshot.docs.map(d=>({id:d.id,type:'chat' as const,text:String(d.data().text||''),sender:String(d.data().senderName||'ইউজার')})).reverse();setChatMessages(previous=>[...previous.filter(m=>m.type!=='chat'),...messages])},()=>setSeatError('চ্যাট সংযোগ পাওয়া যাচ্ছে না। আবার চেষ্টা করুন।'))},[room.id]);
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if(chatBusy||!auth.currentUser||!inputText.trim()||roomControls[myUid]?.blocked)return;
@@ -250,7 +250,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   return (
     <div className="rv reference-room fixed inset-0 z-40 flex flex-col justify-between overflow-hidden select-none pt-safe pb-safe" style={{background:roomThemes[Number(room.th||0)%4]}}>
       <header className="room-reference-header relative z-10">
-        <div className="room-header-line"><button className="room-title-pill" onClick={()=>setRoomProfileOpen(true)}><MediaAvatar avatar={room.photoURL||room.cv} size={42}/><span><b>{room.name}</b><small>ID: {(room as any).publicId||room.id}</small></span></button><div className="room-header-actions"><button title="অডিও চালু/বন্ধ" onClick={()=>{voice.unlock();setIsRoomSoundOn(!isRoomSoundOn)}}>{isRoomSoundOn?'🔊':'🔇'}</button><button title="রুম মিনিমাইজ" onClick={onMinimize}>⌄</button><button title="রুম থেকে ফিরুন" onClick={()=>setShowExitConfirm(true)}>✕</button></div></div>
+        <div className="room-header-line"><button className="room-title-pill" onClick={()=>setRoomProfileOpen(true)}><MediaAvatar avatar={room.photoURL||room.cv} size={42}/><span><b>{room.name}</b><small>রুমের তথ্য দেখুন ›</small></span></button><div className="room-header-actions"><button title="অডিও চালু/বন্ধ" onClick={()=>{voice.unlock();setIsRoomSoundOn(!isRoomSoundOn)}}>{isRoomSoundOn?'🔊':'🔇'}</button><button title="রুম মিনিমাইজ" onClick={onMinimize}>⌄</button><button title="রুম থেকে ফিরুন" onClick={()=>setShowExitConfirm(true)}>✕</button></div></div>
         <div className="room-header-line"><button className="room-value-pill" onClick={()=>setRoomProfileOpen(true)}>🏆 {roomCoinTotal.toLocaleString()} ›</button><div className="room-header-members">{liveMembers.slice(0,2).map(m=><button key={m.uid} onClick={()=>onOpenUsers(m.uid)}><MediaAvatar avatar={m.avatar} size={30}/></button>)}<button onClick={()=>setRoomProfileOpen(true)}>{liveMembers.length} জন</button><button title="রুমের আরও অপশন" onClick={()=>setMoreOpen(true)}>⋯</button></div></div>
       </header>
 
@@ -277,14 +277,14 @@ export const VoiceRoomView: React.FC<Props> = ({
                 <div className="nm3" style={{ color: isUserSeatedHere ? 'var(--t)' : '#fff' }}>
                   {seat ? `${seat.name}${seat.uid===room.hostId?' · মালিক':roomRoles[seat.uid]?.role==='admin'?' · অ্যাডমিন':''}` : `${lockedSeats.includes(idx)?'🔒':'মাইক'} ${idx + 1}`} 
                 </div>
-                <small className={"seat-availability "+(seatPolicyReady?lockedSeats.includes(idx)?'locked':'unlocked':'checking')}>{!seatPolicyReady?'Checking…':lockedSeats.includes(idx)?'🔒 Locked':'🔓 Unlocked'}</small><span className="sc3">🪙 {isUserSeatedHere ? Number((user as any).giftReceivedCoins || 0).toLocaleString() : Number(seat?.giftReceivedCoins||0).toLocaleString()}</span>
+                <small hidden={seatPolicyReady&&!lockedSeats.includes(idx)} className={"seat-availability "+(seatPolicyReady?lockedSeats.includes(idx)?'locked':'unlocked':'checking')}>{!seatPolicyReady?'Checking…':lockedSeats.includes(idx)?'🔒 Locked':'🔓 Unlocked'}</small><span className="sc3">🪙 {isUserSeatedHere ? Number((user as any).giftReceivedCoins || 0).toLocaleString() : Number(seat?.giftReceivedCoins||0).toLocaleString()}</span>
               </div>
             );
           })}
         </div>
 
         {voice.audioBlocked&&<button className="b mx-3" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে এখানে চাপুন</button>}
-        <details className="relative z-20 mx-3"><summary className="b">🏆 ইভেন্ট ও পুরস্কার</summary><EventCenter/></details><div className="room-utility-row"><LanguagePicker/><div className="room-voice-status"><strong>🎙️ ভয়েস সংযোগ</strong><p className="text-xs text-cyan-300" role="status">{roomReady?voice.status:'রুমের সংযোগ তৈরি হচ্ছে…'}</p><p className="text-xs" data-no-translate>Mic: {Math.round(voice.micLevel*100)}% · Remote audio: {voice.remoteAudioCount} · {voice.connectionState}</p><button className="b" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে অডিও চালু করুন</button><button className="b" onClick={()=>void voice.reconnect()}>↻ ভয়েস আবার সংযোগ করুন</button></div><button className="back-card" onClick={()=>void followRoom()}>{isFollowed?"♥ রুম ফলো করা আছে":"♡ রুম ফলো করুন"}</button>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}</div>
+        <details className="relative z-20 mx-3"><summary className="b">🏆 ইভেন্ট ও পুরস্কার</summary><EventCenter/></details><div className="room-utility-row"><LanguagePicker/><details className="room-voice-status"><summary>🎙️ ভয়েস সংযোগ ও সহায়তা</summary><p className="text-xs text-cyan-300" role="status">{roomReady?voice.status:'রুমের সংযোগ তৈরি হচ্ছে…'}</p><p className="text-xs" data-no-translate>Mic: {Math.round(voice.micLevel*100)}% · Remote audio: {voice.remoteAudioCount} · {voice.connectionState}</p><button className="b" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে অডিও চালু করুন</button><button className="b" onClick={()=>void voice.reconnect()}>↻ ভয়েস আবার সংযোগ করুন</button></details><button className="back-card" onClick={()=>void followRoom()}>{isFollowed?"♥ রুম ফলো করা আছে":"♡ রুম ফলো করুন"}</button>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}</div>
         {/* Live Chat Container (.ct3, .ctb, #ch3) */}
         <div className="ct3" style={{ maxHeight: '170px', background: 'rgba(0,0,0,0.5)', borderRadius: '20px', padding: '8px 10px', border: '1px solid rgba(255,255,255,0.1)' }}>
           {/* Tabs */}
