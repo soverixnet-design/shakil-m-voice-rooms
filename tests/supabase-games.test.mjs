@@ -36,3 +36,9 @@ test('Supabase account adapter supports transactional query and create without F
  assert.equal((await store.doc('userPublicIds/123').get()).data().uid,'sender');
  await assert.rejects(store.runTransaction(t=>t.create(store.doc('userPublicIds/123'),{uid:'receiver'})),/already-exists/);
 });
+
+test('sync timestamps include the final balance database read so database delay is not counted as network latency',async()=>{
+ const {store,put}=fixture();put('users/sender',{name:'Sender',id:'111',coins:100000,status:'active'});let now=320000,reads=0;const original=store.doc;
+ const delayed={...store,doc(path){const ref=original(path);if(path==='users/sender'){const get=ref.get;return {...ref,get:async()=>{const result=await get();if(++reads===2)now+=4000;return result}}}return ref}};
+ const result=await createGameService(delayed,()=>now).sync('lion_wheel','sender');assert.equal(result.serverNow,now);assert.equal(result.serverNow-result.serverReceivedAt,4000);
+});
