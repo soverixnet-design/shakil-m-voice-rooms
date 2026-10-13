@@ -41,3 +41,19 @@ body:has(.admin-portal) #root{max-width:1200px}#app.admin-portal{overflow-y:auto
 .ref-nav{padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))}
 
 .reference-room .seat-availability[hidden]{display:none}
+
+/* Profile editing has its own screen instead of inheriting the home layout. */
+#app:has(.profile-edit-page)>#hd,#app:has(.profile-edit-page)>#main,#app:has(.profile-edit-page)>#nav{display:none}
+#pg.profile-edit-page{position:absolute;inset:0;z-index:60;display:flex;flex-direction:column;min-height:0;background:#f6f3fb!important;color:#2a1a52;padding-top:env(safe-area-inset-top,0)}
+.profile-edit-page>.row:first-child{flex-shrink:0;min-height:64px;background:linear-gradient(110deg,#703be4,#9370f5);gap:12px}
+.profile-edit-page>.row:first-child .ib{min-width:44px;min-height:44px;border-radius:50%}
+.profile-edit-page>div:last-child{min-height:0;overscroll-behavior:contain;padding:20px 18px calc(28px + env(safe-area-inset-bottom,0px))!important}
+.profile-edit-form{max-width:420px;margin:auto;color:#2a1a52}
+.profile-edit-form>label{display:block;font-weight:700;font-size:14px;margin:20px 0 8px}
+.profile-edit-form .in{min-height:48px;border-radius:16px;padding:12px 14px}
+.profile-edit-form>.b{min-height:48px;margin-bottom:12px}
+.profile-edit-form>div:first-child{text-align:center;margin-bottom:16px}
+.profile-edit-form .back-card{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;background:#ede3ff;color:#6030a0;border:1px solid #d3c0ec;border-radius:14px;font-size:13px}
+.profile-avatar-options{margin:18px 0 8px;border:1px solid #ddd0ee;background:#fff;border-radius:16px;padding:10px 12px}
+.profile-avatar-options summary{font-size:13px;cursor:pointer;color:#6a3bd0;min-height:30px}
+.profile-avatar-options .chips{flex-wrap:wrap;gap:8px;margin-top:10px}

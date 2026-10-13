@@ -598,7 +598,7 @@ export default function App() {
       {isAuthenticated&&!activePage&&(!activeRoom||isRoomMinimized)&&(!activeGame||isGameMinimized)&&!showCreateRoomModal&&!splashVisible&&<ReferenceLobby state={S} screen={lobbyScreen} roomLibrary={roomLibrary} myRoom={S.rooms.find((r:any)=>r.hostId===fbUser?.uid)} media={mediaAssets} admin={isSuperAdmin} seller={Boolean(delegatedAccess?.active&&delegatedAccess.permissions?.seller)} onScreen={screen=>{const next=screen==='wallet'?'wallet':screen==='messages'?'msg':screen==='games'?'explore':screen==='moments'?'moments':'home';if(tab!==next)lobbyNavigation.current=true;setTab(next);setLobbyScreen(screen)}} onAction={(action,value)=>{
         if(action==='users'){setGiftRecipient(undefined);setShowUserDirectory(true)}
         if(action==='logout')handleLogout();
-        if(action==='page'&&value){if(value==='admin'&&!isSuperAdmin)return;setActivePage(value)}
+        if(action==='page'&&value){if(value==='admin'&&!isSuperAdmin)return;if(value==='edit_profile'){setEditName(S.name||'');setEditBio(S.bio||'');setEditCountry(S.country||'');}setActivePage(value)}
         if(action==='create-room'){const own=S.rooms.find((r:any)=>r.hostId===fbUser?.uid);if(own)void enterRoom(own);else setShowCreateRoomModal(true)}
         if(action==='room'){const room=S.rooms.find((r:any)=>String(r.id)===value);if(room)void enterRoom(room)}
         if(action==='game'&&['greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots'].includes(value||'')){setActiveGame(value!);setIsGameMinimized(false)}
@@ -1245,9 +1245,9 @@ export default function App() {
 
       {/* 5. Subpage Views (#pg) */}
       {activePage && (
-        <div id="pg" className={activePage==='admin'?'on':'on reference-subpage'}>
+        <div id="pg" className={activePage==='admin'?'on':`on reference-subpage ${activePage==='edit_profile'?'profile-edit-page':''}`}>
           <div className="row" style={{ padding: '12px 14px' }}>
-            <button className="ib" onClick={() => setActivePage(null)}>
+            <button className="ib" aria-label="ফিরে যান" onClick={() => setActivePage(null)}>
               ‹
             </button>
             <b className="sp">
@@ -1449,7 +1449,7 @@ export default function App() {
 
             {/* SUBPAGE: EDIT PROFILE */}
             {activePage === 'edit_profile' && (
-              <>
+              <section className="profile-edit-form" aria-label="প্রোফাইল এডিট">
                 <ProfilePhotoEditor onSaved={image=>setS((prev:any)=>({...prev,img:image}))}/>
                 <div style={{ textAlign: 'center', margin: '10px 0' }}>
                   <div
@@ -1458,10 +1458,10 @@ export default function App() {
                   >
                     <div>{S.img ? <img src={S.img} alt="Av" /> : S.av}</div>
                   </div>
-                  <div className="sm" style={{ marginTop: '6px' }}>ইমোজি থেকে অবতার বেছে নিন:</div>
+
                 </div>
 
-                <div className="chips" style={{ justifyContent: 'center' }}>
+                <details className="profile-avatar-options"><summary>ইমোজি অবতার বেছে নিন</summary><div className="chips" style={{ justifyContent: 'center' }}>
                   {['😎', '🙂', '🥳', '🤩', '😇', '🦁', '🐯', '👑'].map(e => (
                     <span
                       key={e}
@@ -1474,17 +1474,17 @@ export default function App() {
                   ))}
                 </div>
 
-                <h3>নাম</h3>
+                </details><label htmlFor="profile-edit-name">নাম</label>
                 <input
-                  className="in"
+                  id="profile-edit-name" className="in"
                   value={editName}
                   onChange={e => setEditName(e.target.value)}
                   style={{ width: '100%' }}
                 />
 
-                <h3>দেশ</h3>
+                <label htmlFor="profile-edit-country">দেশ</label>
                 <select
-                  className="in"
+                  id="profile-edit-country" className="in"
                   value={editCountry}
                   onChange={e => setEditCountry(e.target.value)}
                   style={{ width: '100%' }}
@@ -1494,9 +1494,9 @@ export default function App() {
                   ))}
                 </select>
 
-                <h3>বায়ো</h3>
+                <label htmlFor="profile-edit-bio">বায়ো</label>
                 <input
-                  className="in"
+                  id="profile-edit-bio" className="in"
                   value={editBio}
                   onChange={e => setEditBio(e.target.value)}
                   placeholder="নিজের সম্পর্কে লিখুন"
@@ -1506,7 +1506,7 @@ export default function App() {
                 <button className="b t" style={{ width: '100%', marginTop: '16px' }} onClick={handleEditProfileSave}>
                   সেভ করুন
                 </button>
-              </>
+              </section>
             )}
 
             {/* SUBPAGE: FRAMES (All 18 frames) */}
@@ -2359,7 +2359,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => {
-                    
+  
                     setActiveGame(null);
                     setIsGameMinimized(false);
                     toast('রুমে ফিরে এসেছেন');
