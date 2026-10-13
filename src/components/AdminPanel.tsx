@@ -1,4 +1,4 @@
-import {useMediaAssets} from './MediaAssets';
+import {useMediaAssets,MediaAvatar} from './MediaAssets';
 import {EventCenter} from './EventCenter';
 import {onSnapshot,runTransaction,writeBatch} from '../lib/reliableFirestore';
 import {ServerStatus} from '../design/ServerStatus';
@@ -665,7 +665,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="p-3 bg-gradient-to-r from-amber-950/40 via-purple-950/40 to-slate-900 border-2 border-amber-400/40 rounded-2xl flex items-center justify-between shadow-lg">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-2xl">
-                {appState.av}
+                <MediaAvatar avatar={appState.av} size={40}/>
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
@@ -725,7 +725,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     {/* User Info Line */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <span className="text-2xl p-1 bg-white/5 rounded-xl">{u.av}</span>
+                        <span className="p-1 bg-white/5 rounded-xl"><MediaAvatar avatar={u.av} size={32}/></span>
                         <div>
                           <div className="flex items-center gap-1.5">
                             <b className="text-white text-xs">{u.name}</b>
@@ -1064,7 +1064,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {/* Current Admin Card */}
           <div className="p-3 bg-black/40 border border-amber-400/30 rounded-2xl flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <span className="text-3xl">{appState.av}</span>
+              <span className="text-3xl"><MediaAvatar avatar={appState.av} size={40}/></span>
               <div>
                 <b className="text-white text-xs block">{appState.name} (আপনি)</b>
                 <span className="text-[10px] text-amber-300 font-bold">আইডি: {appState.id} · SVIP {appState.svip}</span>
