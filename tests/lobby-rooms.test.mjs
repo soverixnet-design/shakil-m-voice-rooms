@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {roomFlag,visibleRooms} from '../src/lib/lobbyRooms.ts';
+test('country room filters use saved flags and do not invent a country',()=>{const rooms=[{id:'a',flag:'🇧🇩'},{id:'b',country:'🇹🇷 Turkey'},{id:'c'}];assert.equal(roomFlag(rooms[1]),'🇹🇷');assert.equal(roomFlag(rooms[2]),'🌐');assert.equal(visibleRooms(rooms,'all').length,3);assert.deepEqual(visibleRooms(rooms,'🇧🇩').map(r=>r.id),['a']);});

@@ -28,6 +28,20 @@ export function eventRanking(event,gifts,games,users,rooms){
  }
  return [...scores.values()].map(row=>{const room=event.type.startsWith('top_room_')?rooms.get(row.id):null;const uid=room?.hostId||(!event.type.startsWith('top_room_')?row.id:null),user=users.get(uid);return {...row,uid,name:room?.name||user?.name||'User',publicId:user?.id||'',avatar:room?.photoURL||user?.photoURL||user?.avatar||'👤',eligible:validUser(user)};}).filter(r=>r.eligible).sort((a,b)=>b.score-a.score||a.firstAt-b.firstAt||a.id.localeCompare(b.id)).map((r,index)=>({...r,rank:index+1,reward:event.rewards[index]||0}));
 }
+export function rankingWindow(period,now){
+ const d=new Date(now);d.setUTCHours(0,0,0,0);
+ if(period==='weekly')d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));
+ else if(period==='monthly')d.setUTCDate(1);
+ else if(period!=='daily')fail('invalid-ranking-period');
+ return {startAt:d.getTime(),endAt:now+1};
+}
+export function pairRanking(event,gifts,users){
+ const pairs=new Map();for(const row of gifts){const time=typeof row.createdAt==='string'?Date.parse(row.createdAt):Number(row.createdAt);
+ if(row.type!=='gift_sent'||!Number.isFinite(time)||time<event.startAt||time>=event.endAt||row.senderId===row.receiverId||!validUser(users.get(row.senderId))||!validUser(users.get(row.receiverId))||!Number.isSafeInteger(row.cost)||row.cost<=0)continue;
+ const ids=[row.senderId,row.receiverId].sort(),id=JSON.stringify(ids);const previous=pairs.get(id)||{id,ids,score:0,firstAt:time};previous.score+=row.cost;previous.firstAt=Math.min(previous.firstAt,time);if(!Number.isSafeInteger(previous.score))fail('invalid-event-score');pairs.set(id,previous);
+ }
+ return [...pairs.values()].sort((a,b)=>b.score-a.score||a.firstAt-b.firstAt||a.id.localeCompare(b.id)).slice(0,100).map((row,i)=>({id:row.id,score:row.score,rank:i+1,members:row.ids.map(uid=>{const u=users.get(uid);return {uid,name:u.name||'User',publicId:u.id||'',avatar:u.photoURL||u.avatar||'👤'};})}));
+}
 export function createEventService(database,clock=Date.now){
  const read=async(client,path)=>(await client.query('select fields from earnbd.social_documents where path=$1',[path])).rows[0];
  const put=async(client,path,data)=>{const parts=path.split('/'),id=parts.pop(),parent=parts.join('/');await client.query('insert into earnbd.social_documents(path,parent,document_id,fields) values($1,$2,$3,$4::jsonb) on conflict(path) do update set fields=excluded.fields,version=social_documents.version+1,updated_at=now()',[path,parent,id,JSON.stringify(encodeFields(data))]);};
@@ -36,7 +50,7 @@ export function createEventService(database,clock=Date.now){
   const rows=(await client.query("select fields from earnbd.social_documents where parent=$1 and coalesce((fields->'roundStartAt'->>'integerValue')::numeric,(fields->'createdAt'->>'integerValue')::numeric,extract(epoch from (fields->'createdAt'->>'timestampValue')::timestamptz)*1000) >= $2 and coalesce((fields->'roundStartAt'->>'integerValue')::numeric,(fields->'createdAt'->>'integerValue')::numeric,extract(epoch from (fields->'createdAt'->>'timestampValue')::timestamptz)*1000) < $3",[parent,event.startAt,event.endAt])).rows.map(r=>decodeFields(r.fields));
   const profiles=(await client.query("select parent,document_id,fields from earnbd.social_documents where parent=any($1::text[])",[['users','rooms']])).rows;
   const users=new Map(),rooms=new Map();for(const r of profiles){const value=decodeFields(r.fields);if(r.parent==='users')users.set(r.document_id,value);else if(r.parent==='rooms')rooms.set(r.document_id,value);}
-  return eventRanking(event,gaming?[]:rows,gaming?rows:[],users,rooms);
+  return event.type==='top_cp'?pairRanking(event,rows,users):eventRanking(event,gaming?[]:rows,gaming?rows:[],users,rooms);
  }
  async function events(data,identity){
   return database.transaction(async client=>{
@@ -44,6 +58,12 @@ export function createEventService(database,clock=Date.now){
    const grant=decodeFields((await read(client,'admins/'+identity.uid))?.fields);
    const owner=identity.email_verified===true&&identity.email?.toLowerCase()===OWNER;
    const manage=owner||Boolean(grant.active&&grant.permissions?.events);
+   if(data.action==='rankings'){
+    const kind=data.kind||'sending';if(!['sending','receiving','cp'].includes(kind))fail('invalid-ranking-kind');
+    const period=data.period||'weekly',window=rankingWindow(period,clock());
+    const rows=await ranking(client,{...window,type:kind==='cp'?'top_cp':kind==='receiving'?'top_receiver':'top_sender',rewards:[]});
+    return {kind,period,...window,rows:rows.slice(0,100),serverNow:clock()};
+   }
    if(data.action==='create'){
     if(!manage)throw Object.assign(Error('permission-denied'),{code:'permission-denied'});
     const event=validateEvent(data.event,0),fingerprint=createHash('sha256').update(JSON.stringify(event)).digest('hex');

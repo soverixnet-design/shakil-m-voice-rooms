@@ -2508,7 +2508,7 @@ export default function App() {
                     th: newRoomTheme,
                     d: 0,
                     n: 1,
-                    flag: S.country === 'সৌদি' ? '🇸🇦' : S.country === 'ভারত' ? '🇮🇳' : '🇧🇩',
+                    flag: String(S.country||'').match(/\p{Regional_Indicator}{2}/u)?.[0]||'🌐',
                     tag: newRoomTag.trim() || 'আড্ডা',
                     ann: newRoomAnn.trim() || 'স্বাগতম! সবাই মিলে আড্ডা দিই 🎉',
                     sc: newRoomSeatCount,
