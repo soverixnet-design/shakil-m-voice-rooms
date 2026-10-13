@@ -42,3 +42,8 @@ test('sync timestamps include the final balance database read so database delay 
  const delayed={...store,doc(path){const ref=original(path);if(path==='users/sender'){const get=ref.get;return {...ref,get:async()=>{const result=await get();if(++reads===2)now+=4000;return result}}}return ref}};
  const result=await createGameService(delayed,()=>now).sync('lion_wheel','sender');assert.equal(result.serverNow,now);assert.equal(result.serverNow-result.serverReceivedAt,4000);
 });
+
+test('polling during betting creates shared round once and skips premature reveal transactions',async()=>{
+ const {store,put}=fixture();put('users/sender',{name:'Sender',id:'111',coins:100000,status:'active'});let roundWrites=0;const original=store.runTransaction;const wrapped={...store,runTransaction:fn=>original(async tx=>{const set=tx.set;return fn({...tx,set:(ref,data,...args)=>{if(ref.path.startsWith('sharedGames/lion_wheel/rounds/'))roundWrites++;return set(ref,data,...args)}})})};
+ const service=createGameService(wrapped,()=>320000);await service.sync('lion_wheel','sender');await service.sync('lion_wheel','sender');assert.equal(roundWrites,1);
+});
