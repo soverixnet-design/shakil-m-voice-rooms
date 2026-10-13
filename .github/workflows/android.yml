@@ -1,0 +1,36 @@
+name: Build Android preview
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yml', 'ANDROID_SETUP_BN.md']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: android-preview
+  cancel-in-progress: false
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - run: gradle -p android assembleDebug lintDebug
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk EarnBD-Shakil-preview.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EarnBD-Shakil-preview
+          path: EarnBD-Shakil-preview.apk
+      - name: Publish preview APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view android-preview || gh release create android-preview --title 'EarnBD Android preview' --notes 'Browser-based launcher. Debug-signed test build; not a Play Store release. See ANDROID_SETUP_BN.md.' --prerelease
+          gh release upload android-preview EarnBD-Shakil-preview.apk --clobber
