@@ -41,7 +41,7 @@ if(process.env.SUPABASE_DATABASE_URL){
   service.bet=disabledGame;service.sync=disabledGame;service.sweep=async()=>{};
   const games=await migrateGameData(database,probe);
   Object.assign(service,createGameService(store),{gamesDatabase:'supabase'});
-  if(process.env.AGORA_APP_ID&&process.env.AGORA_APP_CERTIFICATE){service.voiceConfig=createAgoraVoiceConfig(store);service.voiceProvider='agora';}
+  if(process.env.AGORA_APP_ID&&process.env.AGORA_APP_CERTIFICATE){service.voiceConfig=createAgoraVoiceConfig(store);service.voiceProvider='agora';console.log('Agora authenticated voice token service configured.');}
   console.log('Supabase game migration:',JSON.stringify(games));
   console.log('Supabase social migration:',JSON.stringify(migration));}
   console.log('Supabase connection verified; profiles and voice rooms use Supabase when migration is complete.');}
