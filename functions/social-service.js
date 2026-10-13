@@ -148,7 +148,7 @@ export function createSocialService(database,clock=Date.now){
      }
     }else if(root==='directMessages'&&!sub){
      const recipient=await plain('users/'+next.receiverId);
-     permitted=!removed&&(!oldRows.get(path)||old.senderId===identity.uid&&old.receiverId===next.receiverId&&old.text===next.text)&&allowed(next,['senderId','receiverId','text','createdAt'])&&next.senderId===identity.uid&&next.receiverId!==identity.uid&&!!recipient.id&&!['banned','archived'].includes(recipient.status)&&typeof next.text==='string'&&next.text.trim().length>0&&next.text.length<=3000&&next.createdAt===timestamp;
+     permitted=!removed&&(!oldRows.get(path)||old.senderId===identity.uid&&old.receiverId===next.receiverId&&old.text===next.text&&(old.image||'')===(next.image||''))&&allowed(next,['senderId','receiverId','text','image','createdAt'])&&next.senderId===identity.uid&&next.receiverId!==identity.uid&&!!recipient.id&&!['banned','archived'].includes(recipient.status)&&typeof next.text==='string'&&(next.text.trim().length>0||Boolean(next.image))&&next.text.length<=3000&&(next.image===undefined||typeof next.image==='string'&&next.image.length<=300000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]*={0,2}$/.test(next.image))&&next.createdAt===timestamp;
      if(permitted&&oldRows.get(path))staged.set(path,oldRows.get(path).fields);
     }else if(root==='admins'&&!sub)permitted=owner;
     else if(root==='system'&&!sub)permitted=owner||permission('content')&&((id==='notices'&&changed(old,next).every(k=>k==='items'))||(id==='config'&&changed(old,next).every(k=>['bn','customGifts'].includes(k))));

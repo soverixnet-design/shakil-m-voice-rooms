@@ -131,3 +131,19 @@ test('message recipients must be active and nonparticipants cannot query another
 test('reconnecting account bootstrap preserves the confirmed room and seat and wallet',async()=>{
  const {service,docs}=fixture();const user=await service.account({},identity('alice'));assert.equal(user.currentRoomId,'room');assert.equal(user.roomSeat,1);assert.equal(user.coins,12345);const saved=decodeFields(docs.get('users/alice').fields);assert.equal(saved.currentRoomId,'room');assert.equal(saved.roomSeat,1);
 });
+
+test('private image messages allow selected photos, preserve privacy and reject attachment edits',async()=>{
+ const {service}=fixture();const path='directMessages/photo';
+ const image='data:image/jpeg;base64,YQ==';
+ const write={...update(path,{senderId:'alice',receiverId:'bob',text:'',image}),updateTransforms:[{fieldPath:'createdAt',setToServerValue:'REQUEST_TIME'}]};
+ await service.social({action:'commit',writes:[write]},identity('alice'));
+ assert.ok(await service.social({action:'get',path},identity('bob')));
+ await assert.rejects(service.social({action:'get',path},identity('host')),{code:'permission-denied'});
+ await service.social({action:'commit',writes:[write]},identity('alice'));
+ const edited={...write,update:{...write.update,fields:encodeFields({senderId:'alice',receiverId:'bob',text:'',image:'data:image/jpeg;base64,Yg=='})}};
+ await assert.rejects(service.social({action:'commit',writes:[edited]},identity('alice')),{code:'permission-denied'});
+ for(const bad of ['https://example.com/photo.jpg','data:text/html;base64,YQ==','data:image/jpeg;base64,'+'a'.repeat(300001)]){
+  const invalid={...update('directMessages/invalid',{senderId:'alice',receiverId:'bob',text:'',image:bad}),updateTransforms:write.updateTransforms};
+  await assert.rejects(service.social({action:'commit',writes:[invalid]},identity('alice')),{code:'permission-denied'});
+ }
+});
