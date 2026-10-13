@@ -22,3 +22,9 @@ test('voice renewal budget is isolated from bet and gift budget; serialization c
  const url='http://127.0.0.1:'+server.address().port,opts={method:'POST',headers:{Authorization:'Bearer '+'x'.repeat(24),'Content-Type':'application/json'},body:'{}'};
  try{for(let i=0;i<120;i++)assert.equal((await fetch(url+'/api/voice-config',opts)).status,200);assert.equal((await fetch(url+'/api/gift',opts)).status,200);const response=await fetch(url+'/api/bet',opts);assert.equal(response.status,409);assert.equal((await response.json()).error.code,'aborted');}finally{await new Promise(r=>server.close(r));}
 });
+
+import {ensureVoiceMembership} from '../src/lib/voiceMembership.ts';
+test('voice screen mounting preserves the server-confirmed seat instead of resetting it',async()=>{
+ let writes=0;const tx={get:async()=>({data:()=>({currentRoomId:'room',roomSeat:3})}),update:()=>writes++};await ensureVoiceMembership(tx,{},'room',null,123);assert.equal(writes,0);
+ let saved;await ensureVoiceMembership({get:async()=>({data:()=>({currentRoomId:'other',roomSeat:1})}),update:(_,data)=>{saved=data}}, {},'room',null,123);assert.deepEqual(saved,{currentRoomId:'room',roomSeat:null,online:true,lastSeen:123});
+});
