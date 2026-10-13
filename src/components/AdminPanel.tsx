@@ -612,7 +612,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {/* Top User Actions & Search Bar */}
           <div className="gl p-3.5 space-y-3">
             <button type="button" disabled={usersLoading||!!usersError} onClick={exportUsers} className="px-3 py-2 rounded-xl bg-purple-600 font-bold text-white text-sm">Google Sheets-এর জন্য ইউজার তালিকা ডাউনলোড</button>
-            <p className="text-xs text-gray-300">বর্তমান ইউজার তথ্য CSV হিসেবে পাবেন। Google Sheets → File → Import দিয়ে খুলুন। স্বয়ংক্রিয় Google sync এখনও সংযুক্ত হয়নি।</p>
+            <p className="text-xs text-gray-300">বর্তমান ইউজার তথ্য CSV হিসেবে পাবেন। Google Sheets → File → Import দিয়ে খুলুন। এটি ডাউনলোড করার সময়ের তথ্য।</p>
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-sm text-cyan-300 flex items-center gap-1.5">
