@@ -177,16 +177,16 @@ export const VoiceRoomView: React.FC<Props> = ({
     try{await updateDoc(doc(db,'users',auth.currentUser.uid),{currentRoomId:room.id,roomSeat:next,online:true,lastSeen:serverTimestamp()});setSeatedIndex(next);if(next===null)setIsMicOn(false)}catch{setSeatError('সিট সেভ হয়নি। সংযোগ পরীক্ষা করুন।')}finally{seatLock.current=false;setSeatBusy(false)}
   };
 
-  const [micBusy,setMicBusy]=useState(false);
+  const [micBusy,setMicBusy]=useState(false);const micLock=useRef(false);
   const handleMicToggle = async () => {
-    if(micBusy)return;
+    if(micLock.current)return;
     if (seatedIndex === null) {
       alert('মাইক চালু করতে আগে যেকোনো একটি সিটে বসুন!');
       return;
     }
     if(roomControls[myUid]?.muted){setSeatError('রুম অ্যাডমিন আপনার মাইক বন্ধ রেখেছেন।');return;}
     if(isMicOn){setIsMicOn(false);return;}
-    setMicBusy(true);setSeatError('');try{if(await voice.permission())setIsMicOn(true);else setSeatError(voice.failureReason());}finally{setMicBusy(false);}
+    micLock.current=true;setMicBusy(true);setSeatError('');try{if(await voice.permission())setIsMicOn(true);else setSeatError(voice.failureReason());}finally{micLock.current=false;setMicBusy(false);}
   };
 
   const [chatBusy,setChatBusy]=useState(false);
@@ -277,6 +277,7 @@ export const VoiceRoomView: React.FC<Props> = ({
           })}
         </div>
 
+        {voice.audioBlocked&&<button className="b mx-3" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে এখানে চাপুন</button>}
         <details className="relative z-20 mx-3"><summary className="b">🏆 ইভেন্ট ও পুরস্কার</summary><EventCenter/></details><div className="room-utility-row"><LanguagePicker/><details className="room-voice-status"><summary>🎙️ ভয়েস সংযোগ</summary><p className="text-xs text-cyan-300" role="status">{roomReady?voice.status:'রুমের সংযোগ তৈরি হচ্ছে…'}</p><button className="b" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে অডিও চালু করুন</button></details><button className="back-card" onClick={()=>void followRoom()}>{isFollowed?"♥ রুম ফলো করা আছে":"♡ রুম ফলো করুন"}</button>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}</div>
         {/* Live Chat Container (.ct3, .ctb, #ch3) */}
         <div className="ct3" style={{ maxHeight: '170px', background: 'rgba(0,0,0,0.5)', borderRadius: '20px', padding: '8px 10px', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -312,7 +313,7 @@ export const VoiceRoomView: React.FC<Props> = ({
       <button className="room-wallet-orb" aria-label="রুম থেকে ওয়ালেট খুলুন" onClick={onOpenWallet}>🪙<small>ওয়ালেট</small></button>
       <nav className="room-bottom-controls" aria-label="রুমের অ্যাকশন">
         <button onClick={()=>setChatOpen(x=>!x)}><span>💬</span><small>চ্যাট</small></button>
-        <button disabled={micBusy} className={isMicOn?'mic-on':''} onClick={()=>void handleMicToggle()}><span>{isMicOn?'🎙️':'🔇'}</span><small>{micBusy?'চালু হচ্ছে…':'মাইক'}</small></button>
+        <button disabled={micBusy} className={voice.speaking?'mic-on':''} onClick={()=>void handleMicToggle()}><span>{voice.speaking?'🎙️':'🔇'}</span><small>{micBusy?'চালু হচ্ছে…':'মাইক'}</small></button>
         <button onClick={()=>setShowReactionModal(x=>!x)}><span>😊</span><small>ইমো</small></button>
         <button onClick={()=>onOpenMessages?onOpenMessages():setMoreOpen(true)}><span>✉️</span><small>মেইল</small></button>
         <button onClick={()=>setShowGameDrawer(true)}><span>🎮</span><small>গেম</small></button>

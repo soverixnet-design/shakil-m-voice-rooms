@@ -27,7 +27,7 @@ export function createSocialTransport(url:string,nameRoot:string,request:typeof 
     const result=await response.json();
     if(!response.ok||result.error)throw Object.assign(Error(result.error?.message||'Social database unavailable.'),{code:result.error?.code||'unavailable'});
     return {handled:true,body:result.data};
-   })(),20000);
+   })(),75000);
   }finally{controller.abort();}
  };
 }
