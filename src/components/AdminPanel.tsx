@@ -1,3 +1,5 @@
+import {useMediaAssets} from './MediaAssets';
+import {EventCenter} from './EventCenter';
 import {onSnapshot,runTransaction,writeBatch} from '../lib/reliableFirestore';
 import {ServerStatus} from '../design/ServerStatus';
 import { db, doc, collection } from '../firebase';
@@ -47,7 +49,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onClose,
   onUpdateCoins
 }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'requests' | 'quick_boost' | 'rooms' | 'gifts' | 'packages' | 'banner' | 'system'>('users');
+  const assets=useMediaAssets();
+  const [activeTab, setActiveTab] = useState<'users' | 'requests' | 'quick_boost' | 'rooms' | 'gifts' | 'packages' | 'banner' | 'system' | 'events'>('users');
 
   // Search & Filters
   const [searchUser, setSearchUser] = useState('');
@@ -125,6 +128,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }, () => { setUsersLoading(false); setUsersError('ইউজার তালিকা লোড হয়নি। অনুমতি ও সংযোগ পরীক্ষা করুন।'); });
   }, [currentUser?.uid]);
   const roomsList: any[] = appState.rooms || [];
+  function exportUsers() {
+    const cell = (value: unknown) => {
+      const text = String(value ?? '');
+      return '"' + (/^[\s]*[=+@-]/.test(text) ? "'" + text : text).replace(/"/g, '""') + '"';
+    };
+    const columns = ['UID', 'ID', 'Name', 'Email', 'Coins', 'Diamonds', 'Status', 'Role', 'SVIP'];
+    const rows = userList.map(u => [u.uid,u.id,u.name,u.email,u.coins ?? 0,u.diamond ?? 0,u.status ?? 'active',u.role ?? 'user',u.svip ?? 0]);
+    const url = URL.createObjectURL(new Blob(['\uFEFF' + [columns,...rows].map(row => row.map(cell).join(',')).join('\r\n')], {type:'text/csv;charset=utf-8'}));
+    const link = document.createElement('a'); link.href=url;link.download='earnbd-users-'+new Date().toISOString().slice(0,10)+'.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
   const giftsList: any[] = appState.customGifts || [];
   const packagesList: any[] = appState.pk || [];
   const rechargeRequests: any[] = appState.rechargeRequests || [];
@@ -513,6 +526,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </div>
 
       <ServerStatus/>
+      {activeTab==='events'&&<EventCenter admin rooms={appState.rooms||[]} gifts={[...(appState.customGifts||[{name:'হার্ট',icon:'❤️'},{name:'গোলাপ',icon:'🌹'},{name:'স্টার',icon:'⭐'},{name:'লাভ রিং',icon:'💍'},{name:'ডায়মন্ড',icon:'💎'},{name:'VIP কার',icon:'🚗'},{name:'রকেট',icon:'🚀'},{name:'ক্রাউন',icon:'👑'}]),...assets.filter((a:any)=>a.kind==='gift')]}/>}
       {/* 2. Navigation Tabs */}
       <div className="admin-tabs flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
         {[
@@ -528,6 +542,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           { id: 'gifts', label: '🎁 গিফট শপ', icon: Gift },
           { id: 'packages', label: '🛍️ রিচার্জ প্যাকেজ', icon: ShoppingBag },
           { id: 'banner', label: '📢 নোটিশ ও ব্যানার', icon: Bell },
+          { id: 'events', label: '🏆 ইভেন্ট ও পুরস্কার', icon: Gift },
           { id: 'system', label: '⚙️ ব্যবসা ও সেটিংস', icon: Settings }
         ].map((t) => {
           const Icon = t.icon;
@@ -596,6 +611,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </form>
           {/* Top User Actions & Search Bar */}
           <div className="gl p-3.5 space-y-3">
+            <button type="button" disabled={usersLoading||!!usersError} onClick={exportUsers} className="px-3 py-2 rounded-xl bg-purple-600 font-bold text-white text-sm">Google Sheets-এর জন্য ইউজার তালিকা ডাউনলোড</button>
+            <p className="text-xs text-gray-300">বর্তমান ইউজার তথ্য CSV হিসেবে পাবেন। Google Sheets → File → Import দিয়ে খুলুন। স্বয়ংক্রিয় Google sync এখনও সংযুক্ত হয়নি।</p>
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-sm text-cyan-300 flex items-center gap-1.5">

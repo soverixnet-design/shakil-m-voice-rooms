@@ -1,3 +1,4 @@
+import {EventCenter} from '../components/EventCenter';
 import {onSnapshot,query,orderBy,limit,addDoc} from '../lib/reliableFirestore';
 import {LanguagePicker} from '../i18n/LanguagePicker';
 import React,{useEffect,useState} from 'react';
@@ -24,12 +25,12 @@ export function ReferenceLobby({state:s,screen,onScreen,onAction,admin,media,roo
   return <section className={'reference-lobby screen-'+screen} aria-label="EarnBD অ্যাপ">
     <div className="ref-scroll" key={screen}><div className="ref-language-bar"><LanguagePicker/></div>
       {['rooms','mine','games'].includes(screen)&&<><header className="ref-top-tabs"><button className={screen==='mine'?'selected':''} onClick={()=>onScreen('mine')}>আমি</button><button className={screen==='rooms'?'selected':''} onClick={()=>onScreen('rooms')}>হট</button><button className={screen==='games'?'selected':''} onClick={()=>onScreen('games')}>গেম</button><button className="ref-orb" aria-label="ইউজার খুঁজুন" onClick={()=>onAction('users')}>⌕</button></header><ServerStatus/></>}
-      {screen==='rooms'&&<>
+      {screen==='rooms'&&<><EventCenter compact/>
         <div className="ref-hero"><span>🎙️</span><div><small>EarnBD Voice Rooms</small><h1>আড্ডা, গিফট ও গেম</h1><p>বন্ধুদের সঙ্গে একই রুমে</p></div><button className="ref-orb" aria-label="নিজের প্রোফাইল" onClick={()=>onScreen('profile')}><MediaAvatar avatar={s.img||s.av} size={40}/></button></div>
         {media.filter(x=>x.kind==='banner').length>0&&<div className="ref-banners">{media.filter(x=>x.kind==='banner').map(x=><img key={x.id} src={x.image} alt={x.name}/>)}</div>}
         <div className="ref-surface"><div className="ref-section-title"><h2>আমার রুম</h2><button onClick={()=>onScreen('mine')}>দেখুন ›</button></div>{myRoom?roomRow(myRoom):<button className="ref-button wide" onClick={()=>onAction('create-room')}>＋ নিজের রুম তৈরি করুন</button>}
           <div className="ref-game-shortcuts">{liveGames.slice(0,3).map(g=><button className="ref-card" key={g.id} onClick={()=>onAction('game',g.id)}><span style={{background:`linear-gradient(${g.color},#291650)`}}>{g.icon}</span><b>{g.name}</b></button>)}</div>
-          <GameWinFeed/><div className="ref-section-title"><h2>লাইভ রুম</h2><button onClick={()=>onAction('page','game_rank')}>🏆 র‍্যাঙ্কিং</button></div>
+          <div className="ref-section-title"><h2>লাইভ রুম</h2><button onClick={()=>onAction('page','game_rank')}>🏆 র‍্যাঙ্কিং</button></div>
           <div className="ref-chips">{['সব','চ্যাট','গেম','পার্টি'].map(c=><button key={c} className={category===c?'selected':''} onClick={()=>setCategory(c)}>{c}</button>)}</div>
           <div className="ref-room-grid">{s.rooms.filter((r:any)=>category==='সব'||r.c===category).map((r:any)=><button className="ref-card ref-room-tile" key={r.id} onClick={()=>onAction('room',String(r.id))}><div className="ref-room-cover" style={{background:roomThemes[Number(r.th||0)%4]}}><MediaAvatar avatar={r.photoURL||r.cv} size={82}/><small>{r.locked?'🔒':'🔓'} {r.flag||'🎙️'} {r.sc||8} মাইক</small></div><b data-no-translate="true">{r.name}</b><p data-no-translate="true">{r.ann||'সবাইকে স্বাগতম'}</p></button>)}</div>
         </div>

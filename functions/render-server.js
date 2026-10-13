@@ -1,3 +1,4 @@
+import {createEventService} from './event-service.js';
 import {createReferralService} from './referral-service.js';
 import {createAgoraVoiceConfig} from './agora-voice.js';
 import {createSupabaseDatabase} from './supabase-database.js';
@@ -38,7 +39,7 @@ if(process.env.SUPABASE_DATABASE_URL){
  try{probe=createSupabaseDatabase();await probe.check();
   if(ready){const migration=await migrateSocialData(database,probe);Object.assign(service,createWalletService(createSocialWalletStore(probe,database)),createSocialService(probe));socialDatabase=probe;
   const store=createSocialWalletStore(probe,database);
-  Object.assign(service,createReferralService(store));
+  Object.assign(service,createReferralService(store),createEventService(probe));
   const disabledGame=async()=>{throw Object.assign(Error('game-ledger-not-migrated'),{code:'unavailable'});};
   service.bet=disabledGame;service.sync=disabledGame;service.sweep=async()=>{};
   const games=await migrateGameData(database,probe);
@@ -52,7 +53,7 @@ if(process.env.SUPABASE_DATABASE_URL){
 }
 const port=Number(process.env.PORT||10000);server.listen(port,'0.0.0.0',()=>console.log(`EarnBD game server listening on port ${port}; ${ready?'configured':'setup required'}`));
 let sweeping=false;
-async function sweep(){if(!ready||sweeping)return;sweeping=true;try{if(writeError)await checkDatabase();await service.sweep()}catch(e){console.error('Settlement retry pending:',e.code||'internal')}finally{sweeping=false}}
+async function sweep(){if(!ready||sweeping)return;sweeping=true;try{if(writeError)await checkDatabase();const jobs=await Promise.allSettled([service.sweep(),service.sweepEvents?service.sweepEvents():Promise.resolve()]);for(const result of jobs)if(result.status==='rejected')console.error('Settlement retry pending:',result.reason?.code||'internal')}catch(e){console.error('Settlement retry pending:',e.code||'internal')}finally{sweeping=false}}
 if(ready){void sweep();const timer=setInterval(sweep,10000);timer.unref();}
 function shutdown(){server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),10000).unref()}
 process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown);
