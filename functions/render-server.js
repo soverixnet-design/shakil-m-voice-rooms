@@ -19,7 +19,7 @@ const origins=(process.env.ALLOWED_ORIGINS||'https://earnbd.work,https://www.ear
 let lastWriteCheck=0,writeError;
 async function checkDatabase(){
  await database.doc('system/gameServer').get();
- if(Date.now()-lastWriteCheck>900000){
+ if(Date.now()-lastWriteCheck>(writeError?30000:900000)){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),4500);
   try{const access=await serverApp.options.credential.getAccessToken();const response=await fetch(`https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/${DATABASE}/documents:commit`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${access.access_token}`},body:JSON.stringify({writes:[{update:{name:`projects/${PROJECT}/databases/${DATABASE}/documents/system/serverWriteCheck`,fields:{}},updateTransforms:[{fieldPath:'checkedAt',setToServerValue:'REQUEST_TIME'}]}]}),signal:controller.signal});if(!response.ok){const body=await response.json();throw Object.assign(Error('Database write unavailable'),{code:body.error?.status==='RESOURCE_EXHAUSTED'?'resource-exhausted':body.error?.status==='PERMISSION_DENIED'?'permission-denied':'unavailable'})}writeError=null}catch(error){writeError=error}finally{clearTimeout(timer);lastWriteCheck=Date.now()}
  }
@@ -28,7 +28,7 @@ async function checkDatabase(){
 const server=createGameHttpServer({service,verifyToken,origins,ready,voiceRelayConfigured:Boolean(process.env.TURN_SHARED_SECRET&&process.env.TURN_URLS),checkReady:checkDatabase});
 const port=Number(process.env.PORT||10000);server.listen(port,'0.0.0.0',()=>console.log(`EarnBD game server listening on port ${port}; ${ready?'configured':'setup required'}`));
 let sweeping=false;
-async function sweep(){if(!ready||sweeping||writeError?.code==='resource-exhausted')return;sweeping=true;try{await service.sweep()}catch(e){console.error('Settlement retry pending:',e.code||'internal')}finally{sweeping=false}}
+async function sweep(){if(!ready||sweeping)return;sweeping=true;try{if(writeError)await checkDatabase();await service.sweep()}catch(e){console.error('Settlement retry pending:',e.code||'internal')}finally{sweeping=false}}
 if(ready){void sweep();const timer=setInterval(sweep,10000);timer.unref();}
 function shutdown(){server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),10000).unref()}
 process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown);
