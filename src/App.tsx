@@ -1,3 +1,4 @@
+import {giftLevel} from './lib/giftLevel';
 import {inviteLink as createInviteLink,captureInvite} from './lib/inviteLink';
 import {walletApi} from './lib/walletApi';
 import {getDoc,setDoc,updateDoc,query,where,getDocs,runTransaction,onSnapshot} from './lib/reliableFirestore';
@@ -345,8 +346,9 @@ export default function App() {
   // User Recharge Permission Guard Modal State
   const [selectedRechargePackage, setSelectedRechargePackage] = useState<{ u: number; c: number } | null>(null);
 
-  const lv = Math.floor(1 + Math.sqrt(S.xp / 50));
-  const wl = Math.floor(1 + Math.sqrt((S.spent || 0) / 1000));
+  const giftProgress = giftLevel(S.giftSentCoins);
+  const lv = giftProgress.level;
+  const wl = giftProgress.level;
 
   // Only the verified Firebase owner account can access administration.
   const delegatedAccess=useAccess(fbUser);
@@ -1873,30 +1875,14 @@ export default function App() {
 
             {/* SUBPAGE: LEVEL & WEALTH */}
             {activePage === 'level' && (
-              <>
-                <div className="gl" style={{ padding: '16px', marginTop: '6px', textAlign: 'center' }}>
-                  <b style={{ fontSize: '20px' }}>Wealth Lv.{wl}</b>
-                  <div className="sm">গিফটে খরচ করলে বাড়ে</div>
-                </div>
-                <div className="chk">
-                  <div className="sp">
-                    <b>Wealth (মোট খরচ)</b>
-                    <div className="pb"><i style={{ width: `${Math.min(100, (S.spent || 0) / (1000 * wl * wl) * 100)}%` }}></i></div>
-                  </div>
-                  <b>{(S.spent || 0).toLocaleString()} / {(1000 * wl * wl).toLocaleString()}</b>
-                </div>
-                <div className="chk">
-                  <div className="sp">
-                    <b>Level (XP)</b>
-                    <div className="pb"><i style={{ width: `${Math.min(100, S.xp / (50 * lv * lv) * 100)}%` }}></i></div>
-                  </div>
-                  <b>{S.xp.toLocaleString()} / {(50 * lv * lv).toLocaleString()}</b>
-                </div>
-                <div className="chk">
-                  <b className="sp">VIP Level</b>
-                  <b>{S.svip ? SV[S.svip - 1]?.[0] : 'নেই'}</b>
-                </div>
-              </>
+              <section className="gl p-5 space-y-4">
+                <h2>⭐ গিফট লেভেল {giftProgress.level}</h2>
+                <p>প্রতি ১,০০০ কয়েনের সফল গিফটে ১ লেভেল বাড়ে।</p>
+                <p>মোট গিফট খরচ: 🪙 {giftProgress.coins.toLocaleString()}</p>
+                <div className="pb" role="progressbar" aria-label="পরের গিফট লেভেলের অগ্রগতি" aria-valuenow={giftProgress.progress} aria-valuemin={0} aria-valuemax={1000}><i style={{width:`${giftProgress.percent}%`}}/></div>
+                <p>লেভেল {giftProgress.level+1} হতে আরও {giftProgress.remaining.toLocaleString()} কয়েনের গিফট পাঠান।</p>
+                <p className="sm">ব্যর্থ গিফটে পয়েন্ট যোগ হয় না। একই গিফটের পুনরায় অনুরোধে লেভেল দুবার বাড়ে না।</p>
+              </section>
             )}
 
             {/* SUBPAGE: TRANSACTIONS HIST */}
