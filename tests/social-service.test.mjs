@@ -70,6 +70,13 @@ test('stale conditional writes fail before mutating the document',async()=>{
  await assert.rejects(service.social({action:'commit',writes:[update('users/alice',{name:'Wrong'},{updateTime:'2020-01-01T00:00:00Z'})]},identity('alice')),{code:'failed-precondition'});
  assert.equal(decodeFields(docs.get('users/alice').fields).name,'Alice');
 });
+test('a concurrent update in the same millisecond invalidates the previous read token',async()=>{
+ const {service,docs}=fixture();
+ const old=await service.social({action:'get',path:'users/alice'},identity('alice'));
+ await service.social({action:'commit',writes:[update('users/alice',{name:'First'},{updateTime:old.updateTime})]},identity('alice'));
+ await assert.rejects(service.social({action:'commit',writes:[update('users/alice',{name:'Stale'},{updateTime:old.updateTime})]},identity('alice')),{code:'failed-precondition'});
+ assert.equal(decodeFields(docs.get('users/alice').fields).name,'First');
+});
 test('migration codec preserves nested data and Firestore timestamps',()=>{
  const original={coins:12345,roomSeat:null,items:[{name:'Room'}],lastSeen:new Date(now)};
  const result=decodeFields(encodeFields(original));assert.deepEqual(result,{...original,lastSeen:new Date(now).toISOString()});

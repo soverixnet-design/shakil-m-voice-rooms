@@ -11,7 +11,7 @@ const changed=(a,b)=>[...new Set([...Object.keys(a),...Object.keys(b)])].filter(
 export function socialPath(path){return typeof path==='string'&&path.split('/').length<=4&&path.length<=512&&path.split('/').every(v=>v&&!['.','..','__proto__','constructor','prototype'].includes(v))&&ROOTS.has(path.split('/')[0]);}
 export function createSocialService(database,clock=Date.now){
  const nameRoot='projects/gen-lang-client-0043151803/databases/ai-studio-22dd0b7a-14da-47df-9bc8-d4b58ab5ab0b/documents';
- const wire=row=>row?{name:nameRoot+'/'+row.path,fields:row.fields,updateTime:new Date(row.updated_at).toISOString()}:null;
+ const wire=row=>row?{name:nameRoot+'/'+row.path,fields:row.fields,updateTime:'version-'+String(row.version)}:null;
  const read=(client,path)=>client.query('select path,fields,updated_at,version from earnbd.social_documents where path=$1',[path]).then(r=>r.rows[0]);
  async function social(data,identity){
   if(!identity?.uid)fail('unauthenticated');
@@ -103,7 +103,7 @@ export function createSocialService(database,clock=Date.now){
     if(!socialPath(path)||path.split('/').length%2!==0||staged.has(path))fail('invalid-argument');
     const old=await read(client,path);oldRows.set(path,old);
     if(w.currentDocument?.exists!==undefined&&Boolean(old)!==w.currentDocument.exists)fail('failed-precondition');
-    if(w.currentDocument?.updateTime&&(!old||new Date(old.updated_at).toISOString()!==w.currentDocument.updateTime))fail('failed-precondition');
+    if(w.currentDocument?.updateTime&&(!old||'version-'+String(old.version)!==w.currentDocument.updateTime))fail('failed-precondition');
     if(w.verify){if(!await canRead(path,old?.fields))fail('permission-denied');continue;}
     if(w.delete){staged.set(path,null);continue;}
     const fields=w.update.fields||{};decodeFields(fields);
