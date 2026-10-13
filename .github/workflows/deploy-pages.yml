@@ -20,6 +20,8 @@ jobs:
           node-version: '24'
       - name: Install dependencies
         run: npm install
+      - name: Install server test dependencies
+        run: npm ci --prefix functions
       - name: Check types
         run: npm run lint
       - name: Check shared round engine
