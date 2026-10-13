@@ -2,7 +2,7 @@ import {applyReferralRewards} from './referral-service.js';
 import {randomInt,createHmac} from 'node:crypto';
 import {decodeFields,decodeValue,encodeFields} from './social-migration.js';
 const OWNER='yfastvpn@gmail.com';
-const ROOTS=new Set(['users','rooms','roomOwners','follows','moments','diamondWallets','transactions','admins','assets','system','supportTickets','sellerWallets','sellerTransfers','sharedGames','gameRanks','gameReceipts','gameWins']);
+const ROOTS=new Set(['users','rooms','roomOwners','follows','moments','diamondWallets','transactions','admins','assets','system','supportTickets','sellerWallets','sellerTransfers','sharedGames','gameRanks','gameReceipts','gameWins','directMessages']);
 const PROTECTED=new Set(['ref','referrerUid','referralAt','referralStats','inv','role','status','email','id','userId','coins','diamond','lastSellerTransfer','lastGiftReceipt','giftSentCount','giftSentCoins','totalRecharged','giftReceivedCount','giftReceivedCoins']);
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const allowed=(value,keys)=>Object.keys(value).every(k=>keys.includes(k));
@@ -38,6 +38,7 @@ export function createSocialService(database,clock=Date.now){
     if(root==='gameRanks')return Boolean(active)&&sub==='players'&&path.split('/').length===4;
     if(root==='gameWins')return Boolean(active)&&!sub;
     if(root==='gameReceipts')return Boolean(active)&&!sub&&decodeFields(fields).uid===identity.uid;
+    if(root==='directMessages'){const d=decodeFields(fields);return !sub&&Boolean(active)&&[d.senderId,d.receiverId].includes(identity.uid);}
     if(root==='system'||root==='assets')return !sub;
     if(root==='admins')return !sub&&(owner||id===identity.uid);
     if(root==='sellerWallets')return !sub&&(owner||active&&id===identity.uid);
@@ -75,6 +76,7 @@ export function createSocialService(database,clock=Date.now){
      const f=q.where?.fieldFilter;
      if(owner&&['admins','sellerWallets','sellerTransfers','transactions','supportTickets'].includes(path)){}
      else if(path==='supportTickets'&&permission('support')){}
+     else if(path==='directMessages'&&q.where?.fieldFilter&&['senderId','receiverId'].includes(q.where.fieldFilter.field?.fieldPath)&&q.where.fieldFilter.op==='EQUAL'&&decodeValue(q.where.fieldFilter.value)===identity.uid){}
      else if(path==='sellerTransfers'&&q.where?.fieldFilter&&['sellerId','receiverId'].includes(q.where.fieldFilter.field?.fieldPath)&&q.where.fieldFilter.op==='EQUAL'&&decodeValue(q.where.fieldFilter.value)===identity.uid){}
      else if(path==='gameReceipts'&&active&&f?.field?.fieldPath==='uid'&&f.op==='EQUAL'&&decodeValue(f.value)===identity.uid){}
      else if(path==='transactions'&&q.where?.fieldFilter&&['userId','senderId','receiverId'].includes(q.where.fieldFilter.field?.fieldPath)&&q.where.fieldFilter.op==='EQUAL'&&decodeValue(q.where.fieldFilter.value)===identity.uid){}
@@ -144,6 +146,10 @@ export function createSocialService(database,clock=Date.now){
       permitted=!!room.hostId&&control.blocked!==true&&(!room.locked||room.hostId===identity.uid||role.role==='admin'||profile.currentRoomId===next.currentRoomId);
       if(next.roomSeat!==null&&next.roomSeat!==undefined){const count=room.sc||(room.d?12:8),policy=await after(`rooms/${next.currentRoomId}/seatPolicy/config`);permitted=permitted&&Number.isInteger(next.roomSeat)&&next.roomSeat>=0&&next.roomSeat<count&&((old.currentRoomId===next.currentRoomId&&old.roomSeat===next.roomSeat)||!(policy.locked||[]).includes(next.roomSeat));}
      }
+    }else if(root==='directMessages'&&!sub){
+     const recipient=await plain('users/'+next.receiverId);
+     permitted=!removed&&(!oldRows.get(path)||old.senderId===identity.uid&&old.receiverId===next.receiverId&&old.text===next.text)&&allowed(next,['senderId','receiverId','text','createdAt'])&&next.senderId===identity.uid&&next.receiverId!==identity.uid&&!!recipient.id&&!['banned','archived'].includes(recipient.status)&&typeof next.text==='string'&&next.text.trim().length>0&&next.text.length<=3000&&next.createdAt===timestamp;
+     if(permitted&&oldRows.get(path))staged.set(path,oldRows.get(path).fields);
     }else if(root==='admins'&&!sub)permitted=owner;
     else if(root==='system'&&!sub)permitted=owner||permission('content')&&((id==='notices'&&changed(old,next).every(k=>k==='items'))||(id==='config'&&changed(old,next).every(k=>['bn','customGifts'].includes(k))));
     else if(root==='assets'&&!sub)permitted=(owner||permission('content'))&&(removed||['frame','entry','banner','gift'].includes(next.kind)&&typeof next.name==='string'&&next.name.length<=80&&typeof next.image==='string'&&next.image.length<=600000&&/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]*={0,2}$/.test(next.image)&&(next.kind!=='gift'||Number.isSafeInteger(next.price)&&next.price>0));

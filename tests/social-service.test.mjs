@@ -111,3 +111,19 @@ test('approved recharge credits inviter in the same transaction and receipt retr
  await assert.rejects(service.social({action:'commit',writes},owner),/permission-denied/);assert.equal(decodeFields(docs.get('users/bob').fields).coins,100);
  await assert.rejects(service.social({action:'commit',writes:[update('users/alice',{referrerUid:'host'})]},identity('alice')),/permission-denied/);
 });
+test('private messages stay private, survive identical retry, and reject forgery and edits',async()=>{
+ const {service,docs}=fixture();const path='directMessages/message';const write={...update(path,{senderId:'alice',receiverId:'bob',text:'Hello'}),updateTransforms:[{fieldPath:'createdAt',setToServerValue:'REQUEST_TIME'}]};
+ await service.social({action:'commit',writes:[write]},identity('alice'));
+ const read=uid=>service.social({action:'get',path},identity(uid));
+ assert.ok(await read('bob'));await assert.rejects(read('host'),{code:'permission-denied'});
+ await service.social({action:'commit',writes:[write]},identity('alice'));assert.equal(decodeFields(docs.get(path).fields).text,'Hello');
+ await assert.rejects(service.social({action:'commit',writes:[{...write,update:{...write.update,fields:encodeFields({senderId:'alice',receiverId:'bob',text:'Changed'})}}]},identity('alice')),{code:'permission-denied'});
+ await assert.rejects(service.social({action:'commit',writes:[write]},identity('bob')),{code:'permission-denied'});
+ await assert.rejects(service.social({action:'query',structuredQuery:{from:[{collectionId:'directMessages'}]}},identity('host')),{code:'permission-denied'});
+ const result=await service.social({action:'query',structuredQuery:{from:[{collectionId:'directMessages'}],where:{fieldFilter:{field:{fieldPath:'receiverId'},op:'EQUAL',value:{stringValue:'bob'}}}}},identity('bob'));assert.equal(result.length,1);
+});
+test('message recipients must be active and nonparticipants cannot query another inbox',async()=>{
+ const {service}=fixture();const write={...update('directMessages/bad',{senderId:'alice',receiverId:'banned',text:'Hello'}),updateTransforms:[{fieldPath:'createdAt',setToServerValue:'REQUEST_TIME'}]};
+ await assert.rejects(service.social({action:'commit',writes:[write]},identity('alice')),{code:'permission-denied'});
+ await assert.rejects(service.social({action:'query',structuredQuery:{from:[{collectionId:'directMessages'}],where:{fieldFilter:{field:{fieldPath:'receiverId'},op:'EQUAL',value:{stringValue:'bob'}}}}},identity('host')),{code:'permission-denied'});
+});

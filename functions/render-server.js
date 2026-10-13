@@ -1,3 +1,4 @@
+import {createStaffService} from './staff-service.js';
 import {createEventService} from './event-service.js';
 import {createReferralService} from './referral-service.js';
 import {createAgoraVoiceConfig} from './agora-voice.js';
@@ -39,7 +40,7 @@ if(process.env.SUPABASE_DATABASE_URL){
  try{probe=createSupabaseDatabase();await probe.check();
   if(ready){const migration=await migrateSocialData(database,probe);Object.assign(service,createWalletService(createSocialWalletStore(probe,database)),createSocialService(probe));socialDatabase=probe;
   const store=createSocialWalletStore(probe,database);
-  Object.assign(service,createReferralService(store),createEventService(probe));
+  Object.assign(service,createReferralService(store),createEventService(probe),createStaffService(probe,getAuth(serverApp)));
   const disabledGame=async()=>{throw Object.assign(Error('game-ledger-not-migrated'),{code:'unavailable'});};
   service.bet=disabledGame;service.sync=disabledGame;service.sweep=async()=>{};
   const games=await migrateGameData(database,probe);

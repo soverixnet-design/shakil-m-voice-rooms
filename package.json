@@ -10,7 +10,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test:rules": "npx --yes firebase-tools@14.10.1 emulators:exec --only firestore --project demo-voice-admin --config firebase.emulator.json \"node tests/admin-rules.mjs && node tests/shared-games-emulator.mjs && node tests/wallet-voice-emulator.mjs && node tests/seat-policy-emulator.mjs && node tests/room-library-emulator.mjs && node tests/room-chat-moments-emulator.mjs && node tests/room-lock-emulator.mjs\"",
-    "test:games": "node --import tsx --test tests/shared-games.test.mjs tests/render-server.test.mjs tests/uploaded-games.test.mjs tests/language.test.mjs tests/supabase-games.test.mjs tests/social-service.test.mjs tests/game-migration.test.mjs tests/agora-voice.test.mjs tests/referral.test.mjs tests/voice-publication.test.mjs tests/game-stability.test.mjs tests/wallet-display.test.mjs tests/events.test.mjs tests/connection-recovery.test.mjs tests/account-bootstrap.test.mjs"
+    "test:games": "node --import tsx --test tests/shared-games.test.mjs tests/render-server.test.mjs tests/uploaded-games.test.mjs tests/language.test.mjs tests/supabase-games.test.mjs tests/social-service.test.mjs tests/game-migration.test.mjs tests/agora-voice.test.mjs tests/referral.test.mjs tests/voice-publication.test.mjs tests/game-stability.test.mjs tests/wallet-display.test.mjs tests/events.test.mjs tests/connection-recovery.test.mjs tests/account-bootstrap.test.mjs tests/staff-service.test.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

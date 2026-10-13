@@ -26,7 +26,7 @@ export function eventRanking(event,gifts,games,users,rooms){
   const score=event.type==='gift_festival'?row.quantity:event.type==='room_game_wins'?row.payout:gaming?1:row.cost;
   add(id,Number(score),time);
  }
- return [...scores.values()].map(row=>{const room=event.type.startsWith('top_room_')?rooms.get(row.id):null;const uid=room?.hostId||(!event.type.startsWith('top_room_')?row.id:null),user=users.get(uid);return {...row,uid,name:room?.name||user?.name||'User',publicId:user?.id||'',eligible:validUser(user)};}).filter(r=>r.eligible).sort((a,b)=>b.score-a.score||a.firstAt-b.firstAt||a.id.localeCompare(b.id)).map((r,index)=>({...r,rank:index+1,reward:event.rewards[index]||0}));
+ return [...scores.values()].map(row=>{const room=event.type.startsWith('top_room_')?rooms.get(row.id):null;const uid=room?.hostId||(!event.type.startsWith('top_room_')?row.id:null),user=users.get(uid);return {...row,uid,name:room?.name||user?.name||'User',publicId:user?.id||'',avatar:room?.photoURL||user?.photoURL||user?.avatar||'👤',eligible:validUser(user)};}).filter(r=>r.eligible).sort((a,b)=>b.score-a.score||a.firstAt-b.firstAt||a.id.localeCompare(b.id)).map((r,index)=>({...r,rank:index+1,reward:event.rewards[index]||0}));
 }
 export function createEventService(database,clock=Date.now){
  const read=async(client,path)=>(await client.query('select fields from earnbd.social_documents where path=$1',[path])).rows[0];
@@ -41,9 +41,11 @@ export function createEventService(database,clock=Date.now){
  async function events(data,identity){
   return database.transaction(async client=>{
    const userRow=await read(client,'users/'+identity.uid),user=userRow&&decodeFields(userRow.fields);if(!validUser(user))throw Object.assign(Error('permission-denied'),{code:'permission-denied'});
+   const grant=decodeFields((await read(client,'admins/'+identity.uid))?.fields);
    const owner=identity.email_verified===true&&identity.email?.toLowerCase()===OWNER;
+   const manage=owner||Boolean(grant.active&&grant.permissions?.events);
    if(data.action==='create'){
-    if(!owner)throw Object.assign(Error('permission-denied'),{code:'permission-denied'});
+    if(!manage)throw Object.assign(Error('permission-denied'),{code:'permission-denied'});
     const event=validateEvent(data.event,0),fingerprint=createHash('sha256').update(JSON.stringify(event)).digest('hex');
     const requestId=data.requestId||fingerprint;if(typeof requestId!=='string'||!/^[a-zA-Z0-9_-]{1,80}$/.test(requestId))fail('invalid-request');
     const id=createHash('sha256').update(identity.uid+':'+requestId).digest('hex'),existing=await read(client,'events/'+id);
@@ -53,7 +55,7 @@ export function createEventService(database,clock=Date.now){
     await put(client,'events/'+id,{...event,id,fingerprint,createdBy:identity.uid,createdAt:clock()});return {id};
    }
    if(data.action==='cancel'){
-    if(!owner)throw Object.assign(Error('permission-denied'),{code:'permission-denied'});
+    if(!manage)throw Object.assign(Error('permission-denied'),{code:'permission-denied'});
     const path='events/'+String(data.id),event=decodeFields((await read(client,path))?.fields);if(!event.id||event.state!=='published'||clock()>=event.startAt)fail('event-cannot-be-cancelled');await put(client,path,{...event,state:'cancelled'});return {ok:true};
    }
    if(data.action!=='list')fail('invalid-request');
