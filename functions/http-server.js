@@ -21,7 +21,7 @@ export function createGameHttpServer({service,verifyToken,origins,ready=true,che
   if(!['/api/sync','/api/bet','/api/gift','/api/exchange','/api/voice-config','/api/account'].includes(path))return failure(res,404,'not-found');
   if(req.method!=='POST')return failure(res,405,'invalid-argument');
   if(!ready)return failure(res,503,'unavailable','server-setup-required');
-  if(healthCache?.reason==='database-quota-exceeded')return failure(res,503,'resource-exhausted','database-quota-exceeded');
+  if(healthCache?.reason==='database-quota-exceeded'){const current=await health();if(current.reason==='database-quota-exceeded')return failure(res,503,'resource-exhausted','database-quota-exceeded');if(current.status!=='ok')return failure(res,503,'unavailable',current.reason);}
   const bearer=req.headers.authorization||'';if(!/^Bearer [A-Za-z0-9._-]{20,8192}$/.test(bearer))return failure(res,401,'unauthenticated');
   let identity,verificationTimer;diagnostics.requests++;diagnostics.verifying++;try{identity=await Promise.race([verifyToken(bearer.slice(7)),new Promise((_,reject)=>{verificationTimer=setTimeout(()=>reject(Error('token-verification-timeout')),8000)})]);if(!identity?.uid)throw Error('unauthenticated')}catch(e){diagnostics.lastError=e.message==='token-verification-timeout'?'token-verification-timeout':'invalid-token';return failure(res,e.message==='token-verification-timeout'?503:401,e.message==='token-verification-timeout'?'unavailable':'unauthenticated',diagnostics.lastError)}finally{clearTimeout(verificationTimer);diagnostics.verifying--}
   const now=Date.now(),previous=rates.get(identity.uid),rate=previous&&now-previous.start<60000?previous:{start:now,count:0};rate.count++;rates.set(identity.uid,rate);
