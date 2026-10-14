@@ -181,3 +181,9 @@ test('admin registers and withdrawal destinations are private while owners can r
  const owner={uid:'alice',email:'yfastvpn@gmail.com',email_verified:true};assert((await f.service.social({action:'get',path:'system/adminOperations'},owner)).fields);
  assert((await f.service.social({action:'get',path:'users/bob/roomLibrary/room'},owner)).fields);
 });
+
+test('profile tags and blue verification can be assigned only by the owner, without changing permissions',async()=>{
+ const f=fixture();await assert.rejects(f.service.social({action:'commit',writes:[update('users/alice',{profileTagIds:['verified','admin'],badge:'Verified'})]},identity('alice')),{code:'permission-denied'});
+ const owner={uid:'host',email:'yfastvpn@gmail.com',email_verified:true};await f.service.social({action:'commit',writes:[update('users/alice',{profileTagIds:['official','manager','verified'],badge:'Verified'})]},owner);
+ const user=decodeFields(f.docs.get('users/alice').fields);assert.deepEqual(user.profileTagIds,['official','manager','verified']);assert.equal(user.role,undefined);assert.equal(f.docs.has('admins/alice'),false);
+});

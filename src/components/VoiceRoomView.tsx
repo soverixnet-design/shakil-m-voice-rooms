@@ -1,3 +1,4 @@
+import {ProfileTags} from './ProfileTags';
 import type {VoiceEffect} from '../lib/voiceEffects';
 import {activeRankingAward} from '../lib/rankingAwards';
 import {ensureVoiceMembership} from '../lib/voiceMembership';
@@ -276,7 +277,7 @@ export const VoiceRoomView: React.FC<Props> = ({
               <div key={idx} className="s3w" onClick={() => seat?.uid&&seat.uid!==myUid?onOpenUsers(seat.uid):void handleSeatClick(idx)}>
                 <button className="sr-only" aria-label={`সিট ${idx+1}`} onClick={e=>{e.stopPropagation();seat?.uid&&seat.uid!==myUid?onOpenUsers(seat.uid):void handleSeatClick(idx)}}>সিট {idx+1}</button>{canLockSeats&&<button className="seat-edit-trigger" aria-label={`সিট ${idx+1} পরিচালনা`} onClick={e=>{e.stopPropagation();setSeatAction(idx)}}>⚙</button>}<div data-gift-uid={seat?.uid} data-gift-seat={seat?.uid?'true':undefined} className={`s3 ${lockedSeats.includes(idx)?'seat-is-locked':''} ${seat ? 'on' : ''} ${(isUserSeatedHere && isMicOn || voice.speakers.includes(seat?.uid)&&!roomControls[seat?.uid]?.muted) ? 'talk' : ''}`}>
                   {lockedSeats.includes(idx)&&seat&&<small className="seat-lock-badge">🔒</small>}{seat ? (
-                    <MediaAvatar avatar={seat.avatar} frame={mediaAssets.find(a=>a.id===(activeRankingAward(seat)?.frameId||seat.customFrameId))?.image} size={48}/>
+                    <><MediaAvatar avatar={seat.avatar} frame={mediaAssets.find(a=>a.id===(activeRankingAward(seat)?.frameId||seat.customFrameId))?.image} size={48}/><ProfileTags user={seat} compact/></>
                   ) : (
                     <span className="neon-mic-icon">{lockedSeats.includes(idx)?'🔒':'🎙️'}</span>
                   )}

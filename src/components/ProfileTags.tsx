@@ -1,0 +1,7 @@
+import React,{useEffect,useState} from 'react';
+import {doc} from 'firebase/firestore';
+import {db} from '../firebase';
+import {onSnapshot} from '../lib/reliableFirestore';
+export const DEFAULT_PROFILE_TAGS=[{id:'verified',name:'Verified',icon:'✓',color:'#218bff'},{id:'official',name:'Official',icon:'◆',color:'#168bb0'},{id:'admin',name:'Admin',icon:'🛡',color:'#7857d7'},{id:'manager',name:'Manager',icon:'★',color:'#d19831'}];
+export function useProfileTagDefinitions(){const [tags,setTags]=useState<any[]>(DEFAULT_PROFILE_TAGS);useEffect(()=>onSnapshot(doc(db,'system','profileTags'),s=>setTags(Array.isArray(s.data()?.items)?s.data().items:DEFAULT_PROFILE_TAGS)),[]);return tags}
+export function ProfileTags({user,compact=false}:{user:any;compact?:boolean}){const definitions=useProfileTagDefinitions(),ids=new Set(Array.isArray(user?.profileTagIds)?user.profileTagIds:[]);if(user?.badge==='Verified')ids.add('verified');const tags=definitions.filter(t=>ids.has(t.id)&&t.active!==false);if(!tags.length)return null;return <span className={'profile-tags'+(compact?' compact':'')} data-no-translate="true">{tags.slice(0,compact?1:20).map(t=><span key={t.id} className="profile-tag" title={t.name} aria-label={t.name} style={{background:/^#[a-f0-9]{6}$/i.test(t.color)?t.color:'#218bff'}}>{t.image?<img src={t.image} alt=""/>:<b>{t.icon||'✓'}</b>}{!compact&&<small>{t.name}</small>}</span>)}</span>}

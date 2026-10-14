@@ -1,4 +1,4 @@
-import {getDoc,onSnapshot} from '../lib/reliableFirestore';
+import {getDoc,onSnapshot,query,where} from '../lib/reliableFirestore';
 import {UserSocialCard} from './UserSocialCard';
 import {useMediaAssets,MediaAvatar} from './MediaAssets';
 import {RoomGiftBox} from './RoomGiftBox';
@@ -16,9 +16,10 @@ export function UserDirectory({onClose,onJoin,roomId,initialRecipient,onGiftSent
   const [catalog,setCatalog]=useState(GIFTS);
   useEffect(()=>onSnapshot(doc(db,'system','config'),snapshot=>{const gifts=snapshot.data()?.customGifts;if(Array.isArray(gifts)){setCatalog(gifts.filter(g=>Number.isSafeInteger(g.price)&&g.price>0).map(g=>({emoji:g.icon,name:g.name,cost:g.price})));setGift(0)}}),[]);
   const media=useMediaAssets();
-  const gifts:any[]=catalog.concat(media.filter(a=>a.kind==='gift'&&Number.isSafeInteger(a.price)&&a.price>0).map(a=>({emoji:'🎁',name:a.name,cost:a.price,image:a.image})));
+  const gifts:any[]=catalog.concat(media.filter(a=>a.kind==='gift'&&Number.isSafeInteger(a.price)&&a.price>0).map(a=>({emoji:'🎁',name:a.name,cost:a.price,image:a.image,assetId:a.id})));
   const lock=useRef(false),avatar=useRef<HTMLDivElement>(null),particle=useRef<HTMLSpanElement>(null);
-  useEffect(()=>onSnapshot(collection(db,'users'),snapshot=>{setUsers(snapshot.docs.map(d=>({...d.data(),uid:d.id})));setLoading(false);setError('')},()=>{setLoading(false);setError('ইউজার তালিকা লোড হয়নি। Google লগইন ও সংযোগ পরীক্ষা করুন।')}),[]);
+  useEffect(()=>{setLoading(true);setUsers([]);const fail=()=>{setLoading(false);setError('ইউজার লোড হয়নি। সংযোগ পরীক্ষা করুন।')};if(initialRecipient){const ids=[...new Set([initialRecipient,auth.currentUser?.uid].filter(Boolean))] as string[];const stops=ids.map(uid=>onSnapshot(doc(db,'users',uid),snapshot=>{if(snapshot.exists())setUsers(previous=>[...previous.filter(u=>u.uid!==uid),{...snapshot.data(),uid}]);setLoading(false);setError('')},fail));return()=>stops.forEach(stop=>stop())}return onSnapshot(roomId?query(collection(db,'users'),where('currentRoomId','==',roomId)):collection(db,'users'),snapshot=>{setUsers(snapshot.docs.map(d=>({...d.data(),uid:d.id})));setLoading(false);setError('')},fail)},[roomId,initialRecipient]);
+
   useEffect(()=>{const t=setInterval(()=>setNow(Date.now()),10000);return()=>clearInterval(t)},[]);
   const online=(u:any)=>u.online===true&&now-(u.lastSeen?.toMillis?.()||0)<90000;
   const target=users.find(u=>u.uid===selected),item=gifts[gift],cost=(item?.cost||0)*quantity;

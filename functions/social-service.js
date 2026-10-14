@@ -3,7 +3,7 @@ import {randomInt,createHmac} from 'node:crypto';
 import {decodeFields,decodeValue,encodeFields} from './social-migration.js';
 const OWNER='yfastvpn@gmail.com';
 const ROOTS=new Set(['users','rooms','roomOwners','follows','moments','diamondWallets','transactions','admins','assets','system','supportTickets','sellerWallets','sellerTransfers','sharedGames','gameRanks','gameReceipts','gameWins','liveAnnouncements','directMessages']);
-const PROTECTED=new Set(['rankingAwards','ref','referrerUid','referralAt','referralStats','inv','role','status','email','id','userId','coins','diamond','lastSellerTransfer','lastGiftReceipt','giftSentCount','giftSentCoins','totalRecharged','giftReceivedCount','giftReceivedCoins']);
+const PROTECTED=new Set(['profileTagIds','badge','rankingAwards','ref','referrerUid','referralAt','referralStats','inv','role','status','email','id','userId','coins','diamond','lastSellerTransfer','lastGiftReceipt','giftSentCount','giftSentCoins','totalRecharged','giftReceivedCount','giftReceivedCoins']);
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const allowed=(value,keys)=>Object.keys(value).every(k=>keys.includes(k));
 const photo=v=>typeof v==='string'&&v.length<=300000&&(!v||/^https:\/\//.test(v)||/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]*={0,2}$/.test(v));
@@ -144,6 +144,7 @@ export function createSocialService(database,clock=Date.now){
      if(owner&&!removed)permitted=(!keys.includes('coins')||Number.isSafeInteger(next.coins)&&next.coins>=0)&&(!keys.includes('diamond')||Number.isSafeInteger(next.diamond)&&next.diamond>=0);
      if(permission('moderate')&&!removed&&old.email!==OWNER&&keys.every(k=>k==='status')&&['active','banned'].includes(next.status))permitted=true;
      if(permission('seller')&&!removed&&keys.every(k=>['coins','lastSellerTransfer'].includes(k))&&next.lastSellerTransfer){const receipt=await after('sellerTransfers/'+next.lastSellerTransfer),walletBefore=await plain('sellerWallets/'+identity.uid),walletAfter=await after('sellerWallets/'+identity.uid);permitted=receipt.sellerId===identity.uid&&receipt.receiverId===id&&receipt.amount>0&&Number.isSafeInteger(receipt.amount)&&receipt.createdAt===timestamp&&next.coins===old.coins+receipt.amount&&walletAfter.balance===walletBefore.balance-receipt.amount&&walletAfter.balance>=0&&walletAfter.lastTransferId===next.lastSellerTransfer&&receipt.receiverBefore===old.coins&&receipt.receiverAfter===next.coins&&receipt.sellerBefore===walletBefore.balance&&receipt.sellerAfter===walletAfter.balance&&!await read(client,'sellerTransfers/'+next.lastSellerTransfer);}
+     if(permitted&&keys.includes('profileTagIds')&&(!Array.isArray(next.profileTagIds)||next.profileTagIds.length>20||next.profileTagIds.some(id=>typeof id!=='string'||id.length>80)))permitted=false;
      if(permitted&&next.photoURL!==undefined&&!photo(next.photoURL))permitted=false;
      if(permitted&&next.currentRoomId){
       const room=await after('rooms/'+next.currentRoomId),control=await after(`rooms/${next.currentRoomId}/controls/${identity.uid}`),role=await after(`rooms/${next.currentRoomId}/roles/${identity.uid}`);

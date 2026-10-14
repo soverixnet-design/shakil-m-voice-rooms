@@ -37,3 +37,19 @@ test('diamond exchange preserves the 100-to-70 rate, checks funds and is idempot
  assert.equal(decodeFields(rows.get('users/receiver').fields).coins,120);
 });
 test('successful gifts publish one public banner with a profile photo and ID, without wallet data',async()=>{const {service,rows,put}=fixture();put('users/sender',{id:'111',name:'Sender',avatar:'🌟',coins:1000,status:'active'});put('users/receiver',{id:'222',name:'Receiver',photoURL:'https://example.com/photo.png',coins:50,status:'active'});const request={receiverId:'receiver',item:{name:'Rose',cost:10},quantity:2,requestId:'announcement-gift-12345'};const receipt=await service.gift(request,'sender');await service.gift(request,'sender');const list=[...rows.values()].filter(r=>r.path.startsWith('liveAnnouncements/'));assert.equal(list.length,1);const event=decodeFields(list[0].fields);assert.equal(event.publicId,'222');assert.equal(event.senderPublicId,'111');assert.equal(event.avatar,'https://example.com/photo.png');assert.equal(event.amount,20);assert.equal(event.type,'gift');assert.equal(event.balance,undefined);assert.equal(event.diamonds,undefined);assert.equal(receipt.balance,980);});
+
+test('wallet transactions reuse document reads but keep multiple writes and balances consistent',async()=>{
+ const data=new Map([['users/user',encodeFields({coins:10,status:'active'})]]),counts=new Map();
+ const client={query:async(sql,args)=>{if(sql.startsWith('select')){counts.set(args[0],(counts.get(args[0])||0)+1);return {rows:data.has(args[0])?[{fields:data.get(args[0])}]:[]}};data.set(args[0],JSON.parse(args[3]));return {rows:[]}}};
+ const store=createSocialWalletStore({pool:client,transaction:async fn=>fn(client)},{}),ref=store.doc('users/user');
+ await store.runTransaction(async tx=>{const [a,b]=await Promise.all([tx.get(ref),tx.get(ref)]);assert.equal(a.data().coins,10);assert.equal(b.data().coins,10);tx.update(ref,{coins:9});tx.update(ref,{badge:'Active'})});
+ assert.equal(counts.get('users/user'),1);assert.equal(decodeFields(data.get('users/user')).coins,9);assert.equal(decodeFields(data.get('users/user')).badge,'Active');
+});
+
+test('animated gifts use a registered asset ID without uploading the animation on every send',async()=>{
+ const f=fixture(),image='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';f.put('assets/rose-animation',{kind:'gift',name:'Animated Rose',price:10,image,active:true});
+ const request={receiverId:'receiver',item:{name:'Animated Rose',cost:10,assetId:'rose-animation'},quantity:1,requestId:'animated-request-12345678'};
+ const first=await f.service.gift(request,'sender');assert.equal(first.giftImage,image);assert.equal(first.giftAssetId,'rose-animation');assert.equal(first.balance,990);assert.equal((await f.service.gift(request,'sender')).balance,990);
+ await assert.rejects(f.service.gift({...request,item:{...request.item,cost:1},requestId:'animated-request-22345678'},'sender'),/invalid-gift/);
+ f.put('assets/rose-animation',{kind:'gift',name:'Animated Rose',price:10,image,active:false});await assert.rejects(f.service.gift({...request,requestId:'animated-request-32345678'},'sender'),/invalid-gift/);
+});
