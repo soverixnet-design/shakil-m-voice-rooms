@@ -4,6 +4,8 @@ export const liveGames = [
   {id:'night_wheel',name:'নাইট ফুড হুইল',icon:'🌙',color:'#7A3BFF'},
   {id:'jackpot_fruit',name:'জ্যাকপট ফ্রুট',icon:'🍒',color:'#F25AA8'},
   {id:'slots',name:'স্লটস',icon:'🎰',color:'#2F8CFF'},
+  {id:'carrom',name:'ক্যারাম বোর্ড',icon:'🔴',color:'#00C9A7'},
+  {id:'chess_3d',name:'দাবা ৩ডি',icon:'♟️',color:'#FF8C1A'},
 ];
 export const roomThemes = [
   'linear-gradient(180deg,#5B3FA8,#FF8A5B 30%,#3A2A7A 48%,#0E8C94 66%,#1A1040)',

@@ -302,6 +302,19 @@ export default function App() {
   const [isRoomMinimized, setIsRoomMinimized] = useState<boolean>(false);
   const [activeGame, setActiveGame] = useState<string | null>(null);
   const [isGameMinimized, setIsGameMinimized] = useState<boolean>(false);
+  useEffect(() => {
+    const handleMsg = (e: MessageEvent) => {
+      if (e.data?.type === 'exit' || e.data?.type === 'live-exit') {
+        setActiveGame(null);
+        setIsGameMinimized(false);
+      } else if (e.data?.type === 'wallet' || e.data?.type === 'live-wallet') {
+        setActiveGame(null);
+        setTab('wallet');
+      }
+    };
+    window.addEventListener('message', handleMsg);
+    return () => window.removeEventListener('message', handleMsg);
+  }, []);
   const [toastText, setToastText] = useState<string | null>(null);
   const [fbUser, setFbUser] = useState<any>(null);
 
@@ -2301,7 +2314,7 @@ export default function App() {
                activeGame === 'lion_wheel' ? 'ফুড হুইল' :
                activeGame === 'night_wheel' ? 'নাইট হুইল' :
                activeGame === 'slots' ? 'স্লটস' :
-               activeGame === 'carrom' ? 'সিংহ ফুড হুইল' : 'দাবা ৩ডি'}
+               activeGame === 'carrom' ? 'ক্যারাম বোর্ড' : 'দাবা ৩ডি'}
             </b>
             <span className="text-[9px] text-yellow-200 block font-bold">▶ খেলুন (ট্যাপ করুন)</span>
           </div>
@@ -2370,8 +2383,8 @@ export default function App() {
           <div className="flex-1 relative overflow-hidden">
             {['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'].includes(activeGame) && <UploadedSharedGame key={activeGame} game={activeGame} userName={S.name} onClose={()=>setActiveGame(null)} onWallet={()=>{setActiveGame(null);setTab('wallet');setIsRoomMinimized(Boolean(activeRoom))}}/>}
             {activeGame==='slots'&&<SharedRoundGame game="slots" onClose={()=>setActiveGame(null)}/>}
-
-            {activeGame==='chess_3d'&&<div className="p-8 text-white"><h2>দাবা ৩ডি</h2><p>আপলোড করা ফাইলে গেমের HTML নেই। নতুন দাবার HTML ফাইল যোগ করা প্রয়োজন।</p><button className="b t" onClick={()=>setActiveGame(null)}>ফিরে যান</button></div>}
+            {activeGame==='chess_3d'&&<div className="w-full h-full flex flex-col bg-[#15191a]"><div className="p-2.5 bg-black/60 border-b border-amber-500/30 flex justify-between items-center text-white px-4 shrink-0"><b>♟️ দাবা ৩ডি (3D Chess)</b><button onClick={()=>setActiveGame(null)} className="px-3 py-1 bg-red-600/80 hover:bg-red-600 rounded-xl text-xs font-bold active:scale-95">✕ গেম বন্ধ</button></div><iframe title="দাবা ৩ডি" src="./games/chess.html" className="w-full flex-1 border-0" /></div>}
+            {activeGame==='carrom'&&<div className="w-full h-full flex flex-col bg-[#1b1464]"><div className="p-2.5 bg-black/60 border-b border-emerald-500/30 flex justify-between items-center text-white px-4 shrink-0"><b>🔴 ক্যারাম বোর্ড (Carrom Board)</b><button onClick={()=>setActiveGame(null)} className="px-3 py-1 bg-red-600/80 hover:bg-red-600 rounded-xl text-xs font-bold active:scale-95">✕ গেম বন্ধ</button></div><iframe title="ক্যারাম" src="./games/carrom.html" className="w-full flex-1 border-0" /></div>}
           </div>
         </div>
       )}

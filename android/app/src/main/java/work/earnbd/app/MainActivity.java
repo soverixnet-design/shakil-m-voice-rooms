@@ -85,7 +85,7 @@ public class MainActivity extends Activity {
 
 
  private boolean trusted(Uri uri) {
-  return uri!=null && "https".equals(uri.getScheme()) && ("earnbd.work".equals(uri.getHost())||"www.earnbd.work".equals(uri.getHost())) && (uri.getPort()==-1 || uri.getPort()==443) && uri.getUserInfo()==null;
+  return uri!=null && "https".equals(uri.getScheme()) && (uri.getHost()!=null && (uri.getHost().endsWith("earnbd.work") || uri.getHost().endsWith(".run.app") || uri.getHost().endsWith("github.io"))) && uri.getUserInfo()==null;
  }
  @Override public void onCreate(Bundle state) {
   super.onCreate(state);

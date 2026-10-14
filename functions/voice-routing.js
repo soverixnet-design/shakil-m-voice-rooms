@@ -23,7 +23,8 @@ export function createRoutedVoiceConfig(store,{env=process.env,clock=Date.now}={
   const route=await store.runTransaction(async tx=>{
    const docs=await Promise.all([tx.get(store.doc(`users/${uid}`)),tx.get(store.doc(`rooms/${data.roomId}`)),tx.get(store.doc(`rooms/${data.roomId}/controls/${uid}`)),tx.get(routeRef),tx.get(leaseRef),tx.get(budgetRef)]);
    const [user,room,control={},previous={},lease={},budget={}]=docs.map(d=>d.data());
-   if(!user||!room||user.currentRoomId!==data.roomId||['banned','archived'].includes(user.status)||control.blocked)throw fail('permission-denied','permission-denied');
+   if(!user||!room||['banned','archived'].includes(user.status)||control.blocked)throw fail('permission-denied','permission-denied');
+   if(user.currentRoomId!==data.roomId){user.currentRoomId=data.roomId;tx.set(store.doc(`users/${uid}`),{...user,currentRoomId:data.roomId,online:true,lastSeen:new Date(now)});}
    const canPublish=Number.isInteger(user.roomSeat)&&user.roomSeat>=0&&user.roomSeat<(room.sc||(room.d?12:8))&&!control.muted;
    const used={...(budget.reservedMinutes||{})};
    let index=previous.cycle===cycle?providers.findIndex(p=>p.name===previous.provider):0;if(index<0)index=0;
