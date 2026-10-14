@@ -483,9 +483,13 @@ export default function App() {
     },()=>setToastText('রুম তালিকা লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
   }, [fbUser?.uid]);
 
-  useEffect(()=>onSnapshot(doc(db,'system','config'),snapshot=>{
-    if(snapshot.exists())setS((prev:any)=>({...prev,...safeSiteSettings(snapshot.data())}));
-  },()=>setToastText('সাইটের সেটিংস লোড হয়নি। সংযোগ পরীক্ষা করুন।')),[]);
+  useEffect(()=>{
+    if(!fbUser?.uid)return;
+    return onSnapshot(doc(db,'system','config'),snapshot=>{
+      if(snapshot.exists())setS((prev:any)=>({...prev,...safeSiteSettings(snapshot.data())}));
+      setToastText(old=>old==='সাইটের সেটিংস লোড হয়নি। সংযোগ পরীক্ষা করুন।'?null:old);
+    },()=>setToastText('সাইটের সেটিংস লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
+  },[fbUser?.uid]);
 
   const toast = (text: string) => {
     setToastText(text);
