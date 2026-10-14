@@ -168,7 +168,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   useEffect(()=>{let stopped=false;setRoomReady(false);setSeatedIndex(null);setIsMicOn(false);enteredAt.current=Date.now();const uid=auth.currentUser?.uid;if(!uid)return;
     const ref=doc(db,'users',uid);
     const stop=onSnapshot(ref,snap=>{const profile=snap.data();if(stopped||profile?.currentRoomId!==room.id)return;setRoomReady(true);setSeatedIndex(Number.isInteger(profile.roomSeat)?profile.roomSeat:null)},()=>setSeatError('সিটের তথ্য লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
-    void runTransaction(db,tx=>ensureVoiceMembership(tx,ref,room.id,(room as any).entrySeat??null,serverTimestamp())).catch(()=>{if(!stopped)setSeatError('রুমের সংযোগ সেভ হয়নি। রুমে আবার ঢুকুন।')});
+    void runTransaction(db,tx=>ensureVoiceMembership(tx,ref,room.id,(room as any).entrySeat??null,serverTimestamp())).then(seat=>{if(!stopped){setRoomReady(true);setSeatedIndex(seat)}}).catch(()=>{if(!stopped)setSeatError('রুমের সংযোগ সেভ হয়নি। রুমে আবার ঢুকুন।')});
     return()=>{stopped=true;stop()};
   },[room.id]);
   const handleSeatClick = async (index:number) => {
