@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 android {
  namespace 'work.earnbd.app'
  compileSdk 36
- defaultConfig { applicationId 'work.earnbd.app'; minSdk 23; targetSdk 36; versionCode 11; versionName '1.10.0' }
+ defaultConfig { applicationId 'work.earnbd.app'; minSdk 23; targetSdk 36; versionCode 12; versionName '1.10.1' }
  signingConfigs {
   release {
    def signingPath = System.getenv('EARNBD_KEYSTORE_PATH')

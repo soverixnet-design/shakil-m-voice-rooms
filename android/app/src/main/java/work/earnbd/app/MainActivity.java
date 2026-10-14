@@ -87,8 +87,9 @@ public class MainActivity extends Activity {
  private boolean trusted(Uri uri) {
   return uri!=null && "https".equals(uri.getScheme()) && ("earnbd.work".equals(uri.getHost())||"www.earnbd.work".equals(uri.getHost())) && (uri.getPort()==-1 || uri.getPort()==443) && uri.getUserInfo()==null;
  }
- private final class MessagePushBridge {
-  private boolean allowed(){return web!=null&&trusted(Uri.parse(web.getUrl()==null?"":web.getUrl()));}
+ private volatile boolean pushOriginTrusted=false;
+ public final class MessagePushBridge {
+  private boolean allowed(){return pushOriginTrusted;}
   @JavascriptInterface public void bindUser(String uid){if(allowed()&&uid!=null&&(uid.isEmpty()||uid.matches("[A-Za-z0-9_-]{1,128}")))getSharedPreferences("earnbd-push",MODE_PRIVATE).edit().putString("user",uid).apply();}
   @JavascriptInterface public String registration(){if(!allowed())return "";try{android.content.SharedPreferences p=getSharedPreferences("earnbd-push",MODE_PRIVATE);String id=p.getString("installation","");if(id.isEmpty()){id=java.util.UUID.randomUUID().toString();p.edit().putString("installation",id).apply();}JSONObject result=new JSONObject();result.put("id",id);result.put("token",p.getString("token",""));return result.toString();}catch(Exception e){return "";}}
   @JavascriptInterface public boolean permissionGranted(){return allowed()&&(Build.VERSION.SDK_INT<33||checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED);}
@@ -126,8 +127,8 @@ public class MainActivity extends Activity {
     }
     return true;
    }
-   @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon){progress.setVisibility(View.VISIBLE);}
-   @Override public void onPageFinished(WebView view,String url){progress.setVisibility(View.GONE);CookieManager.getInstance().flush();}
+   @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon){pushOriginTrusted=trusted(Uri.parse(url));progress.setVisibility(View.VISIBLE);}
+   @Override public void onPageFinished(WebView view,String url){pushOriginTrusted=trusted(Uri.parse(url));progress.setVisibility(View.GONE);CookieManager.getInstance().flush();}
    @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError failure){if(request.isForMainFrame())error.setVisibility(View.VISIBLE);}
    @Override public void onReceivedHttpError(WebView view,WebResourceRequest request,WebResourceResponse response){if(request.isForMainFrame()&&response.getStatusCode()>=400)error.setVisibility(View.VISIBLE);}
   });
