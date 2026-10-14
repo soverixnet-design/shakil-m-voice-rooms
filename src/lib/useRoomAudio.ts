@@ -1,3 +1,4 @@
+import {withVoiceEffects,type VoiceEffect} from './voiceEffects';
 import {compatibleVoiceMicrophone} from './voiceMicrophone';
 import {updateVoicePublication,voiceFailure} from './voicePublication';
 import {retryableVoiceConnection} from './voiceConnection';
@@ -5,10 +6,12 @@ import {withTimeout} from './authTimeout';
 import {useEffect,useRef,useState} from 'react';
 import type {ILocalAudioTrack,IAgoraRTC} from 'agora-rtc-sdk-ng';
 import {walletApi} from './walletApi';
-export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpeak:boolean,controls:Record<string,any>,enabled=true){
+export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpeak:boolean,controls:Record<string,any>,enabled=true,voiceEffect:VoiceEffect='normal'){
  const [micLevel,setMicLevel]=useState(0),[remoteAudioCount,setRemoteAudioCount]=useState(0),[connectionState,setConnectionState]=useState('DISCONNECTED');
  const [status,setStatus]=useState(''),[speakers,setSpeakers]=useState<string[]>([]),[audioBlocked,setAudioBlocked]=useState(false),[speaking,setSpeaking]=useState(false),[diagnostic,setDiagnostic]=useState('');
  const flags=useRef({micOn,soundOn,canSpeak,controls});flags.current={micOn,soundOn,canSpeak,controls};
+ const effect=useRef(voiceEffect);effect.current=voiceEffect;
+ const [effectsAvailable,setEffectsAvailable]=useState<boolean|null>(null);
  const error=useRef(''),sdk=useRef<IAgoraRTC|null>(null),intent=useRef(false);
  const local=useRef<ILocalAudioTrack|null>(null),current=useRef<{client?:any;start:()=>Promise<void>;update:(force?:boolean)=>Promise<boolean>;dead:boolean}|null>(null);
  function playback(){for(const user of current.current?.client?.remoteUsers||[]){const off=!flags.current.soundOn||flags.current.controls[String(user.uid)]?.muted||flags.current.controls[String(user.uid)]?.blocked;user.audioTrack?.setVolume(off?0:100);if(!off)user.audioTrack?.play();}}
@@ -62,7 +65,7 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
     // Acquire only after joining and server approval. All capture changes use this queue.
     if(wants&&allowed()&&config.canPublish){
      if(local.current?.getMediaStreamTrack().readyState==='ended'){if(published){await client.unpublish(local.current).catch(()=>{});published=false;}local.current.close();local.current=null;}
-     if(!local.current){local.current=await compatibleVoiceMicrophone(sdk.current,navigator.mediaDevices,()=>alive()&&allowed(),/EarnBDAndroid/.test(navigator.userAgent)||config.provider==='tencent');}
+     if(!local.current){const input=await compatibleVoiceMicrophone(sdk.current,navigator.mediaDevices,()=>alive()&&allowed(),/EarnBDAndroid/.test(navigator.userAgent)||config.provider==='tencent');const track=await withVoiceEffects(sdk.current,input);if(!alive()||!allowed()){track.close();throw Error('voice-not-ready')}local.current=track;setEffectsAvailable(typeof track.setVoiceEffect==='function');track.setVoiceEffect?.(effect.current);}
     }
     const result=await updateVoicePublication({client,track:local.current,config,wants,allowed,alive,published});published=result.published;
     if(force===true&&!result.speaking)throw Error('seat-permission-required');
@@ -79,5 +82,6 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
  },[roomId,enabled]);
  useEffect(()=>{if(!enabled)return;intent.current=micOn;if(local.current&&(!micOn||!canSpeak))local.current.getMediaStreamTrack().enabled=false;void current.current?.update();},[micOn,canSpeak,enabled]);
  useEffect(()=>{playback();},[soundOn,controls]);
- return {micLevel,remoteAudioCount,connectionState,status,diagnostic,speakers,speaking,audioBlocked,permission,unlock,reconnect:async()=>{const session=current.current;if(!session)return false;return session.update(intent.current||flags.current.micOn)},failureReason:()=>error.current||'মাইক চালু হয়নি। আবার চেষ্টা করুন।'};
+ useEffect(()=>{(local.current as any)?.setVoiceEffect?.(voiceEffect)},[voiceEffect]);
+ return {effectsAvailable,micLevel,remoteAudioCount,connectionState,status,diagnostic,speakers,speaking,audioBlocked,permission,unlock,reconnect:async()=>{const session=current.current;if(!session)return false;return session.update(intent.current||flags.current.micOn)},failureReason:()=>error.current||'মাইক চালু হয়নি। আবার চেষ্টা করুন।'};
 }
