@@ -17,3 +17,5 @@ test('Tencent is excluded without advanced permission confirmation or a verified
 test('all exhausted providers fail closed rather than issuing a billable token',async()=>{const f=fixture();await f.config({roomId:'room'},'alice');f.advance(61000);await f.config({roomId:'room'},'alice');f.rows.set('system/voiceBudget_2026-10',{reservedMinutes:{agora:3,tencent:10}});f.advance(61000);await assert.rejects(f.config({roomId:'room'},'alice'),/voice-quota-exhausted/);});
 
 test('expired Tencent trial is never selected even when budget remains',async()=>{const f=fixture();f.advance(20*86400000);f.rows.set('system/voiceBudget_2026-10',{reservedMinutes:{agora:3}});await assert.rejects(f.config({roomId:'room'},'alice'),/voice-quota-exhausted/);});
+
+test('free-only routing excludes an Agora fallback whose remaining quota is unverified',()=>{const f=fixture();delete f.env.AGORA_FREE_MINUTES;assert.deepEqual(voiceProviders(f.env).map(p=>p.name),['tencent']);});

@@ -29,6 +29,14 @@ function fixture(){
 }
 const identity=uid=>({uid,email:uid+'@example.com',email_verified:true});
 const update=(path,data,condition)=>({update:{name:root+'/'+path,fields:encodeFields(data)},updateMask:{fieldPaths:Object.keys(data)},...(condition?{currentDocument:condition}:{})});
+test('seller coin transfers debit only their allocated pool and cannot be replayed or exceed the pool',async()=>{
+ const f=fixture();f.put('admins/alice',{active:true,permissions:{seller:true}});f.put('sellerWallets/alice',{balance:5000});
+ const transfer=(id,amount)=>({action:'commit',writes:[update('sellerWallets/alice',{balance:5000-amount,lastTransferId:id}),update('users/bob',{coins:456+amount,lastSellerTransfer:id}),update('sellerTransfers/'+id,{type:'transfer',sellerId:'alice',receiverId:'bob',receiverPublicId:'222',amount,sellerBefore:5000,sellerAfter:5000-amount,receiverBefore:456,receiverAfter:456+amount,createdAt:new Date(now)})]});
+ await assert.rejects(f.service.social(transfer('overdraw',6000),identity('alice')),{code:'permission-denied'});assert.equal(decodeFields(f.docs.get('users/bob').fields).coins,456);
+ const request=transfer('receipt',1000);await f.service.social(request,identity('alice'));assert.equal(decodeFields(f.docs.get('sellerWallets/alice').fields).balance,4000);assert.equal(decodeFields(f.docs.get('users/bob').fields).coins,1456);
+ await assert.rejects(f.service.social(request,identity('alice')),{code:'permission-denied'});assert.equal(decodeFields(f.docs.get('users/bob').fields).coins,1456);
+ f.put('admins/alice',{active:false,permissions:{seller:true}});await assert.rejects(f.service.social(transfer('revoked',1000),identity('alice')),{code:'permission-denied'});
+});
 test('social reads require verified identity and protect private room history',async()=>{
  const {service}=fixture();
  await assert.rejects(service.social({action:'get',path:'users/alice'},{}),{code:'unauthenticated'});

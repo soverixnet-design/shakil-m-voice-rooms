@@ -15,6 +15,7 @@ import {GlobalGameRanks} from './components/GlobalGameRanks';
 import {GameWinFeed} from './components/GameWinFeed';
 import {UploadedSharedGame} from './games/UploadedSharedGame';
 import {WalletRanks} from './components/WalletRanks';
+import {CoinSellers} from './components/CoinSellers';
 import {DiamondWallet} from './components/DiamondWallet';
 import {SharedRoundGame} from './games/SharedRoundGame';
 import React, { useState, useEffect, useRef } from 'react';
@@ -592,6 +593,7 @@ export default function App() {
       {(offline||authError)&&<div className="app-connection-banner" role="status">{offline?'নেটওয়ার্ক নেই। আপনার লগইন সেভ আছে। সংযোগ ফিরলে আবার চালু হবে।':'সার্ভারে আবার সংযোগ হচ্ছে। আপনার লগইন সেভ আছে।'}{!offline&&<button onClick={()=>setAuthRetry(n=>n+1)}>আবার চেষ্টা করুন</button>}</div>}
       {fbUser&&<GameWinFeed/>}
       {activePage==='game_rank'&&<GlobalGameRanks onClose={()=>setActivePage(null)}/>}
+      {activePage==='coin_sellers'&&<CoinSellers onClose={()=>setActivePage(null)} onSeller={()=>setActivePage('seller')}/>}
       {activePage==='seller'&&<SellerWallet user={fbUser} onClose={()=>setActivePage(null)}/>}
       {activePage==='support_chat'&&<SupportChat user={fbUser} onClose={()=>setActivePage(null)}/>}
       {activePage==='notices'&&<Notices onClose={()=>setActivePage(null)}/>}

@@ -10,7 +10,7 @@ export function voiceProviders(env=process.env){
   if(name==='agora'&&env.AGORA_APP_ID&&env.AGORA_APP_CERTIFICATE)providers.push({name,cap:Number.isFinite(cap)&&cap>0?cap:null});
   if(name==='tencent'&&/^\d+$/.test(env.TENCENT_SDK_APP_ID||'')&&/^[a-f0-9]{64}$/i.test(env.TENCENT_SECRET_KEY||'')&&env.TENCENT_ADVANCED_PERMISSION_ENABLED==='true'&&cap>0&&/^[A-Za-z0-9_-]{1,40}$/.test(env.VOICE_QUOTA_CYCLE||'')&&Number.isFinite(Date.parse(env.TENCENT_FREE_UNTIL||'')))providers.push({name,cap,expiresAt:Date.parse(env.TENCENT_FREE_UNTIL)});
  }
- return providers;
+ return providers.some(p=>p.name==='tencent')?providers.filter(p=>p.cap!==null):providers;
 }
 export function createRoutedVoiceConfig(store,{env=process.env,clock=Date.now}={}){
  const providers=voiceProviders(env);

@@ -1,3 +1,4 @@
+import {createSellerDirectoryService} from './seller-directory.js';
 import {createStaffService} from './staff-service.js';
 import {createEventService} from './event-service.js';
 import {createReferralService} from './referral-service.js';
@@ -21,7 +22,7 @@ try{
  const account=JSON.parse(source);
  if(account.project_id!==PROJECT||!account.private_key||!account.client_email)throw Error('invalid-credentials');
  const app=initializeApp({credential:cert(account),projectId:PROJECT});serverApp=app;
- const db=getFirestore(app,DATABASE);database=db;service={...createGameService(db),...createWalletService(db),...createAccountService(db)};verifyToken=token=>getAuth(app).verifyIdToken(token);ready=true;if(voiceProviders().length){service.voiceConfig=createRoutedVoiceConfig(db);service.voiceProvider='managed';}
+ const db=getFirestore(app,DATABASE);database=db;service={...createGameService(db),...createWalletService(db),...createAccountService(db)};verifyToken=token=>getAuth(app).verifyIdToken(token);ready=true;if(voiceProviders().length){service.voiceConfig=createRoutedVoiceConfig(db);service.voiceProvider=voiceProviders().length===1?voiceProviders()[0].name:'managed';service.voiceProviders=voiceProviders().map(p=>p.name);}
 }catch{console.error('Firebase server credentials missing or invalid. Add the secret file for the configured Firebase project in Render Environment.');}
 const origins=(process.env.ALLOWED_ORIGINS||'https://earnbd.work,https://www.earnbd.work,https://soverixnet-design.github.io').split(',').map(v=>v.trim()).filter(Boolean);
 let lastWriteCheck=0,writeError;
@@ -40,12 +41,12 @@ if(process.env.SUPABASE_DATABASE_URL){
  try{probe=createSupabaseDatabase();await probe.check();
   if(ready){const migration=await migrateSocialData(database,probe);Object.assign(service,createWalletService(createSocialWalletStore(probe,database)),createSocialService(probe));socialDatabase=probe;
   const store=createSocialWalletStore(probe,database);
-  Object.assign(service,createReferralService(store),createEventService(probe),createStaffService(probe,getAuth(serverApp)));
+  Object.assign(service,createSellerDirectoryService(probe),createReferralService(store),createEventService(probe),createStaffService(probe,getAuth(serverApp)));
   const disabledGame=async()=>{throw Object.assign(Error('game-ledger-not-migrated'),{code:'unavailable'});};
   service.bet=disabledGame;service.sync=disabledGame;service.sweep=async()=>{};
   const games=await migrateGameData(database,probe);
   Object.assign(service,createGameService(store),{gamesDatabase:'supabase'});
-  if(voiceProviders().length){service.voiceConfig=createRoutedVoiceConfig(store);service.voiceProvider='managed';console.log('Authenticated voice routing configured.');}
+  if(voiceProviders().length){service.voiceConfig=createRoutedVoiceConfig(store);service.voiceProvider=voiceProviders().length===1?voiceProviders()[0].name:'managed';service.voiceProviders=voiceProviders().map(p=>p.name);console.log('Authenticated voice routing configured.');}
   console.log('Supabase game migration:',JSON.stringify(games));
   console.log('Supabase social migration:',JSON.stringify(migration));}
   console.log('Supabase connection verified; profiles and voice rooms use Supabase when migration is complete.');}

@@ -1,4 +1,5 @@
 import {useMediaAssets,MediaAvatar} from './MediaAssets';
+import {AdminSellerManager} from './CoinSellers';
 import {EventCenter} from './EventCenter';
 import {onSnapshot,runTransaction,writeBatch} from '../lib/reliableFirestore';
 import {ServerStatus} from '../design/ServerStatus';
@@ -525,7 +526,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </div>
 
-      <ServerStatus/>
+      <ServerStatus/><AdminSellerManager/>
       {activeTab==='events'&&<EventCenter admin rooms={appState.rooms||[]} gifts={[...(appState.customGifts||[{name:'হার্ট',icon:'❤️'},{name:'গোলাপ',icon:'🌹'},{name:'স্টার',icon:'⭐'},{name:'লাভ রিং',icon:'💍'},{name:'ডায়মন্ড',icon:'💎'},{name:'VIP কার',icon:'🚗'},{name:'রকেট',icon:'🚀'},{name:'ক্রাউন',icon:'👑'}]),...assets.filter((a:any)=>a.kind==='gift')]}/>}
       {/* 2. Navigation Tabs */}
       <div className="admin-tabs flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
