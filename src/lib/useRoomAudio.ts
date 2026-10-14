@@ -1,16 +1,16 @@
-import {captureVoiceMicrophone} from './voiceMicrophone';
+import {compatibleVoiceMicrophone} from './voiceMicrophone';
 import {updateVoicePublication,voiceFailure} from './voicePublication';
 import {retryableVoiceConnection} from './voiceConnection';
 import {withTimeout} from './authTimeout';
 import {useEffect,useRef,useState} from 'react';
-import type {IAgoraRTCClient,IMicrophoneAudioTrack,IAgoraRTC} from 'agora-rtc-sdk-ng';
+import type {IAgoraRTCClient,ILocalAudioTrack,IAgoraRTC} from 'agora-rtc-sdk-ng';
 import {walletApi} from './walletApi';
 export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpeak:boolean,controls:Record<string,any>,enabled=true){
  const [micLevel,setMicLevel]=useState(0),[remoteAudioCount,setRemoteAudioCount]=useState(0),[connectionState,setConnectionState]=useState('DISCONNECTED');
  const [status,setStatus]=useState(''),[speakers,setSpeakers]=useState<string[]>([]),[audioBlocked,setAudioBlocked]=useState(false),[speaking,setSpeaking]=useState(false),[diagnostic,setDiagnostic]=useState('');
  const flags=useRef({micOn,soundOn,canSpeak,controls});flags.current={micOn,soundOn,canSpeak,controls};
  const error=useRef(''),sdk=useRef<IAgoraRTC|null>(null),intent=useRef(false);
- const local=useRef<IMicrophoneAudioTrack|null>(null),current=useRef<{client?:IAgoraRTCClient;start:()=>Promise<void>;update:(force?:boolean)=>Promise<boolean>;dead:boolean}|null>(null);
+ const local=useRef<ILocalAudioTrack|null>(null),current=useRef<{client?:IAgoraRTCClient;start:()=>Promise<void>;update:(force?:boolean)=>Promise<boolean>;dead:boolean}|null>(null);
  function playback(){for(const user of current.current?.client?.remoteUsers||[]){const off=!flags.current.soundOn||flags.current.controls[String(user.uid)]?.muted||flags.current.controls[String(user.uid)]?.blocked;user.audioTrack?.setVolume(off?0:100);if(!off)user.audioTrack?.play();}}
  function unlock(){try{const result=sdk.current?.resumeAudioContext();void Promise.resolve(result).then(()=>{setAudioBlocked(false);playback()},()=>setAudioBlocked(true));}catch{setAudioBlocked(true);}}
  async function permission(){
@@ -28,7 +28,7 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
   if(!enabled)return;
   let dead=false,client:IAgoraRTCClient|undefined,queue=Promise.resolve(),published=false,joinedConfig:any,refreshPending:Promise<boolean>|undefined;
   const alive=()=>!dead&&current.current===session;
-  const report=(e:any)=>{if(alive()){error.current=voiceFailure(e);setDiagnostic(String(e?.code||e?.name||'VOICE_ERROR').replace(/[^A-Za-z0-9_/-]/g,'').slice(0,80));setStatus(error.current);setSpeaking(false);}};
+  const report=(e:any)=>{if(alive()){error.current=voiceFailure(e);setDiagnostic([e?.captureStage,String(e?.code||e?.name||'VOICE_ERROR')].filter(Boolean).join(' / ').replace(/[^A-Za-z0-9_ /-]/g,'').slice(0,100));setStatus(error.current);setSpeaking(false);}};
   function audible(){if(!alive()||!client)return;setSpeakers(client.remoteUsers.filter(u=>u.hasAudio&&!flags.current.controls[String(u.uid)]?.muted&&!flags.current.controls[String(u.uid)]?.blocked).map(u=>String(u.uid)));playback();}
   const connection=retryableVoiceConnection(async()=>{
    if(client){client.removeAllListeners();await client.leave().catch(()=>{});published=false;session.client=undefined;}
@@ -56,7 +56,7 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
     // Acquire only after joining and server approval. All capture changes use this queue.
     if(wants&&allowed()&&config.canPublish){
      if(local.current?.getMediaStreamTrack().readyState==='ended'){if(published){await client.unpublish(local.current).catch(()=>{});published=false;}local.current.close();local.current=null;}
-     if(!local.current){local.current=await captureVoiceMicrophone(()=>sdk.current!.createMicrophoneAudioTrack({AEC:true,ANS:true,AGC:true}),()=>alive()&&allowed());}
+     if(!local.current){local.current=await compatibleVoiceMicrophone(sdk.current,navigator.mediaDevices,()=>alive()&&allowed());}
     }
     const result=await updateVoicePublication({client,track:local.current,config,wants,allowed,alive,published});published=result.published;
     if(force===true&&!result.speaking)throw Error('seat-permission-required');

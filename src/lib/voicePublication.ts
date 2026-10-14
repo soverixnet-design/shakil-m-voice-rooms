@@ -20,7 +20,7 @@ export function voiceFailure(error:any){
  if(code==='CONSTRAINT_NOT_SATISFIED'||code==='OverconstrainedError')return 'এই মাইক্রোফোনের অডিও সেটিংস চালু করা যায়নি। আবার মাইক চাপুন।';
  if(['PERMISSION_DENIED','NotAllowedError','SecurityError'].includes(code))return 'মাইক্রোফোনের অনুমতি বন্ধ আছে। ব্রাউজার Site settings → Microphone → Allow করুন।';
  if(['DEVICE_NOT_FOUND','NotFoundError'].includes(code))return 'ফোনের মাইক্রোফোন পাওয়া যায়নি।';
- if(['NOT_READABLE','NotReadableError'].includes(code))return 'মাইক্রোফোন অন্য অ্যাপে ব্যস্ত থাকতে পারে। অন্য কল বন্ধ করে আবার চেষ্টা করুন।';
+ if(['NOT_READABLE','NotReadableError'].includes(code))return 'ফোনের মাইক্রোফোন থেকে অডিও নেওয়া যাচ্ছে না। ফোনের Microphone access চালু আছে কি না দেখুন এবং আবার চেষ্টা করুন।';
  if(code==='functions/permission-denied')return 'রুমের সদস্যপদ বা সিটের অনুমতি পাওয়া যায়নি। রুমে আবার ঢুকুন।';
  if(error?.message==='seat-permission-required')return 'সিটের অনুমতি পাওয়া যায়নি বা অ্যাডমিন মিউট করেছেন। সিটে আবার বসুন।';
  if(error?.message==='agora-not-configured')return 'সার্ভারের Agora App ID ও Certificate সঠিকভাবে সেট করা নেই।';
