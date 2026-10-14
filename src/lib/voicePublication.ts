@@ -23,6 +23,8 @@ export function voiceFailure(error:any){
  if(['NOT_READABLE','NotReadableError'].includes(code))return 'ফোনের মাইক্রোফোন থেকে অডিও নেওয়া যাচ্ছে না। ফোনের Microphone access চালু আছে কি না দেখুন এবং আবার চেষ্টা করুন।';
  if(code==='functions/permission-denied')return 'রুমের সদস্যপদ বা সিটের অনুমতি পাওয়া যায়নি। রুমে আবার ঢুকুন।';
  if(error?.message==='seat-permission-required')return 'সিটের অনুমতি পাওয়া যায়নি বা অ্যাডমিন মিউট করেছেন। সিটে আবার বসুন।';
+ if(error?.message==='voice-quota-exhausted')return 'সব প্রস্তুত ভয়েস প্রোভাইডারের নির্ধারিত মিনিট শেষ হয়েছে। অ্যাডমিনকে প্যাকেজ বা পরবর্তী প্রোভাইডার যুক্ত করতে হবে।';
+ if(error?.message==='voice-not-configured')return 'ভয়েস প্রোভাইডারের সার্ভার সেটিংস প্রস্তুত হয়নি।';
  if(error?.message==='agora-not-configured')return 'সার্ভারের Agora App ID ও Certificate সঠিকভাবে সেট করা নেই।';
  if(['INVALID_TOKEN','CAN_NOT_GET_GATEWAY_SERVER','TOKEN_EXPIRED'].includes(code))return 'Agora টোকেন গ্রহণ হয়নি। App ID ও Certificate মিলিয়ে পরীক্ষা করতে হবে।';
  return 'ভয়েস সংযোগ প্রস্তুত হয়নি বা নেটওয়ার্কে আটকে আছে। কয়েক সেকেন্ড পরে আবার মাইক চাপুন।';

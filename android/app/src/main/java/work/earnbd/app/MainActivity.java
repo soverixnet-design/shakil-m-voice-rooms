@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.webkit.*;
 import android.widget.*;
@@ -15,6 +16,9 @@ import android.view.*;
 /** Android shell: application stays inside this Activity, with origin-scoped microphone access. */
 public class MainActivity extends Activity {
  private static final String APP_URL="https://earnbd.work/";
+ private AudioManager audioManager;
+ private int previousAudioMode;
+ private boolean previousSpeaker;
  private WebView web;
  private ProgressBar progress;
  private LinearLayout error;
@@ -23,10 +27,11 @@ public class MainActivity extends Activity {
  private static final int MICROPHONE=20, UPLOAD=21;
 
  private boolean trusted(Uri uri) {
-  return uri!=null && "https".equals(uri.getScheme()) && "earnbd.work".equals(uri.getHost()) && (uri.getPort()==-1 || uri.getPort()==443) && uri.getUserInfo()==null;
+  return uri!=null && "https".equals(uri.getScheme()) && ("earnbd.work".equals(uri.getHost())||"www.earnbd.work".equals(uri.getHost())) && (uri.getPort()==-1 || uri.getPort()==443) && uri.getUserInfo()==null;
  }
  @Override public void onCreate(Bundle state) {
   super.onCreate(state);
+  audioManager=(AudioManager)getSystemService(AUDIO_SERVICE);previousAudioMode=audioManager.getMode();previousSpeaker=audioManager.isSpeakerphoneOn();
   getWindow().setStatusBarColor(Color.rgb(5,12,40));
   getWindow().setNavigationBarColor(Color.rgb(5,12,40));
   LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(Color.rgb(5,12,40));
@@ -40,7 +45,7 @@ public class MainActivity extends Activity {
   setContentView(root);
   WebSettings settings=web.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true); settings.setMediaPlaybackRequiresUserGesture(false);
   settings.setAllowFileAccess(false); settings.setAllowContentAccess(true); settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.4");
+  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.5");
   CookieManager.getInstance().setAcceptCookie(true);
   web.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
@@ -62,7 +67,7 @@ public class MainActivity extends Activity {
     if(!trusted(request.getOrigin())||!trusted(Uri.parse(web.getUrl()==null?"":web.getUrl()))){request.deny();return;}
     boolean audio=false; for(String resource:request.getResources())if(PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource))audio=true;
     if(!audio){request.deny();return;}
-    if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED){request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});return;}
+    if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED){prepareVoiceAudio();request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});return;}
     if(microphoneRequest!=null)microphoneRequest.deny();microphoneRequest=request;
     requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},MICROPHONE);
    });}
@@ -81,11 +86,12 @@ public class MainActivity extends Activity {
   super.onRequestPermissionsResult(requestCode,permissions,results);
   if(requestCode==MICROPHONE&&microphoneRequest!=null){
    PermissionRequest request=microphoneRequest;microphoneRequest=null;
-   if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED&&trusted(request.getOrigin())&&trusted(Uri.parse(web.getUrl()==null?"":web.getUrl())))request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});else request.deny();
+   if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED&&trusted(request.getOrigin())&&trusted(Uri.parse(web.getUrl()==null?"":web.getUrl()))){prepareVoiceAudio();request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});}else request.deny();
   }
  }
  @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){super.onActivityResult(requestCode,resultCode,data);if(requestCode==UPLOAD&&uploadCallback!=null){Uri[] selected=null;if(resultCode==RESULT_OK&&data!=null){if(data.getClipData()!=null){int count=data.getClipData().getItemCount();selected=new Uri[count];for(int i=0;i<count;i++)selected[i]=data.getClipData().getItemAt(i).getUri();}else if(data.getData()!=null)selected=new Uri[]{data.getData()};}uploadCallback.onReceiveValue(selected);uploadCallback=null;}}
  @Override protected void onSaveInstanceState(Bundle out){web.saveState(out);super.onSaveInstanceState(out);}
  @Override public void onBackPressed(){if(web.canGoBack())web.goBack();else new AlertDialog.Builder(this).setMessage("EarnBD বন্ধ করবেন?").setNegativeButton("থাকুন",null).setPositiveButton("বন্ধ করুন",(d,w)->finish()).show();}
- @Override protected void onDestroy(){if(microphoneRequest!=null)microphoneRequest.deny();if(uploadCallback!=null)uploadCallback.onReceiveValue(null);if(web!=null){web.stopLoading();web.destroy();}super.onDestroy();}
+ private void prepareVoiceAudio(){audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);audioManager.setSpeakerphoneOn(true);}
+ @Override protected void onDestroy(){if(microphoneRequest!=null)microphoneRequest.deny();if(uploadCallback!=null)uploadCallback.onReceiveValue(null);if(web!=null){web.stopLoading();web.destroy();}if(audioManager!=null){audioManager.setMode(previousAudioMode);audioManager.setSpeakerphoneOn(previousSpeaker);}super.onDestroy();}
 }

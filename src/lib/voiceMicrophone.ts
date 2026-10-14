@@ -6,11 +6,11 @@ export async function captureVoiceMicrophone<T extends {close:()=>void}>(create:
 }
 
 /** Retry capture through the browser's default audio input if SDK constraints fail. */
-export async function compatibleVoiceMicrophone(sdk:any,devices:Pick<MediaDevices,'getUserMedia'>|undefined,allowed:()=>boolean){
- try{return await captureVoiceMicrophone(()=>sdk.createMicrophoneAudioTrack({AEC:true,ANS:true,AGC:true}),allowed);}
+export async function compatibleVoiceMicrophone(sdk:any,devices:Pick<MediaDevices,'getUserMedia'>|undefined,allowed:()=>boolean,preferBrowser=false){
+ try{if(preferBrowser&&devices)throw {code:'USE_BROWSER_CAPTURE'};return await captureVoiceMicrophone(()=>sdk.createMicrophoneAudioTrack({AEC:true,ANS:true,AGC:true}),allowed);}
  catch(error:any){
   const code=String(error?.code||error?.name||'');
-  if(!['NOT_READABLE','NotReadableError','CONSTRAINT_NOT_SATISFIED','OverconstrainedError'].includes(code)||!devices||!allowed())throw error;
+  if(!['USE_BROWSER_CAPTURE','NOT_READABLE','NotReadableError','CONSTRAINT_NOT_SATISFIED','OverconstrainedError'].includes(code)||!devices||!allowed())throw error;
   let stream:MediaStream|undefined;
   try{
    stream=await devices.getUserMedia({audio:true,video:false});
