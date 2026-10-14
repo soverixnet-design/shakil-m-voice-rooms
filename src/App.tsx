@@ -323,12 +323,29 @@ export default function App() {
   const [editBio, setEditBio] = useState('');
   const [editCountry, setEditCountry] = useState('');
   
-  // Mandatory Login Gate: অ্যাপসে লগইন ছাড়া কোনোভাবেই প্রবেশ করা যাবে না
-  const [isAuthenticated,setIsAuthenticated]=useState(false);
-  const verifiedSession=useRef<string|null>(null);
-  const [offline,setOffline]=useState(()=>!navigator.onLine);
-  useEffect(()=>{const update=()=>setOffline(!navigator.onLine);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[]);
-  const [authChecking,setAuthChecking]=useState(true),[authError,setAuthError]=useState(''),[authRetry,setAuthRetry]=useState(0),[authStage,setAuthStage]=useState('Checking saved sign-in…');
+  // Persistent Login: সেভ করা সেশন থাকলে সরাসরি অ্যাপে ঢুকবে, বারবার লগইন চাইবে না
+  const cachedUid = (() => {
+    try {
+      const session = localStorage.getItem('sv_auth_session');
+      return session ? JSON.parse(session)?.uid || null : null;
+    } catch {
+      return null;
+    }
+  })();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => Boolean(cachedUid));
+  const verifiedSession = useRef<string | null>(cachedUid);
+  const [offline, setOffline] = useState(() => !navigator.onLine);
+  useEffect(() => {
+    const update = () => setOffline(!navigator.onLine);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
+  const [authChecking, setAuthChecking] = useState<boolean>(() => !Boolean(cachedUid));
+  const [authError, setAuthError] = useState(''), [authRetry, setAuthRetry] = useState(0), [authStage, setAuthStage] = useState('Checking saved sign-in…');
   const [loginTab, setLoginTab] = useState<'google' | 'user'>('google');
   const [loginUserName, setLoginUserName] = useState<string>('');
   const [loginUserPhone, setLoginUserPhone] = useState<string>('');
@@ -413,28 +430,35 @@ export default function App() {
 
   useEffect(()=>{
     let current=true,version=0;
-    setAuthChecking(true);setAuthError('');
-    const startup=setTimeout(()=>{if(current){setAuthChecking(false);setAuthError('Login connection timed out. Check your internet connection and retry.')}},15000);
+    if(!verifiedSession.current){setAuthChecking(true);setAuthError('');}
+    const startup=setTimeout(()=>{if(current&&!verifiedSession.current){setAuthChecking(false);setAuthError('লগইন সংযোগে সময় লাগছে। ইন্টারনেট চেক করে আবার চেষ্টা করুন।')}},20000);
     const unsub=onAuthStateChanged(auth,async u=>{
       clearTimeout(startup);
       const attempt=++version;
       const valid=()=>current&&attempt===version&&auth.currentUser?.uid===u?.uid;
-      setFbUser(u);if(!u||verifiedSession.current!==u.uid)setIsAuthenticated(false);setAuthChecking(true);setAuthError('');
-      if(!u){localStorage.removeItem('sv_auth_session');setAuthChecking(false);setActiveRoom(null);setActiveGame(null);return;}
+      setFbUser(u);
+      if(!u){
+        localStorage.removeItem('sv_auth_session');
+        verifiedSession.current=null;
+        setIsAuthenticated(false);
+        setAuthChecking(false);
+        setActiveRoom(null);
+        setActiveGame(null);
+        return;
+      }
+      // ইউজার ইতিমধ্যে লগইন অবস্থায় আছেন - সরাসরি সেশন সক্রিয় রাখুন
+      verifiedSession.current=u.uid;
+      setIsAuthenticated(true);
+      localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
       try{
-        await withTimeout((async()=>{
-          const profile=await accountBootstrap(stage=>{if(valid())setAuthStage(stage)});
-          if(!valid())return;
-          setS((prev:any)=>({...prev,id:profile.id,uid:u.uid,name:profile.name,img:profile.photoURL,role:profile.role,coins:profile.coins}));
-          verifiedSession.current=u.uid;setFbUser(u);setIsAuthenticated(true);
-          localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
-        })(),100000);
+        const profile=await accountBootstrap(stage=>{if(valid())setAuthStage(stage)});
+        if(!valid())return;
+        setS((prev:any)=>({...prev,id:profile.id,uid:u.uid,name:profile.name,img:profile.photoURL,role:profile.role,coins:profile.coins}));
+        setAuthError('');
       }catch(e:any){if(current&&attempt===version){
-        if(e.message==='blocked-account'||e.message==='inactive-user'){verifiedSession.current=null;setIsAuthenticated(false);setActiveRoom(null);setActiveGame(null)}
-        version++;setAuthChecking(false);
-        setAuthError((e.message==='blocked-account'||e.message==='inactive-user')?'This account is blocked.':e.code?.startsWith('login/')?`${e.message} (${e.code})`:e.code==='account-timeout'?'Google/email sign-in is complete, but the account database did not respond. Check your connection and retry account setup.':`Account setup failed (${e.code||e.message||'connection-error'}). Please retry.`);
+        if(e.message==='blocked-account'||e.message==='inactive-user'){verifiedSession.current=null;setIsAuthenticated(false);setActiveRoom(null);setActiveGame(null);setAuthError('এই অ্যাকাউন্টটি স্থগিত করা হয়েছে।');}
       }}finally{if(current&&attempt===version)setAuthChecking(false)}
-    },e=>{clearTimeout(startup);if(current){setAuthChecking(false);setAuthError(`Login connection failed (${e.message}). Please retry.`)}});
+    },e=>{clearTimeout(startup);if(current&&!verifiedSession.current){setAuthChecking(false);setAuthError(`লগইন সংযোগ বিঘ্নিত হয়েছে (${e.message})। আবার চেষ্টা করুন।`)}});
     return()=>{current=false;version++;clearTimeout(startup);unsub()};
   },[authRetry]);
 
