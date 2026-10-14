@@ -27,6 +27,7 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
    error.current='';return true;
   }catch(e:any){intent.current=false;if(!error.current)error.current=voiceFailure(e);setStatus(error.current);return false;}
  }
+ useEffect(()=>{(window as any).EarnBDRoomAudio?.setMicrophoneActive?.(enabled&&speaking)},[enabled,speaking]);
  useEffect(()=>{
   const bridge=(window as any).EarnBDRoomAudio;
   if(!bridge||!enabled)return;

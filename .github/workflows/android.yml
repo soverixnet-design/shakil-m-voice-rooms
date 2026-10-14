@@ -35,5 +35,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view android-1.7-preview || gh release create android-1.7-preview --target "$GITHUB_SHA" --title 'EarnBD Android 1.7 in-app preview' --notes 'In-app Android WebView with microphone permission and image picker. Email login; native Google OAuth is not included. Room listening uses a media playback foreground service. Debug-signed test build; not a Play Store release. See ANDROID_SETUP_BN.md.' --prerelease
-          gh release upload android-1.7-preview EarnBD-Shakil-preview.apk --clobber
+          gh release view android-1.8-preview || gh release create android-1.8-preview --target "$GITHUB_SHA" --title 'EarnBD Android 1.8 in-app preview' --notes 'In-app Android WebView with microphone permission and image picker. Email login; native Google OAuth is not included. Room audio uses media playback and microphone foreground services. Debug-signed test build; not a Play Store release. See ANDROID_SETUP_BN.md.' --prerelease
+          gh release upload android-1.8-preview EarnBD-Shakil-preview.apk --clobber
