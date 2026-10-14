@@ -32,3 +32,13 @@ test('saved login survives a cold profile server and retries only the same verif
 test('blocked accounts are not retried or replaced by cached profile data',async()=>{
  let calls=0;await assert.rejects(loadAccountProfile({url,getToken:async()=> 'saved-token',pause:async()=>{},request:async()=>{calls++;return new Response(JSON.stringify({error:{code:'permission-denied',message:'blocked-account'}}),{status:403});}}),/blocked-account/);assert.equal(calls,1);
 });
+
+import {createAccountServerWarmup} from '../src/lib/accountServerWarmup.ts';
+test('profile server wakes before sign-in without duplicate probes or credentials',async()=>{
+ let calls=0,release;const warm=createAccountServerWarmup(async(target,options)=>{calls++;assert.equal(target,url+'/health');assert.equal(options.headers,undefined);await new Promise(r=>release=r);return new Response('{}')});
+ const first=warm(url,1000),second=warm(url,1001);assert.equal(first,second);await new Promise(r=>setImmediate(r));assert.equal(calls,1);release();await first;await warm(url,2000);assert.equal(calls,1);
+});
+test('a failed wakeup never rejects or blocks authenticated profile loading',async()=>{
+ const warm=createAccountServerWarmup(async()=>{throw new TypeError('offline')});await warm(url,0);
+ const profile=await loadAccountProfile({url,getToken:async()=> 'token',request:async()=>new Response(JSON.stringify({data:{id:'123',name:'User',coins:10}}))});assert.equal(profile.coins,10);
+});

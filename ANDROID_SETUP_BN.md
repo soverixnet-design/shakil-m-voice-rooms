@@ -1,9 +1,19 @@
 # EarnBD Android ও সার্ভার গাইড
 
-Android 1.1 সংস্করণে EarnBD অ্যাপের নিজস্ব Android Activity-র WebView-তে সরাসরি চলে। রুম ও গেমস খুলতে আলাদা ব্রাউজার লাগে না। এটি hybrid Android app; সব স্ক্রিন Kotlin/Java-তে নতুন করে লেখা সম্পূর্ণ native app নয়। Internet প্রয়োজন; Android background voice service এতে নেই।
+বর্তমান preview সংস্করণ 1.9.0। অ্যাপটি নিজস্ব Android WebView-তে চলে এবং native Google account picker ব্যবহার করে। মাইক্রোফোন ও media playback foreground service আছে। দুই ফোনে একই রুমে কথা শোনা এবং গেমের ফলাফল যাচাই না হওয়া পর্যন্ত production-ready ধরে নেওয়া যাবে না।
 
-## APK ইনস্টল
-GitHub Releases-এর `android-1.1-preview` সংস্করণে `EarnBD-Shakil-preview.apk` ডাউনলোড করুন। এটি পরীক্ষার জন্য debug-signed APK; Play Store release নয়। Android চাইলে যে ব্রাউজার থেকে ডাউনলোড করেছেন তার Install unknown apps অনুমতি চালু করুন। অ্যাপ খুললেই EarnBD স্ক্রিন দেখাবে। Email / Gmail ও EarnBD পাসওয়ার্ড দিয়ে লগইন করুন। নতুন হলে account তৈরি করুন। ভয়েস রুমে Android ও ওয়েব মাইক্রোফোনের অনুমতি দিন। Google popup login WebView-তে চালানো হয় না; native Google OAuth integration এখনো যোগ হয়নি। আগে Google দিয়ে খুললে Forgot password দিয়ে EarnBD password সেট করার চেষ্টা করুন; Firebase Email/Password provider চালু থাকা প্রয়োজন। আগের preview APK ইনস্টল থাকলে নতুনটি ইনস্টল করতে পুরোনোটি uninstall লাগতে পারে, কারণ পরীক্ষার signing key স্থায়ী নয়। প্রথমে দুই ফোন দিয়ে একই রুমে কথা পরীক্ষা করুন।
+## APK ও Firebase Google লগইন
+GitHub Releases-এর `android-1.9-preview` থেকে APK নিন। পুরোনো 1.8 preview সর্বশেষ সংস্করণ নয়।
+
+একই Firebase project-এ Authentication → Sign-in method → Google চালু করুন। Project settings → Your apps-এ Android package `work.earnbd.app` না থাকলে যোগ করুন।
+
+1.9 preview release-এর `Android-Signing-Fingerprints.txt` অনুযায়ী:
+- SHA-1: `C2:2A:EF:6B:C4:02:20:2A:EA:4B:9B:D5:5E:F3:13:33:5D:E9:B8:5C`
+- SHA-256: `4E:67:B3:F5:D9:A8:28:DA:FD:BB:64:8A:13:02:D8:6F:38:9F:22:AC:A0:BE:A3:6C:30:EB:4C:96:05:9E:5F:29`
+
+Firebase Android app-এ fingerprint যোগ করুন। নতুন signing key-তে বিল্ড হলে সেই APK-এর fingerprint পুনরায় মিলিয়ে যোগ করতে হবে। Native Google bridge-এ Web OAuth client ID ব্যবহার হয়; সেটি একই Firebase project-এর হতে হবে। Google Cloud-এ Android OAuth client-এর package/SHA-1 মিলতে হবে। Firebase config বদলাবেন না। বর্তমান native bridge Firebase Android SDK ব্যবহার করে না, তাই শুধু `google-services.json` ডাউনলোড করলেই এই bridge-এর client ID বদলায় না।
+
+ওয়েব লগইনের Authorized domains-এ `earnbd.work`, `www.earnbd.work` এবং ব্যবহার করা Render host যোগ করুন। APK-তে microphone permission Allow করুন। WebView-এর trusted-origin check বন্ধ করবেন না।
 
 ## মূল অ্যাপ ঠিকানা পরিবর্তন
 `android/app/src/main/java/work/earnbd/app/MainActivity.java`-এর `APP_URL` পরিবর্তন করুন। HTTPS ঠিকানা ব্যবহার করুন। পরিবর্তন commit করলে Android workflow আবার APK বানাবে।

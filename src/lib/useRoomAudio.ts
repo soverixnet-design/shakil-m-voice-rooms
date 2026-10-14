@@ -1,3 +1,4 @@
+import {voiceTokenDeadline} from './voiceTokenClock';
 import {withVoiceEffects,type VoiceEffect} from './voiceEffects';
 import {compatibleVoiceMicrophone} from './voiceMicrophone';
 import {updateVoicePublication,voiceFailure,outdatedVoiceBundle} from './voicePublication';
@@ -37,14 +38,14 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
  },[enabled,roomId]);
  useEffect(()=>{
   if(!enabled)return;
-  let dead=false,client:any|undefined,queue=Promise.resolve(),published=false,joinedConfig:any,refreshPending:Promise<boolean>|undefined,activeConfig:any;
+  let dead=false,client:any|undefined,queue=Promise.resolve(),published=false,joinedConfig:any,refreshPending:Promise<boolean>|undefined,activeConfig:any,activeTokenDeadline=0;
   const alive=()=>!dead&&current.current===session;
   const report=(e:any)=>{if(alive()){error.current=voiceFailure(e);setDiagnostic(outdatedVoiceBundle(e)?'STALE_APP':[e?.captureStage,String(e?.code||e?.name||'VOICE_ERROR')].filter(Boolean).join(' / ').replace(/[^A-Za-z0-9_ /-]/g,'').slice(0,100));setStatus(error.current);setSpeaking(false);}};
   function audible(){if(!alive()||!client)return;setSpeakers(client.remoteUsers.filter((u:any)=>u.hasAudio&&!flags.current.controls[String(u.uid)]?.muted&&!flags.current.controls[String(u.uid)]?.blocked).map((u:any)=>String(u.uid)));playback();}
   let pendingConfig:any;
   const connection=retryableVoiceConnection(async()=>{
    if(client){client.removeAllListeners();await client.leave().catch(()=>{});published=false;session.client=undefined;}
-   if(alive())setStatus('ভয়েস সার্ভারের অনুমতি যাচাই হচ্ছে…');const config=pendingConfig||await walletApi('voice-config',{roomId});pendingConfig=undefined;joinedConfig=config;activeConfig=config;if(!alive())throw Error('voice-not-ready');
+   if(alive())setStatus('ভয়েস সার্ভারের অনুমতি যাচাই হচ্ছে…');const tokenSent=performance.now(),config=pendingConfig||await walletApi('voice-config',{roomId});activeTokenDeadline=voiceTokenDeadline(config,tokenSent,performance.now());pendingConfig=undefined;joinedConfig=config;activeConfig=config;if(!alive())throw Error('voice-not-ready');
    if(!['agora','tencent'].includes(config.provider))throw Error('voice-not-configured');
    const {default:AgoraRTC}=await import('agora-rtc-sdk-ng');if(!alive())throw Error('voice-not-ready');sdk.current=AgoraRTC;
    AgoraRTC.setLogLevel(3);client=config.provider==='tencent'?(await import('./tencentVoiceClient')).createTencentVoiceClient(config):AgoraRTC.createClient({mode:'live',codec:'vp8'});session.client=client;
@@ -65,7 +66,7 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
     const wants=(force===true||intent.current||flags.current.micOn)&&flags.current.canSpeak;
     if(local.current&&!wants)await local.current.setEnabled(false);
     const config=!force&&joinedConfig?joinedConfig:await walletApi('voice-config',{roomId});joinedConfig=undefined;
-    if(config.provider!==activeConfig.provider||config.epoch!==activeConfig.epoch||config.provider==='tencent'&&(activeConfig.expiresAt-Date.now()<25000||config.canPublish!==activeConfig.canPublish)){
+    if(config.provider!==activeConfig.provider||config.epoch!==activeConfig.epoch||config.provider==='tencent'&&(activeTokenDeadline-performance.now()<25000||config.canPublish!==activeConfig.canPublish)){
      local.current?.close();local.current=null;pendingConfig=config;connection.reset();await connection.start();if(!alive()||!client)return false;joinedConfig=undefined;
     }
     client.setConfig?.(config);

@@ -3,8 +3,6 @@ export const liveGames = [
   {id:'lion_wheel',name:'সিংহ ফুড হুইল',icon:'🎡',color:'#E0381B'},
   {id:'night_wheel',name:'নাইট ফুড হুইল',icon:'🌙',color:'#7A3BFF'},
   {id:'jackpot_fruit',name:'জ্যাকপট ফ্রুট',icon:'🍒',color:'#F25AA8'},
-  {id:'slots',name:'স্লটস',icon:'🎰',color:'#2F8CFF'},
-  {id:'carrom',name:'ক্যারাম বোর্ড',icon:'🔴',color:'#00C9A7'},
   {id:'chess_3d',name:'দাবা ৩ডি',icon:'♟️',color:'#FF8C1A'},
 ];
 export const roomThemes = [

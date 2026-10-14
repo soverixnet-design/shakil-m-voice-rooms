@@ -17,7 +17,6 @@ import {UploadedSharedGame} from './games/UploadedSharedGame';
 import {WalletRanks} from './components/WalletRanks';
 import {CoinSellers} from './components/CoinSellers';
 import {DiamondWallet} from './components/DiamondWallet';
-import {SharedRoundGame} from './games/SharedRoundGame';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   auth, 
@@ -323,29 +322,12 @@ export default function App() {
   const [editBio, setEditBio] = useState('');
   const [editCountry, setEditCountry] = useState('');
   
-  // Persistent Login: সেভ করা সেশন থাকলে সরাসরি অ্যাপে ঢুকবে, বারবার লগইন চাইবে না
-  const cachedUid = (() => {
-    try {
-      const session = localStorage.getItem('sv_auth_session');
-      return session ? JSON.parse(session)?.uid || null : null;
-    } catch {
-      return null;
-    }
-  })();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => Boolean(cachedUid));
-  const verifiedSession = useRef<string | null>(cachedUid);
-  const [offline, setOffline] = useState(() => !navigator.onLine);
-  useEffect(() => {
-    const update = () => setOffline(!navigator.onLine);
-    window.addEventListener('online', update);
-    window.addEventListener('offline', update);
-    return () => {
-      window.removeEventListener('online', update);
-      window.removeEventListener('offline', update);
-    };
-  }, []);
-  const [authChecking, setAuthChecking] = useState<boolean>(() => !Boolean(cachedUid));
-  const [authError, setAuthError] = useState(''), [authRetry, setAuthRetry] = useState(0), [authStage, setAuthStage] = useState('Checking saved sign-in…');
+  // Mandatory Login Gate: অ্যাপসে লগইন ছাড়া কোনোভাবেই প্রবেশ করা যাবে না
+  const [isAuthenticated,setIsAuthenticated]=useState(false);
+  const verifiedSession=useRef<string|null>(null);
+  const [offline,setOffline]=useState(()=>!navigator.onLine);
+  useEffect(()=>{const update=()=>setOffline(!navigator.onLine);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[]);
+  const [authChecking,setAuthChecking]=useState(true),[authError,setAuthError]=useState(''),[authRetry,setAuthRetry]=useState(0),[authStage,setAuthStage]=useState('Checking saved sign-in…');
   const [loginTab, setLoginTab] = useState<'google' | 'user'>('google');
   const [loginUserName, setLoginUserName] = useState<string>('');
   const [loginUserPhone, setLoginUserPhone] = useState<string>('');
@@ -430,35 +412,28 @@ export default function App() {
 
   useEffect(()=>{
     let current=true,version=0;
-    if(!verifiedSession.current){setAuthChecking(true);setAuthError('');}
-    const startup=setTimeout(()=>{if(current&&!verifiedSession.current){setAuthChecking(false);setAuthError('লগইন সংযোগে সময় লাগছে। ইন্টারনেট চেক করে আবার চেষ্টা করুন।')}},20000);
+    setAuthChecking(true);setAuthError('');
+    const startup=setTimeout(()=>{if(current){setAuthChecking(false);setAuthError('Login connection timed out. Check your internet connection and retry.')}},15000);
     const unsub=onAuthStateChanged(auth,async u=>{
       clearTimeout(startup);
       const attempt=++version;
       const valid=()=>current&&attempt===version&&auth.currentUser?.uid===u?.uid;
-      setFbUser(u);
-      if(!u){
-        localStorage.removeItem('sv_auth_session');
-        verifiedSession.current=null;
-        setIsAuthenticated(false);
-        setAuthChecking(false);
-        setActiveRoom(null);
-        setActiveGame(null);
-        return;
-      }
-      // ইউজার ইতিমধ্যে লগইন অবস্থায় আছেন - সরাসরি সেশন সক্রিয় রাখুন
-      verifiedSession.current=u.uid;
-      setIsAuthenticated(true);
-      localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
+      setFbUser(u);if(!u||verifiedSession.current!==u.uid)setIsAuthenticated(false);setAuthChecking(true);setAuthError('');
+      if(!u){localStorage.removeItem('sv_auth_session');setAuthChecking(false);setActiveRoom(null);setActiveGame(null);return;}
       try{
-        const profile=await accountBootstrap(stage=>{if(valid())setAuthStage(stage)});
-        if(!valid())return;
-        setS((prev:any)=>({...prev,id:profile.id,uid:u.uid,name:profile.name,img:profile.photoURL,role:profile.role,coins:profile.coins}));
-        setAuthError('');
+        await withTimeout((async()=>{
+          const profile=await accountBootstrap(stage=>{if(valid())setAuthStage(stage)});
+          if(!valid())return;
+          setS((prev:any)=>({...prev,id:profile.id,uid:u.uid,name:profile.name,img:profile.photoURL,role:profile.role,coins:profile.coins}));
+          verifiedSession.current=u.uid;setFbUser(u);setIsAuthenticated(true);
+          localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
+        })(),100000);
       }catch(e:any){if(current&&attempt===version){
-        if(e.message==='blocked-account'||e.message==='inactive-user'){verifiedSession.current=null;setIsAuthenticated(false);setActiveRoom(null);setActiveGame(null);setAuthError('এই অ্যাকাউন্টটি স্থগিত করা হয়েছে।');}
+        if(e.message==='blocked-account'||e.message==='inactive-user'){verifiedSession.current=null;setIsAuthenticated(false);setActiveRoom(null);setActiveGame(null)}
+        version++;setAuthChecking(false);
+        setAuthError((e.message==='blocked-account'||e.message==='inactive-user')?'This account is blocked.':e.code?.startsWith('login/')?`${e.message} (${e.code})`:e.code==='account-timeout'?'Google/email sign-in is complete, but the account database did not respond. Check your connection and retry account setup.':`Account setup failed (${e.code||e.message||'connection-error'}). Please retry.`);
       }}finally{if(current&&attempt===version)setAuthChecking(false)}
-    },e=>{clearTimeout(startup);if(current&&!verifiedSession.current){setAuthChecking(false);setAuthError(`লগইন সংযোগ বিঘ্নিত হয়েছে (${e.message})। আবার চেষ্টা করুন।`)}});
+    },e=>{clearTimeout(startup);if(current){setAuthChecking(false);setAuthError(`Login connection failed (${e.message}). Please retry.`)}});
     return()=>{current=false;version++;clearTimeout(startup);unsub()};
   },[authRetry]);
 
@@ -649,7 +624,7 @@ export default function App() {
         if(action==='page'&&value){if(value==='admin'&&!isSuperAdmin)return;if(value==='edit_profile'){setEditName(S.name||'');setEditBio(S.bio||'');setEditCountry(S.country||'');}setActivePage(value)}
         if(action==='create-room'){const own=S.rooms.find((r:any)=>r.hostId===fbUser?.uid);if(own)void enterRoom(own);else setShowCreateRoomModal(true)}
         if(action==='room'){const room=S.rooms.find((r:any)=>String(r.id)===value);if(room)void enterRoom(room)}
-        if(action==='game'&&['greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots'].includes(value||'')){setActiveGame(value!);setIsGameMinimized(false)}
+        if(action==='game'&&['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'].includes(value||'')){setActiveGame(value!);setIsGameMinimized(false)}
         if(action==='recharge'){const pkg=S.pk[Number(value)];if(pkg)setSelectedRechargePackage(pkg)}
       }}/>} 
       {pendingRoom&&<RoomEntryCard room={pendingRoom} onClose={()=>setPendingRoom(null)} onEnter={seat=>{setActiveRoom({...pendingRoom,entrySeat:seat});setIsRoomMinimized(false);setPendingRoom(null)}}/>}
@@ -794,13 +769,6 @@ export default function App() {
                 onClick={() => setActiveGame('jackpot_fruit')}
               >
                 <b>🍒</b>জ্যাকপট ফ্রুট
-              </div>
-              <div
-                className="tl"
-                style={{ background: 'linear-gradient(#ffd08a,#ff8a2a)' }}
-                onClick={() => setActiveGame('slots')}
-              >
-                <b>🎰</b>স্লটস
               </div>
               <div
                 className="tl"
@@ -981,12 +949,6 @@ export default function App() {
                 <div className="cvv">🌙</div>
                 <b>নাইট হুইল</b>
                 <div className="sm2">রাতের চাকা</div>
-              </div>
-              <div className="rc" style={{ background: GR[3] }} onClick={() => setActiveGame('slots')}>
-                <span className="ls">Game</span>
-                <div className="cvv">🎰</div>
-                <b>স্লটস</b>
-                <div className="sm2">ক্লাসিক স্লট</div>
               </div>
             </div>
           </>
@@ -2328,17 +2290,13 @@ export default function App() {
           <span className="text-2xl drop-shadow">
             {activeGame === 'greedy_lion' ? '🦁' : activeGame === 'jackpot_fruit' ? '🍒' :
              activeGame === 'lion_wheel' ? '🦁' :
-             activeGame === 'night_wheel' ? '🌙' :
-             activeGame === 'slots' ? '🎰' :
-             activeGame === 'carrom' ? '🔴' : '♟️'}
+             activeGame === 'night_wheel' ? '🌙' : '♟️'}
           </span>
           <div className="text-left pr-1">
             <b className="text-[11px] block font-black leading-tight text-white drop-shadow">
               {activeGame === 'greedy_lion' ? 'Greedy Lion' : activeGame === 'jackpot_fruit' ? 'জ্যাকপট ফ্রুট' :
                activeGame === 'lion_wheel' ? 'ফুড হুইল' :
-               activeGame === 'night_wheel' ? 'নাইট হুইল' :
-               activeGame === 'slots' ? 'স্লটস' :
-               activeGame === 'carrom' ? 'ক্যারাম বোর্ড' : 'দাবা ৩ডি'}
+               activeGame === 'night_wheel' ? 'নাইট হুইল' : 'দাবা ৩ডি'}
             </b>
             <span className="text-[9px] text-yellow-200 block font-bold">▶ খেলুন (ট্যাপ করুন)</span>
           </div>
@@ -2406,9 +2364,7 @@ export default function App() {
 
           <div className="flex-1 relative overflow-hidden">
             {['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'].includes(activeGame) && <UploadedSharedGame key={activeGame} game={activeGame} userName={S.name} onClose={()=>setActiveGame(null)} onWallet={()=>{setActiveGame(null);setTab('wallet');setIsRoomMinimized(Boolean(activeRoom))}}/>}
-            {activeGame==='slots'&&<SharedRoundGame game="slots" onClose={()=>setActiveGame(null)}/>}
             {activeGame==='chess_3d'&&<div className="w-full h-full flex flex-col bg-[#15191a]"><div className="p-2.5 bg-black/60 border-b border-amber-500/30 flex justify-between items-center text-white px-4 shrink-0"><b>♟️ দাবা ৩ডি (3D Chess)</b><button onClick={()=>setActiveGame(null)} className="px-3 py-1 bg-red-600/80 hover:bg-red-600 rounded-xl text-xs font-bold active:scale-95">✕ গেম বন্ধ</button></div><iframe title="দাবা ৩ডি" src="./games/chess.html" className="w-full flex-1 border-0" /></div>}
-            {activeGame==='carrom'&&<div className="w-full h-full flex flex-col bg-[#1b1464]"><div className="p-2.5 bg-black/60 border-b border-emerald-500/30 flex justify-between items-center text-white px-4 shrink-0"><b>🔴 ক্যারাম বোর্ড (Carrom Board)</b><button onClick={()=>setActiveGame(null)} className="px-3 py-1 bg-red-600/80 hover:bg-red-600 rounded-xl text-xs font-bold active:scale-95">✕ গেম বন্ধ</button></div><iframe title="ক্যারাম" src="./games/carrom.html" className="w-full flex-1 border-0" /></div>}
           </div>
         </div>
       )}

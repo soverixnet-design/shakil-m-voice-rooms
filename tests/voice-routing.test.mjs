@@ -21,3 +21,9 @@ test('expired Tencent trial is never selected even when budget remains',async()=
 test('free-only routing excludes an Agora fallback whose remaining quota is unverified',()=>{const f=fixture();delete f.env.AGORA_FREE_MINUTES;assert.deepEqual(voiceProviders(f.env).map(p=>p.name),['tencent']);});
 
 test('voice renewal keeps presence fresh without dropping the confirmed seat',async()=>{const f=fixture();await f.config({roomId:'room'},'alice');const before=f.rows.get('users/alice');assert.equal(before.roomSeat,0);assert.equal(before.online,true);f.advance(40000);await f.config({roomId:'room'},'alice');const after=f.rows.get('users/alice');assert.equal(after.roomSeat,0);assert.equal(after.currentRoomId,'room');assert(after.lastSeen.getTime()>before.lastSeen.getTime());});
+
+import {voiceTokenDeadline} from '../src/lib/voiceTokenClock.ts';
+test('Tencent token renewal is independent of the phone wall clock and accounts for network delay',async()=>{
+ const f=fixture();f.env.VOICE_PROVIDER_ORDER='tencent';const config=createRoutedVoiceConfig({doc:p=>({path:p}),runTransaction:async fn=>fn({get:async r=>({data:()=>f.rows.get(r.path)}),set:(r,v)=>f.rows.set(r.path,v)})},{env:f.env,clock:()=>Date.UTC(2026,9,14)});
+ const token=await config({roomId:'room'},'alice');assert.equal(token.expiresAt-token.serverNow,90000);assert.equal(voiceTokenDeadline(token,1000,6000),91000);assert.equal(voiceTokenDeadline(token,1000,101000),101000);
+});
