@@ -14,7 +14,9 @@ export async function updateVoicePublication({client,track,config,wants,allowed,
  if(!alive()||!allowed()){await track.setEnabled(false);await client.unpublish();return {published:false,speaking:false};}
  return {published:true,speaking:true};
 }
+export function outdatedVoiceBundle(error:any){return /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk .* failed/i.test(String(error?.message||''))}
 export function voiceFailure(error:any){
+ if(outdatedVoiceBundle(error))return 'অ্যাপের পুরোনো ভয়েস ফাইল লোড হয়নি। আপডেট লোড করুন বোতামে চাপুন।';
  const code=String(error?.code||error?.name||'');
  if(code==='TRACK_IS_DISABLED')return 'মাইক্রোফোনের অডিও ট্র্যাক বন্ধ হয়ে গেছে। আবার মাইক চাপলে নতুন করে চালু হবে।';
  if(code==='CONSTRAINT_NOT_SATISFIED'||code==='OverconstrainedError')return 'এই মাইক্রোফোনের অডিও সেটিংস চালু করা যায়নি। আবার মাইক চাপুন।';

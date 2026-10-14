@@ -1,6 +1,6 @@
 import {withVoiceEffects,type VoiceEffect} from './voiceEffects';
 import {compatibleVoiceMicrophone} from './voiceMicrophone';
-import {updateVoicePublication,voiceFailure} from './voicePublication';
+import {updateVoicePublication,voiceFailure,outdatedVoiceBundle} from './voicePublication';
 import {retryableVoiceConnection} from './voiceConnection';
 import {withTimeout} from './authTimeout';
 import {useEffect,useRef,useState} from 'react';
@@ -39,7 +39,7 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
   if(!enabled)return;
   let dead=false,client:any|undefined,queue=Promise.resolve(),published=false,joinedConfig:any,refreshPending:Promise<boolean>|undefined,activeConfig:any;
   const alive=()=>!dead&&current.current===session;
-  const report=(e:any)=>{if(alive()){error.current=voiceFailure(e);setDiagnostic([e?.captureStage,String(e?.code||e?.name||'VOICE_ERROR')].filter(Boolean).join(' / ').replace(/[^A-Za-z0-9_ /-]/g,'').slice(0,100));setStatus(error.current);setSpeaking(false);}};
+  const report=(e:any)=>{if(alive()){error.current=voiceFailure(e);setDiagnostic(outdatedVoiceBundle(e)?'STALE_APP':[e?.captureStage,String(e?.code||e?.name||'VOICE_ERROR')].filter(Boolean).join(' / ').replace(/[^A-Za-z0-9_ /-]/g,'').slice(0,100));setStatus(error.current);setSpeaking(false);}};
   function audible(){if(!alive()||!client)return;setSpeakers(client.remoteUsers.filter((u:any)=>u.hasAudio&&!flags.current.controls[String(u.uid)]?.muted&&!flags.current.controls[String(u.uid)]?.blocked).map((u:any)=>String(u.uid)));playback();}
   let pendingConfig:any;
   const connection=retryableVoiceConnection(async()=>{
