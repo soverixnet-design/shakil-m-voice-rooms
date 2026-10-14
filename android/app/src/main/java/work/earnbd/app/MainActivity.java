@@ -43,9 +43,9 @@ public class MainActivity extends Activity {
   Button retry=new Button(this); retry.setText("আবার চেষ্টা করুন"); retry.setOnClickListener(v->{error.setVisibility(View.GONE);web.loadUrl(APP_URL);}); error.addView(retry); content.addView(error,new FrameLayout.LayoutParams(-1,-1)); error.setVisibility(View.GONE);
   root.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
   setContentView(root);
-  WebSettings settings=web.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true); settings.setMediaPlaybackRequiresUserGesture(false);
+  WebSettings settings=web.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true); settings.setUseWideViewPort(true); settings.setLoadWithOverviewMode(true); settings.setMediaPlaybackRequiresUserGesture(false);
   settings.setAllowFileAccess(false); settings.setAllowContentAccess(true); settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.5");
+  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.6");
   CookieManager.getInstance().setAcceptCookie(true);
   web.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){

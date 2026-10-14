@@ -173,6 +173,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   },[room.id]);
   const handleSeatClick = async (index:number) => {
     if(seatLock.current)return;
+    if(!roomReady){setSeatError('রুমের সংযোগ তৈরি হচ্ছে…');return;}
     if(!seatPolicyReady){setSeatError('Seat permissions are loading. Please wait.');return;}
     if(!auth.currentUser){setSeatError('রুমে বসতে Google দিয়ে লগইন করুন।');return;}
     const occupant=liveSeats[index];
@@ -250,7 +251,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   return (
     <div className="rv reference-room fixed inset-0 z-40 flex flex-col justify-between overflow-hidden select-none pt-safe pb-safe" style={{background:roomThemes[Number(room.th||0)%4]}}>
       <header className="room-reference-header relative z-10">
-        <div className="room-header-line"><button className="room-title-pill" onClick={()=>setRoomProfileOpen(true)}><MediaAvatar avatar={room.photoURL||room.cv} size={42}/><span><b>{room.name}</b><small>রুমের তথ্য দেখুন ›</small></span></button><div className="room-header-actions"><button title="অডিও চালু/বন্ধ" onClick={()=>{voice.unlock();setIsRoomSoundOn(!isRoomSoundOn)}}>{isRoomSoundOn?'🔊':'🔇'}</button><button title="রুম মিনিমাইজ" onClick={onMinimize}>⌄</button><button title="রুম থেকে ফিরুন" onClick={()=>setShowExitConfirm(true)}>✕</button></div></div>
+        <div className="room-header-line"><button className="room-title-pill" onClick={()=>setRoomProfileOpen(true)}><MediaAvatar avatar={room.photoURL||room.cv} size={42}/><span><b>{room.name}</b><small>রুমের তথ্য দেখুন ›</small></span></button><div className="room-header-actions"><button title="অডিও চালু/বন্ধ" onClick={()=>{voice.unlock();setIsRoomSoundOn(!isRoomSoundOn)}}>{isRoomSoundOn?'🔊':'🔇'}</button><button title="রুম মিনিমাইজ" onClick={onMinimize}>⌄</button><button title="রুম থেকে ফিরুন" onClick={onLeaveRoom}>✕</button></div></div>
         <div className="room-header-line"><button className="room-value-pill" onClick={()=>setRoomProfileOpen(true)}>🏆 {roomCoinTotal.toLocaleString()} ›</button><div className="room-header-members">{liveMembers.slice(0,2).map(m=><button key={m.uid} onClick={()=>onOpenUsers(m.uid)}><MediaAvatar avatar={m.avatar} size={30}/></button>)}<button onClick={()=>setRoomProfileOpen(true)}>{liveMembers.length} জন</button><button title="রুমের আরও অপশন" onClick={()=>setMoreOpen(true)}>⋯</button></div></div>
       </header>
 
@@ -258,7 +259,7 @@ export const VoiceRoomView: React.FC<Props> = ({
       <div className="room-stage relative z-10 flex-1 overflow-y-auto px-3 py-2 flex flex-col">
         <RoomGiftFlights roomId={room.id} onGift={event=>{setRoomCoinTotal(p=>p+event.cost);setChatMessages(p=>[...p,{id:event.id,type:'gift',sender:event.senderName,text:`${event.senderName} → ${event.receiverName} (ID ${event.receiverPublicId}): ${event.quantity}টি ${event.giftName} · ${event.cost} কয়েন`}])}}/>
         
-        {seatError&&<p role="status">{seatError}</p>}
+        {seatBusy&&<p className="room-action-status" role="status">সিট সেভ হচ্ছে…</p>}{seatError&&<p role="status">{seatError}</p>}
 
         {roomEntry&&(mediaAssets.find(a=>a.id===roomEntry.customEntryId)?<EntryMedia key={roomEntry.uid+roomEntry.at} image={mediaAssets.find(a=>a.id===roomEntry.customEntryId)!.image} name={roomEntry.name}/>:<RoomWelcome key={roomEntry.uid+roomEntry.at} name={roomEntry.name} avatar={roomEntry.avatar}/>) }
         <div className="flex gap-2 overflow-x-auto pb-2">{liveMembers.filter(member=>!Number.isInteger(member.roomSeat)).map(member=><button key={member.uid} className="shrink-0 text-center" title={member.name} onClick={()=>onOpenUsers(member.uid)}><span data-gift-uid={member.uid}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===(activeRankingAward(member)?.frameId||member.customFrameId))?.image}/></span><small className="block" data-no-translate="true">{member.name}</small></button>)}</div>
@@ -266,8 +267,8 @@ export const VoiceRoomView: React.FC<Props> = ({
           {liveSeats.map((seat, idx) => {
             const isUserSeatedHere = seatedIndex === idx;
             return (
-              <div key={idx} className="s3w" onClick={() => seat?.uid?onOpenUsers(seat.uid):setSeatAction(idx)}>
-                <button className="sr-only" aria-label={`সিট ${idx+1}`} onClick={e=>{e.stopPropagation();seat?.uid?onOpenUsers(seat.uid):setSeatAction(idx)}}>সিট {idx+1}</button>{canLockSeats&&<button className="seat-edit-trigger" aria-label={`সিট ${idx+1} পরিচালনা`} onClick={e=>{e.stopPropagation();setSeatAction(idx)}}>⚙</button>}<div data-gift-uid={seat?.uid} data-gift-seat={seat?.uid?'true':undefined} className={`s3 ${lockedSeats.includes(idx)?'seat-is-locked':''} ${seat ? 'on' : ''} ${(isUserSeatedHere && isMicOn || voice.speakers.includes(seat?.uid)&&!roomControls[seat?.uid]?.muted) ? 'talk' : ''}`}>
+              <div key={idx} className="s3w" onClick={() => seat?.uid&&seat.uid!==myUid?onOpenUsers(seat.uid):void handleSeatClick(idx)}>
+                <button className="sr-only" aria-label={`সিট ${idx+1}`} onClick={e=>{e.stopPropagation();seat?.uid&&seat.uid!==myUid?onOpenUsers(seat.uid):void handleSeatClick(idx)}}>সিট {idx+1}</button>{canLockSeats&&<button className="seat-edit-trigger" aria-label={`সিট ${idx+1} পরিচালনা`} onClick={e=>{e.stopPropagation();setSeatAction(idx)}}>⚙</button>}<div data-gift-uid={seat?.uid} data-gift-seat={seat?.uid?'true':undefined} className={`s3 ${lockedSeats.includes(idx)?'seat-is-locked':''} ${seat ? 'on' : ''} ${(isUserSeatedHere && isMicOn || voice.speakers.includes(seat?.uid)&&!roomControls[seat?.uid]?.muted) ? 'talk' : ''}`}>
                   {lockedSeats.includes(idx)&&seat&&<small className="seat-lock-badge">🔒</small>}{seat ? (
                     <MediaAvatar avatar={seat.avatar} frame={mediaAssets.find(a=>a.id===(activeRankingAward(seat)?.frameId||seat.customFrameId))?.image} size={48}/>
                   ) : (
