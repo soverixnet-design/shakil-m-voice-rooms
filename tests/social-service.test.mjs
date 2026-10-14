@@ -10,6 +10,7 @@ function fixture(){
  put('users/alice',{id:'111',name:'Alice',coins:12345,status:'active',currentRoomId:'room',roomSeat:1});
  put('users/bob',{id:'222',name:'Bob',coins:456,status:'active',currentRoomId:'room',roomSeat:2});
  put('users/host',{id:'333',name:'Host',coins:789,status:'active',currentRoomId:'room'});
+ put('follows/alice~bob',{followerId:'alice',followingId:'bob'});
  put('users/banned',{id:'444',name:'Banned',status:'banned'});
  put('rooms/room',{hostId:'host',name:'Original',sc:8,locked:false});
  put('rooms/room/voiceSignals/one',{from:'bob',to:'alice',payload:'private'});
@@ -192,4 +193,35 @@ test('public IDs and sequence cannot be rewritten even by the owner, room ID mus
  const f=fixture(),owner={uid:'host',email:'yfastvpn@gmail.com',email_verified:true};
  for(const [path,data] of [['users/alice',{id:'100001'}],['users/alice',{legacyPublicId:'222'}],['system/publicIdSequence',{next:100001}],['rooms/room',{publicId:'other'}]])await assert.rejects(f.service.social({action:'commit',writes:[update(path,data)]},owner),{code:'permission-denied'});
  await f.service.social({action:'commit',writes:[update('rooms/room',{publicId:'333'})]},owner);
+});
+
+test('only a room owner can apply; three showcase slots require platform approval',async()=>{
+ const f=fixture(),alice=identity('alice'),owner={uid:'host',email:'yfastvpn@gmail.com',email_verified:true};f.put('rooms/user-alice',{hostId:'alice',publicId:'111',name:'Alice room'});
+ const request=status=>update('roomApplications/alice',{userId:'alice',roomId:'user-alice',status,createdAt:new Date(now)});
+ await f.service.social({action:'commit',writes:[request('pending')]},alice);
+ await assert.rejects(f.service.social({action:'commit',writes:[request('approved')]},alice),{code:'permission-denied'});
+ await assert.rejects(f.service.social({action:'commit',writes:[update('roomApplications/bob',{userId:'bob',roomId:'user-alice',status:'pending',createdAt:new Date(now)})]},identity('bob')),{code:'permission-denied'});
+ await assert.rejects(f.service.social({action:'commit',writes:[update('system/activityRooms',{slots:['user-alice','','']})]},alice),{code:'permission-denied'});
+ await assert.rejects(f.service.social({action:'commit',writes:[update('system/activityRooms',{slots:['user-alice','user-alice','']})]},owner),{code:'invalid-argument'});
+ await assert.rejects(f.service.social({action:'commit',writes:[update('system/activityRooms',{slots:['missing','','']})]},owner),{code:'invalid-argument'});
+ await f.service.social({action:'commit',writes:[request('approved'),update('system/activityRooms',{slots:['user-alice','','']})]},owner);
+ assert.deepEqual(decodeFields(f.docs.get('system/activityRooms').fields).slots,['user-alice','','']);
+ await assert.rejects(f.service.social({action:'get',path:'roomApplications/alice'},identity('bob')),{code:'permission-denied'});
+});
+test('a follow connection permits private replies, removing it stops new messages; notification outbox is atomic and idempotent',async()=>{
+ const f=fixture(),write=update('directMessages/notice',{senderId:'alice',receiverId:'bob',text:'Hello',createdAt:new Date(now)});
+ await f.service.social({action:'commit',writes:[write]},identity('alice'));const outbox=decodeFields(f.docs.get('pushOutbox/notice').fields);assert.equal(outbox.userId,'bob');assert.equal(outbox.senderId,'alice');assert.equal(outbox.status,'pending');
+ await f.service.social({action:'commit',writes:[write]},identity('alice'));assert.equal([...f.docs.keys()].filter(p=>p.startsWith('pushOutbox/')).length,1);
+ await f.service.social({action:'commit',writes:[update('directMessages/reply',{senderId:'bob',receiverId:'alice',text:'Reply',createdAt:new Date(now)})]},identity('bob'));
+ f.docs.delete('follows/alice~bob');await assert.rejects(f.service.social({action:'commit',writes:[update('directMessages/not-allowed',{senderId:'alice',receiverId:'bob',text:'No follow',createdAt:new Date(now)})]},identity('alice')),{code:'permission-denied'});assert(!f.docs.has('pushOutbox/not-allowed'));
+ await assert.rejects(f.service.social({action:'get',path:'pushOutbox/notice'},identity('bob')),{code:'invalid-argument'});
+});
+test('notification tokens are private, identity bound and cannot be overwritten by another account without the same device token',async()=>{
+ const f=fixture(),path='pushDevices/12345678-1234-1234-1234-123456789012',data={userId:'alice',token:'token-for-device-1234567890',updatedAt:new Date(now)};
+ await f.service.social({action:'commit',writes:[update(path,data)]},identity('alice'));
+ await assert.rejects(f.service.social({action:'get',path},identity('bob')),{code:'permission-denied'});
+ await assert.rejects(f.service.social({action:'commit',writes:[update(path,{...data,userId:'bob',token:'different-device-token-12345'})]},identity('bob')),{code:'permission-denied'});
+ await assert.rejects(f.service.social({action:'commit',writes:[update(path,{...data,userId:'bob'})]},identity('alice')),{code:'permission-denied'});
+ await f.service.social({action:'commit',writes:[update(path,{...data,userId:'bob'})]},identity('bob'));
+ assert.equal(decodeFields(f.docs.get(path).fields).userId,'bob');
 });

@@ -35,3 +35,13 @@ Certificate শুধু server secret হিসেবে রাখুন; APK, 
 Logo: `android/app/src/main/res/drawable/earnbd_logo.png`। প্রথম গোলাকার EarnBD–Shakil logo ব্যবহার করা হয়েছে।
 GitHub → Actions → Build Android preview → Run workflow। সফল হলে Releases-এ APK পাবেন। Publish করার আগে Google login, microphone, room join/leave এবং দুই ফোনে audio পরীক্ষা জরুরি। Production signing key স্থায়ীভাবে সংরক্ষণ করে release signing যোগ করতে হবে; preview APK-কে Play Store build হিসেবে ব্যবহার করবেন না।
 
+
+### Android 1.10 — ব্যক্তিগত মেসেজের নোটিফিকেশন
+- একই `work.earnbd.app` প্যাকেজ ও আগের সাইনিং কী রেখে আপডেট ইনস্টল করুন।
+- Messages পাতায় **মেসেজ নোটিফিকেশন চালু করুন** চাপুন এবং ফোনের অনুমতি দিন।
+- অন্য ইউজারের প্রোফাইল থেকে Follow করে Message খুলুন। প্রাপক উত্তর দিতে পারবেন; ফলো সম্পর্ক উঠে গেলে নতুন মেসেজ বন্ধ থাকবে, পুরোনো চ্যাট পড়া যাবে।
+- Firebase Messaging একই Firebase প্রজেক্টের Android app ID এবং sender ID ব্যবহার করে। Render-এর Firebase service account দিয়ে FCM HTTP v1 API-তে পাঠানো হয়; Firebase Cloud Messaging API চালু ও service account-এর messaging permission থাকতে হবে।
+- টোকেন সার্ভারে শুধু লগইন করা ইউজারের পরিচয়ে নিবন্ধিত হয়। লগআউট বা অ্যাকাউন্ট পরিবর্তনের পরে পুরোনো অ্যাকাউন্টের নোটিফিকেশন ফোনে দেখানো হয় না।
+- নোটিফিকেশনে চ্যাটের আসল লেখা দেখানো হয় না; চাপলে সংশ্লিষ্ট চ্যাট খোলে।
+- প্রাপককে অন্তত একবার Android 1.10-এ লগইন করে ডিভাইস নিবন্ধন করতে হবে। ফোনের অনুমতি, Google Play services, ইন্টারনেট ও Android-এর battery/background ব্যবস্থার উপর ডেলিভারি নির্ভর করে।
+- অ্যাক্টিভিটি রুম: Admin → Voice Room Management → অ্যাক্টিভিটি রুম আবেদন। তিনটি স্লটে অনুমোদন/সরানোর ব্যবস্থা আছে।

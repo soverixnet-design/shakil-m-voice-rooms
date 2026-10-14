@@ -87,6 +87,15 @@ public class MainActivity extends Activity {
  private boolean trusted(Uri uri) {
   return uri!=null && "https".equals(uri.getScheme()) && ("earnbd.work".equals(uri.getHost())||"www.earnbd.work".equals(uri.getHost())) && (uri.getPort()==-1 || uri.getPort()==443) && uri.getUserInfo()==null;
  }
+ private final class MessagePushBridge {
+  private boolean allowed(){return web!=null&&trusted(Uri.parse(web.getUrl()==null?"":web.getUrl()));}
+  @JavascriptInterface public void bindUser(String uid){if(allowed()&&uid!=null&&(uid.isEmpty()||uid.matches("[A-Za-z0-9_-]{1,128}")))getSharedPreferences("earnbd-push",MODE_PRIVATE).edit().putString("user",uid).apply();}
+  @JavascriptInterface public String registration(){if(!allowed())return "";try{android.content.SharedPreferences p=getSharedPreferences("earnbd-push",MODE_PRIVATE);String id=p.getString("installation","");if(id.isEmpty()){id=java.util.UUID.randomUUID().toString();p.edit().putString("installation",id).apply();}JSONObject result=new JSONObject();result.put("id",id);result.put("token",p.getString("token",""));return result.toString();}catch(Exception e){return "";}}
+  @JavascriptInterface public boolean permissionGranted(){return allowed()&&(Build.VERSION.SDK_INT<33||checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED);}
+  @JavascriptInterface public void requestPermission(){runOnUiThread(()->{if(allowed()&&activityVisible&&Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},23);});}
+ }
+ private String launchUrl(Intent intent){String uid=intent.getStringExtra("chatUid");return uid!=null&&uid.matches("[A-Za-z0-9_-]{1,128}")?APP_URL+"?chat="+Uri.encode(uid):APP_URL;}
+ @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(web!=null)web.loadUrl(launchUrl(intent));}
  @Override public void onCreate(Bundle state) {
   super.onCreate(state);
   audioManager=(AudioManager)getSystemService(AUDIO_SERVICE);previousAudioMode=audioManager.getMode();previousSpeaker=audioManager.isSpeakerphoneOn();
@@ -103,9 +112,10 @@ public class MainActivity extends Activity {
   setContentView(root);
   web.addJavascriptInterface(new RoomAudioBridge(),"EarnBDRoomAudio");
   web.addJavascriptInterface(new GoogleAuthBridge(),"EarnBDGoogleAuth");
+  web.addJavascriptInterface(new MessagePushBridge(),"EarnBDMessagePush");
   WebSettings settings=web.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true); settings.setUseWideViewPort(true); settings.setLoadWithOverviewMode(true); settings.setMediaPlaybackRequiresUserGesture(false);
   settings.setAllowFileAccess(false); settings.setAllowContentAccess(true); settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.9");
+  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.10");
   CookieManager.getInstance().setAcceptCookie(true);
   web.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
@@ -140,7 +150,7 @@ public class MainActivity extends Activity {
     return true;
    }
   });
-  if(state==null||web.restoreState(state)==null)web.loadUrl(APP_URL);
+  if(getIntent().hasExtra("chatUid")||state==null||web.restoreState(state)==null)web.loadUrl(launchUrl(getIntent()));
  }
  @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] results){
   super.onRequestPermissionsResult(requestCode,permissions,results);
@@ -155,5 +165,5 @@ public class MainActivity extends Activity {
  private void prepareVoiceAudio(){audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);audioManager.setSpeakerphoneOn(true);}
  @Override protected void onResume(){super.onResume();activityVisible=true;}
  @Override protected void onPause(){activityVisible=false;super.onPause();}
- @Override protected void onDestroy(){if(googleCancellation!=null)googleCancellation.cancel();if(microphoneRequest!=null)microphoneRequest.deny();if(uploadCallback!=null)uploadCallback.onReceiveValue(null);stopService(new Intent(this,RoomAudioService.class));if(web!=null){web.removeJavascriptInterface("EarnBDRoomAudio");web.removeJavascriptInterface("EarnBDGoogleAuth");web.stopLoading();web.destroy();}if(audioManager!=null){audioManager.setMode(previousAudioMode);audioManager.setSpeakerphoneOn(previousSpeaker);}super.onDestroy();}
+ @Override protected void onDestroy(){if(googleCancellation!=null)googleCancellation.cancel();if(microphoneRequest!=null)microphoneRequest.deny();if(uploadCallback!=null)uploadCallback.onReceiveValue(null);stopService(new Intent(this,RoomAudioService.class));if(web!=null){web.removeJavascriptInterface("EarnBDRoomAudio");web.removeJavascriptInterface("EarnBDGoogleAuth");web.removeJavascriptInterface("EarnBDMessagePush");web.stopLoading();web.destroy();}if(audioManager!=null){audioManager.setMode(previousAudioMode);audioManager.setSpeakerphoneOn(previousSpeaker);}super.onDestroy();}
 }

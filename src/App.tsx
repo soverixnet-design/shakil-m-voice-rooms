@@ -1,3 +1,5 @@
+import {useMessageNotifications} from './lib/messageNotifications';
+import {DirectMessages} from './components/DirectMessages';
 import {LanguagePicker,useLanguage} from './i18n/LanguagePicker';
 import {ProfileLevels} from './components/ProfileLevels';
 import {giftLevel} from './lib/giftLevel';
@@ -324,6 +326,8 @@ export default function App() {
   
   // Mandatory Login Gate: অ্যাপসে লগইন ছাড়া কোনোভাবেই প্রবেশ করা যাবে না
   const [isAuthenticated,setIsAuthenticated]=useState(false);
+  const [notificationPeer,setNotificationPeer]=useState<any>(null);
+  useMessageNotifications(fbUser?.uid,isAuthenticated);
   const verifiedSession=useRef<string|null>(null);
   const automaticAuthRetries=useRef(0);
   const [offline,setOffline]=useState(()=>!navigator.onLine);
@@ -598,6 +602,7 @@ export default function App() {
   async function leaveActiveRoom(){const roomId=activeRoom?.id,uid=fbUser?.uid;if(!roomId||!uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুম ছাড়ার অনুরোধ চলছে…');try{await runTransaction(db,async tx=>{const ref=doc(db,'users',uid),snap=await tx.get(ref);if(snap.data()?.currentRoomId===roomId)tx.update(ref,{currentRoomId:null,roomSeat:null,activeRoom:null,lastSeen:serverTimestamp()})});setActiveRoom(null);setIsRoomMinimized(false);toast('রুম ত্যাগ করেছেন')}catch{toast('রুম ছাড়ার তথ্য সেভ হয়নি। আবার চেষ্টা করুন।')}finally{roomActionBusy.current=false}}
   async function enterRoom(candidate:any){if(!fbUser?.uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুমে ঢুকছি…');try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid&&!isSuperAdmin){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await runTransaction(db,async tx=>{const ref=doc(db,'users',fbUser.uid),snap=await tx.get(ref),profile=snap.data();tx.update(ref,{currentRoomId:room.id,roomSeat:profile?.currentRoomId===room.id?(profile?.roomSeat??null):null,online:true,lastSeen:serverTimestamp(),activeRoom:{id:room.id,name:room.name,host:room.host||'',hostId:room.hostId||'',cv:room.cv||'🎙️',sc:room.sc||8}})});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='resource-exhausted'?'Firebase daily write quota is exhausted. Rooms, games and voice updates cannot be saved until the quota resets or the database is moved.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}finally{roomActionBusy.current=false}}
   const roomLinkConsumed=useRef(false);
+  useEffect(()=>{if(!isAuthenticated||!fbUser?.uid)return;const peer=new URLSearchParams(window.location.search).get('chat');if(!peer||peer===fbUser.uid||!/^[A-Za-z0-9_-]{1,128}$/.test(peer))return;let alive=true;void getDoc(doc(db,'users',peer)).then(s=>{if(alive&&s.exists())setNotificationPeer({...s.data(),uid:peer})}).catch(()=>{});return()=>{alive=false}},[isAuthenticated,fbUser?.uid]);
   useEffect(()=>{if(roomLinkConsumed.current||!isAuthenticated||!fbUser?.uid)return;const id=new URLSearchParams(window.location.search).get('room');if(!id||id.length>200||id.includes('/'))return;const target=S.rooms.find((room:any)=>(String(room.id)===id||String(room.publicId)===id));if(!target)return;roomLinkConsumed.current=true;void enterRoom(target)},[isAuthenticated,fbUser?.uid,S.rooms]);
   if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} stage={authStage} onRetry={()=>{automaticAuthRetries.current=0;setAuthRetry(n=>n+1)}}/>;
 
@@ -611,6 +616,7 @@ export default function App() {
       {activePage==='support_chat'&&<SupportChat user={fbUser} onClose={()=>setActivePage(null)}/>}
       {activePage==='notices'&&<Notices onClose={()=>setActivePage(null)}/>}
       {activeRoom&&(customEntry?<EntryMedia key={activeRoom.id+customEntry.id} image={customEntry.image} name={S.name}/>:<RoomWelcome key={activeRoom.id} name={S.name} avatar={S.img||S.av} roomName={activeRoom.name}/>)}
+      {notificationPeer&&<DirectMessages recipient={notificationPeer} onClose={()=>setNotificationPeer(null)}/>}
       {showUserDirectory && <UserDirectory initialRecipient={giftRecipient} onGiftSent={event=>{setShowUserDirectory(false);toast(`✅ ID ${event.receiverPublicId}-তে ${event.quantity}টি ${event.giftName} পাঠানো হয়েছে। বাকি ${event.balance} কয়েন।`)}} roomId={activeRoom?.id} onClose={()=>setShowUserDirectory(false)} onJoin={room=>{void enterRoom(room);setShowUserDirectory(false)}} />}
       {incomingGift && (!activeRoom||isRoomMinimized||incomingGift.roomId!==activeRoom.id) && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.giftImage?<img src={incomingGift.giftImage} alt={incomingGift.giftName} className="w-24 h-24 object-contain"/>:incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · 💎 {incomingGift.cost} ডায়মন্ড যোগ হয়েছে</p></div>}
 
