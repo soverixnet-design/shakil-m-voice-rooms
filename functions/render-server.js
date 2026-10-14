@@ -1,3 +1,4 @@
+import {migratePublicIds} from './public-id-service.js';
 import {createSellerDirectoryService} from './seller-directory.js';
 import {createStaffService} from './staff-service.js';
 import {createEventService} from './event-service.js';
@@ -39,7 +40,7 @@ const server=createGameHttpServer({service,verifyToken,origins,ready,voiceRelayC
 if(process.env.SUPABASE_DATABASE_URL){
  let probe;
  try{probe=createSupabaseDatabase();await probe.check();
-  if(ready){const migration=await migrateSocialData(database,probe);Object.assign(service,createWalletService(createSocialWalletStore(probe,database)),createSocialService(probe));socialDatabase=probe;
+  if(ready){const migration=await migrateSocialData(database,probe);const ids=await migratePublicIds(probe);console.log('Public ID migration:',JSON.stringify(ids));Object.assign(service,createWalletService(createSocialWalletStore(probe,database)),createSocialService(probe));socialDatabase=probe;
   const store=createSocialWalletStore(probe,database);
   Object.assign(service,createSellerDirectoryService(probe),createReferralService(store),createEventService(probe),createStaffService(probe,getAuth(serverApp)));
   const disabledGame=async()=>{throw Object.assign(Error('game-ledger-not-migrated'),{code:'unavailable'});};
@@ -50,7 +51,7 @@ if(process.env.SUPABASE_DATABASE_URL){
   console.log('Supabase game migration:',JSON.stringify(games));
   console.log('Supabase social migration:',JSON.stringify(migration));}
   console.log('Supabase connection verified; profiles and voice rooms use Supabase when migration is complete.');}
- catch(error){const reasons={'28P01':'authentication-failed','3D000':'database-not-found','ENOTFOUND':'host-not-found','ETIMEDOUT':'connection-timeout','supabase-schema-incomplete':'schema-incomplete','wrong-supabase-project':'wrong-project','invalid-supabase-connection':'invalid-connection'};console.error('Supabase startup check failed:',reasons[error.code]||reasons[error.message]||(/^[A-Z0-9_]{2,64}$/.test(String(error.code))?error.code:'connection-failed'));}
+ catch(error){const reasons={'28P01':'authentication-failed','3D000':'database-not-found','ENOTFOUND':'host-not-found','ETIMEDOUT':'connection-timeout','supabase-schema-incomplete':'schema-incomplete','wrong-supabase-project':'wrong-project','invalid-supabase-connection':'invalid-connection'};console.error('Supabase startup check failed:',reasons[error.code]||reasons[error.message]||(/^[A-Z0-9_]{2,64}$/.test(String(error.code))?error.code:'connection-failed'));throw error;}
  finally{if(probe&&probe!==socialDatabase)await probe.close();}
 }
 const port=Number(process.env.PORT||10000);server.listen(port,'0.0.0.0',()=>console.log(`EarnBD game server listening on port ${port}; ${ready?'configured':'setup required'}`));

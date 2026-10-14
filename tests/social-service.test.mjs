@@ -68,7 +68,7 @@ test('room role changes require the existing owner',async()=>{
  await service.social({action:'commit',writes},identity('host'));
 });
 test('only the verified existing platform owner can create an official room with a custom ID',async()=>{
- const {service}=fixture();const writes=[{update:{name:root+'/rooms/official-room',fields:encodeFields({hostId:'host',name:'Official'})}}];
+ const {service}=fixture();const writes=[{update:{name:root+'/rooms/official-room',fields:encodeFields({hostId:'host',publicId:'333',name:'Official'})}}];
  await assert.rejects(service.social({action:'commit',writes},identity('alice')),{code:'permission-denied'});
  await service.social({action:'commit',writes},{uid:'host',email:'yfastvpn@gmail.com',email_verified:true});
 });
@@ -186,4 +186,10 @@ test('profile tags and blue verification can be assigned only by the owner, with
  const f=fixture();await assert.rejects(f.service.social({action:'commit',writes:[update('users/alice',{profileTagIds:['verified','admin'],badge:'Verified'})]},identity('alice')),{code:'permission-denied'});
  const owner={uid:'host',email:'yfastvpn@gmail.com',email_verified:true};await f.service.social({action:'commit',writes:[update('users/alice',{profileTagIds:['official','manager','verified'],badge:'Verified'})]},owner);
  const user=decodeFields(f.docs.get('users/alice').fields);assert.deepEqual(user.profileTagIds,['official','manager','verified']);assert.equal(user.role,undefined);assert.equal(f.docs.has('admins/alice'),false);
+});
+
+test('public IDs and sequence cannot be rewritten even by the owner, room ID must match host',async()=>{
+ const f=fixture(),owner={uid:'host',email:'yfastvpn@gmail.com',email_verified:true};
+ for(const [path,data] of [['users/alice',{id:'100001'}],['users/alice',{legacyPublicId:'222'}],['system/publicIdSequence',{next:100001}],['rooms/room',{publicId:'other'}]])await assert.rejects(f.service.social({action:'commit',writes:[update(path,data)]},owner),{code:'permission-denied'});
+ await f.service.social({action:'commit',writes:[update('rooms/room',{publicId:'333'})]},owner);
 });
