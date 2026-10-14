@@ -10,6 +10,14 @@ import android.net.Uri;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Build;
+import android.os.CancellationSignal;
+import android.content.MutableContextWrapper;
+import androidx.credentials.*;
+import androidx.credentials.exceptions.*;
+import com.google.android.libraries.identity.googleid.*;
+import org.json.JSONObject;
+import java.security.SecureRandom;
+import android.util.Base64;
 import android.webkit.*;
 import android.widget.*;
 import android.view.*;
@@ -26,6 +34,36 @@ public class MainActivity extends Activity {
  private PermissionRequest microphoneRequest;
  private ValueCallback<Uri[]> uploadCallback;
  private static final int MICROPHONE=20, UPLOAD=21;
+ private CancellationSignal googleCancellation;
+ private String googleRequest;
+ private final CredentialManagerCallback<Void,ClearCredentialException> clearCallback=new CredentialManagerCallback<Void,ClearCredentialException>(){
+  @Override public void onResult(Void ignored){}
+  @Override public void onError(ClearCredentialException ignored){}
+ };
+ public class GoogleAuthBridge {
+  @JavascriptInterface public void clearSession(){runOnUiThread(()->{if(web!=null&&trusted(Uri.parse(web.getUrl()==null?"":web.getUrl())))CredentialManager.create(MainActivity.this).clearCredentialStateAsync(new ClearCredentialStateRequest(),null,command->runOnUiThread(command),clearCallback);});}
+  @JavascriptInterface public void cancel(String requestId){runOnUiThread(()->{if(requestId!=null&&requestId.equals(googleRequest)&&googleCancellation!=null)googleCancellation.cancel();});}
+  @JavascriptInterface public void signIn(String requestId){runOnUiThread(()->{
+   if(!activityVisible||web==null||!trusted(Uri.parse(web.getUrl()==null?"":web.getUrl()))||googleRequest!=null||requestId==null||!requestId.matches("[A-Za-z0-9-]{36}"))return;
+   googleRequest=requestId;googleCancellation=new CancellationSignal();
+   byte[] bytes=new byte[32];new SecureRandom().nextBytes(bytes);String nonce=Base64.encodeToString(bytes,Base64.URL_SAFE|Base64.NO_WRAP|Base64.NO_PADDING);
+   try{
+   GetSignInWithGoogleOption option=new GetSignInWithGoogleOption.Builder("702890155720-apviuhq9h3h93miibnmc9sn2gocdp5a3.apps.googleusercontent.com").setNonce(nonce).build();
+   GetCredentialRequest request=new GetCredentialRequest.Builder().addCredentialOption(option).build();
+   CredentialManager.create(MainActivity.this).getCredentialAsync(new MutableContextWrapper(MainActivity.this),request,googleCancellation,command->runOnUiThread(command),new CredentialManagerCallback<GetCredentialResponse,GetCredentialException>(){
+    @Override public void onResult(GetCredentialResponse result){
+     try{if(!(result.getCredential() instanceof CustomCredential))throw new IllegalArgumentException();String token=GoogleIdTokenCredential.createFrom(result.getCredential().getData()).getIdToken();String[] parts=token.split("\\.");JSONObject claims=new JSONObject(new String(Base64.decode(parts[1],Base64.URL_SAFE),java.nio.charset.StandardCharsets.UTF_8));if(!nonce.equals(claims.optString("nonce")))throw new IllegalArgumentException();finishGoogle(requestId,token,null);}catch(Exception ignored){finishGoogle(requestId,null,"native/invalid-google-credential");}
+    }
+    @Override public void onError(GetCredentialException failure){finishGoogle(requestId,null,failure instanceof GetCredentialCancellationException?"auth/popup-closed-by-user":"native/google-signin-failed");}
+   });
+   }catch(RuntimeException ignored){finishGoogle(requestId,null,"native/google-signin-failed");}
+  });}
+ }
+ private void finishGoogle(String requestId,String token,String error){
+  if(!requestId.equals(googleRequest))return;googleRequest=null;googleCancellation=null;
+  if(web==null||isDestroyed()||!trusted(Uri.parse(web.getUrl()==null?"":web.getUrl())))return;
+  try{JSONObject result=new JSONObject();result.put("requestId",requestId);if(token!=null)result.put("token",token);else result.put("error",error);web.evaluateJavascript("window.dispatchEvent(new CustomEvent('earnbd-google-signin',{detail:"+result.toString()+"}))",null);}catch(Exception ignored){}
+ }
  private boolean roomAudio=false,microphoneActive=false,activityVisible=false;
  public class RoomAudioBridge {
   @JavascriptInterface public void setMicrophoneActive(boolean active){runOnUiThread(()->{
@@ -64,9 +102,10 @@ public class MainActivity extends Activity {
   root.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
   setContentView(root);
   web.addJavascriptInterface(new RoomAudioBridge(),"EarnBDRoomAudio");
+  web.addJavascriptInterface(new GoogleAuthBridge(),"EarnBDGoogleAuth");
   WebSettings settings=web.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true); settings.setUseWideViewPort(true); settings.setLoadWithOverviewMode(true); settings.setMediaPlaybackRequiresUserGesture(false);
   settings.setAllowFileAccess(false); settings.setAllowContentAccess(true); settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.8");
+  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.9");
   CookieManager.getInstance().setAcceptCookie(true);
   web.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
@@ -116,5 +155,5 @@ public class MainActivity extends Activity {
  private void prepareVoiceAudio(){audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);audioManager.setSpeakerphoneOn(true);}
  @Override protected void onResume(){super.onResume();activityVisible=true;}
  @Override protected void onPause(){activityVisible=false;super.onPause();}
- @Override protected void onDestroy(){if(microphoneRequest!=null)microphoneRequest.deny();if(uploadCallback!=null)uploadCallback.onReceiveValue(null);stopService(new Intent(this,RoomAudioService.class));if(web!=null){web.removeJavascriptInterface("EarnBDRoomAudio");web.stopLoading();web.destroy();}if(audioManager!=null){audioManager.setMode(previousAudioMode);audioManager.setSpeakerphoneOn(previousSpeaker);}super.onDestroy();}
+ @Override protected void onDestroy(){if(googleCancellation!=null)googleCancellation.cancel();if(microphoneRequest!=null)microphoneRequest.deny();if(uploadCallback!=null)uploadCallback.onReceiveValue(null);stopService(new Intent(this,RoomAudioService.class));if(web!=null){web.removeJavascriptInterface("EarnBDRoomAudio");web.removeJavascriptInterface("EarnBDGoogleAuth");web.stopLoading();web.destroy();}if(audioManager!=null){audioManager.setMode(previousAudioMode);audioManager.setSpeakerphoneOn(previousSpeaker);}super.onDestroy();}
 }

@@ -25,15 +25,23 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: earnbd-android-preview-signing-v1
       - run: gradle -p android assembleDebug lintDebug
+      - name: Report Google login fingerprint
+        run: gradle -p android signingReport > Android-Signing-Fingerprints.txt
       - run: cp android/app/build/outputs/apk/debug/app-debug.apk EarnBD-Shakil-preview.apk
       - uses: actions/upload-artifact@v4
         with:
           name: EarnBD-Shakil-preview
-          path: EarnBD-Shakil-preview.apk
+          path: |
+            EarnBD-Shakil-preview.apk
+            Android-Signing-Fingerprints.txt
       - name: Publish preview APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view android-1.8-preview || gh release create android-1.8-preview --target "$GITHUB_SHA" --title 'EarnBD Android 1.8 in-app preview' --notes 'In-app Android WebView with microphone permission and image picker. Email login; native Google OAuth is not included. Room audio uses media playback and microphone foreground services. Debug-signed test build; not a Play Store release. See ANDROID_SETUP_BN.md.' --prerelease
-          gh release upload android-1.8-preview EarnBD-Shakil-preview.apk --clobber
+          gh release view android-1.9-preview || gh release create android-1.9-preview --target "$GITHUB_SHA" --title 'EarnBD Android 1.9 in-app preview' --notes 'In-app Android WebView with microphone permission and image picker. Google account picker and Email login. Google login requires the Firebase Android package/SHA registration. Room audio uses media playback and microphone foreground services. Debug-signed test build; not a Play Store release. See ANDROID_SETUP_BN.md.' --prerelease
+          gh release upload android-1.9-preview EarnBD-Shakil-preview.apk Android-Signing-Fingerprints.txt --clobber

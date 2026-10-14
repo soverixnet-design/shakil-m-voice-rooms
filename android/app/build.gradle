@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 android {
  namespace 'work.earnbd.app'
  compileSdk 36
- defaultConfig { applicationId 'work.earnbd.app'; minSdk 23; targetSdk 36; versionCode 9; versionName '1.8.0' }
+ defaultConfig { applicationId 'work.earnbd.app'; minSdk 23; targetSdk 36; versionCode 10; versionName '1.9.0' }
  signingConfigs {
   release {
    def signingPath = System.getenv('EARNBD_KEYSTORE_PATH')
@@ -20,4 +20,10 @@ android {
    if (System.getenv('EARNBD_KEYSTORE_PATH')) signingConfig signingConfigs.release
   }
  }
+}
+
+dependencies {
+ implementation 'androidx.credentials:credentials:1.6.0'
+ implementation 'androidx.credentials:credentials-play-services-auth:1.6.0'
+ implementation 'com.google.android.libraries.identity.googleid:googleid:1.1.1'
 }
