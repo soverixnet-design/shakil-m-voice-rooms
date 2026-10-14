@@ -28,6 +28,13 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
   }catch(e:any){intent.current=false;if(!error.current)error.current=voiceFailure(e);setStatus(error.current);return false;}
  }
  useEffect(()=>{
+  const bridge=(window as any).EarnBDRoomAudio;
+  if(!bridge||!enabled)return;
+  bridge.setActive(true);
+  const renew=setInterval(()=>bridge.setActive(true),60000);
+  return()=>{clearInterval(renew);bridge.setActive(false)};
+ },[enabled,roomId]);
+ useEffect(()=>{
   if(!enabled)return;
   let dead=false,client:any|undefined,queue=Promise.resolve(),published=false,joinedConfig:any,refreshPending:Promise<boolean>|undefined,activeConfig:any;
   const alive=()=>!dead&&current.current===session;

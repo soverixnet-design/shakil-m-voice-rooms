@@ -9,6 +9,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.media.AudioManager;
 import android.os.Bundle;
+import android.os.Build;
 import android.webkit.*;
 import android.widget.*;
 import android.view.*;
@@ -25,6 +26,18 @@ public class MainActivity extends Activity {
  private PermissionRequest microphoneRequest;
  private ValueCallback<Uri[]> uploadCallback;
  private static final int MICROPHONE=20, UPLOAD=21;
+ private boolean roomAudio=false;
+ public class RoomAudioBridge {
+  @JavascriptInterface public void setActive(boolean active){runOnUiThread(()->{
+   if(web==null||!trusted(Uri.parse(web.getUrl()==null?"":web.getUrl())))return;
+   if(active){
+    boolean first=!roomAudio;roomAudio=true;
+    if(first&&Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},22);
+    try{Intent service=new Intent(MainActivity.this,RoomAudioService.class);if(Build.VERSION.SDK_INT>=26)startForegroundService(service);else startService(service);}catch(RuntimeException e){roomAudio=false;Toast.makeText(MainActivity.this,"ব্যাকগ্রাউন্ড অডিও চালু হয়নি। অ্যাপ খোলা রাখুন।",Toast.LENGTH_LONG).show();}
+   }else{roomAudio=false;stopService(new Intent(MainActivity.this,RoomAudioService.class));}
+  });}
+ }
+
 
  private boolean trusted(Uri uri) {
   return uri!=null && "https".equals(uri.getScheme()) && ("earnbd.work".equals(uri.getHost())||"www.earnbd.work".equals(uri.getHost())) && (uri.getPort()==-1 || uri.getPort()==443) && uri.getUserInfo()==null;
@@ -43,9 +56,10 @@ public class MainActivity extends Activity {
   Button retry=new Button(this); retry.setText("আবার চেষ্টা করুন"); retry.setOnClickListener(v->{error.setVisibility(View.GONE);web.loadUrl(APP_URL);}); error.addView(retry); content.addView(error,new FrameLayout.LayoutParams(-1,-1)); error.setVisibility(View.GONE);
   root.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
   setContentView(root);
+  web.addJavascriptInterface(new RoomAudioBridge(),"EarnBDRoomAudio");
   WebSettings settings=web.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true); settings.setUseWideViewPort(true); settings.setLoadWithOverviewMode(true); settings.setMediaPlaybackRequiresUserGesture(false);
   settings.setAllowFileAccess(false); settings.setAllowContentAccess(true); settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.6");
+  settings.setUserAgentString(settings.getUserAgentString()+" EarnBDAndroid/1.7");
   CookieManager.getInstance().setAcceptCookie(true);
   web.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
@@ -93,5 +107,6 @@ public class MainActivity extends Activity {
  @Override protected void onSaveInstanceState(Bundle out){web.saveState(out);super.onSaveInstanceState(out);}
  @Override public void onBackPressed(){if(web.canGoBack())web.goBack();else new AlertDialog.Builder(this).setMessage("EarnBD বন্ধ করবেন?").setNegativeButton("থাকুন",null).setPositiveButton("বন্ধ করুন",(d,w)->finish()).show();}
  private void prepareVoiceAudio(){audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);audioManager.setSpeakerphoneOn(true);}
- @Override protected void onDestroy(){if(microphoneRequest!=null)microphoneRequest.deny();if(uploadCallback!=null)uploadCallback.onReceiveValue(null);if(web!=null){web.stopLoading();web.destroy();}if(audioManager!=null){audioManager.setMode(previousAudioMode);audioManager.setSpeakerphoneOn(previousSpeaker);}super.onDestroy();}
+ @Override protected void onPause(){super.onPause();if(web!=null&&roomAudio)web.evaluateJavascript("window.dispatchEvent(new Event('earnbd-background-listening'))",null);}
+ @Override protected void onDestroy(){if(microphoneRequest!=null)microphoneRequest.deny();if(uploadCallback!=null)uploadCallback.onReceiveValue(null);stopService(new Intent(this,RoomAudioService.class));if(web!=null){web.removeJavascriptInterface("EarnBDRoomAudio");web.stopLoading();web.destroy();}if(audioManager!=null){audioManager.setMode(previousAudioMode);audioManager.setSpeakerphoneOn(previousSpeaker);}super.onDestroy();}
 }
