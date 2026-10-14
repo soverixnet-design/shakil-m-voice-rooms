@@ -6,3 +6,8 @@ body{font-family:system-ui,'Hind Siliguri',sans-serif!important;-webkit-tap-high
 #ch button,#chips button{flex:1 1 calc(50% - 8px)!important;min-height:48px!important;font-size:16px!important;line-height:1.35!important;padding:10px 6px!important;color:#fff!important;background:#292040!important;text-shadow:none!important;white-space:normal!important;font-variant-numeric:tabular-nums}
 #ch .cw button{width:100%!important}
 #ch button.on,#chips button.on{color:#251400!important;background:#ffe294!important;border-color:#fff0bc!important}
+
+/* Stable touch targets; decorative children never intercept a bet tap. */
+.live-bet-cell{touch-action:manipulation;-webkit-user-select:none;user-select:none;min-width:44px;min-height:44px;cursor:pointer;isolation:isolate}
+.live-bet-cell>*{pointer-events:none}.live-bet-cell.tap-feedback{filter:brightness(1.22)}
+button.live-bet-cell:active{transform:none}.live-bet-cell[aria-disabled=true]{cursor:default}

@@ -8,3 +8,14 @@ for(const game of ['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'])tes
 test('timer remains readable during reconnect without enabling bets or claiming live status; ended rounds show waiting',()=>{
  const a=fixture('lion_wheel');try{a.render({...state,connected:false,status:'Live · Server time'});const d=a.dom.window.document;assert.equal(d.getElementById('t').textContent,'10s');assert.match(d.getElementById('live-status').textContent,/সময় যাচাই/);d.querySelector('[data-index="0"]').click();assert(!a.sent.some(m=>m.type==='live-bet'));a.render({...state,connected:false,phase:'ended',now:40000});assert.equal(d.getElementById('t').textContent,'অপেক্ষা')}finally{a.dom.window.close()}
 });
+
+for(const game of ['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'])test(game+' captures completed touch taps once across live refreshes and ignores scrolls',()=>{
+ const a=fixture(game);try{a.render(state);const w=a.dom.window,cell=w.document.querySelector('[data-index="0"]');const pointer=(type,x=20,y=20)=>cell.dispatchEvent(new w.MouseEvent(type,{bubbles:true,cancelable:true,button:0,clientX:x,clientY:y}));
+ pointer('pointerdown');a.render({...state,now:10100});pointer('pointerup');cell.dispatchEvent(new w.MouseEvent('click',{bubbles:true,detail:1}));assert.equal(a.sent.filter(m=>m.type==='live-bet').length,1);
+ pointer('pointerdown');pointer('pointerup');assert.equal(a.sent.filter(m=>m.type==='live-bet').length,2);
+ pointer('pointerdown');pointer('pointerup',20,70);assert.equal(a.sent.filter(m=>m.type==='live-bet').length,2);
+ pointer('pointerdown');pointer('pointercancel');pointer('pointerup');assert.equal(a.sent.filter(m=>m.type==='live-bet').length,2);
+ a.render({...state,phase:'spin'});pointer('pointerdown');pointer('pointerup');assert.equal(a.sent.filter(m=>m.type==='live-bet').length,2);
+ a.render(state);cell.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));assert.equal(a.sent.filter(m=>m.type==='live-bet').length,3);
+ }finally{a.dom.window.close()}
+});

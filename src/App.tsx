@@ -325,6 +325,7 @@ export default function App() {
   // Mandatory Login Gate: অ্যাপসে লগইন ছাড়া কোনোভাবেই প্রবেশ করা যাবে না
   const [isAuthenticated,setIsAuthenticated]=useState(false);
   const verifiedSession=useRef<string|null>(null);
+  const automaticAuthRetries=useRef(0);
   const [offline,setOffline]=useState(()=>!navigator.onLine);
   useEffect(()=>{const update=()=>setOffline(!navigator.onLine);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[]);
   const [authChecking,setAuthChecking]=useState(true),[authError,setAuthError]=useState(''),[authRetry,setAuthRetry]=useState(0),[authStage,setAuthStage]=useState('Checking saved sign-in…');
@@ -416,7 +417,7 @@ export default function App() {
           const profile=await accountBootstrap(stage=>{if(valid())setAuthStage(stage)});
           if(!valid())return;
           setS((prev:any)=>({...prev,id:profile.id,uid:u.uid,name:profile.name,img:profile.photoURL,role:profile.role,coins:profile.coins}));
-          verifiedSession.current=u.uid;setFbUser(u);setIsAuthenticated(true);
+          automaticAuthRetries.current=0;verifiedSession.current=u.uid;setFbUser(u);setIsAuthenticated(true);
           localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
         })(),100000);
       }catch(e:any){if(current&&attempt===version){
@@ -429,11 +430,13 @@ export default function App() {
   },[authRetry]);
 
   useEffect(()=>{
-    if(!fbUser||!authError||authError.includes('blocked'))return;
+    if(!fbUser||!authError||!(/login\/(profile-server|session-verification)/.test(authError)))return;
     const retry=()=>setAuthRetry(n=>n+1);
-    const timer=setTimeout(retry,5000);
-    window.addEventListener('online',retry);
-    return()=>{clearTimeout(timer);window.removeEventListener('online',retry)};
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    if(automaticAuthRetries.current<1){automaticAuthRetries.current++;timer=setTimeout(retry,5000);}
+    const reconnect=()=>{automaticAuthRetries.current=0;retry()};
+    window.addEventListener('online',reconnect);
+    return()=>{clearTimeout(timer);window.removeEventListener('online',reconnect)};
   },[fbUser?.uid,authError]);
 
   useEffect(() => {
@@ -596,11 +599,11 @@ export default function App() {
   async function enterRoom(candidate:any){if(!fbUser?.uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুমে ঢুকছি…');try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid&&!isSuperAdmin){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await runTransaction(db,async tx=>{const ref=doc(db,'users',fbUser.uid),snap=await tx.get(ref),profile=snap.data();tx.update(ref,{currentRoomId:room.id,roomSeat:profile?.currentRoomId===room.id?(profile?.roomSeat??null):null,online:true,lastSeen:serverTimestamp(),activeRoom:{id:room.id,name:room.name,host:room.host||'',hostId:room.hostId||'',cv:room.cv||'🎙️',sc:room.sc||8}})});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='resource-exhausted'?'Firebase daily write quota is exhausted. Rooms, games and voice updates cannot be saved until the quota resets or the database is moved.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}finally{roomActionBusy.current=false}}
   const roomLinkConsumed=useRef(false);
   useEffect(()=>{if(roomLinkConsumed.current||!isAuthenticated||!fbUser?.uid)return;const id=new URLSearchParams(window.location.search).get('room');if(!id||id.length>200||id.includes('/'))return;const target=S.rooms.find((room:any)=>(String(room.id)===id||String(room.publicId)===id));if(!target)return;roomLinkConsumed.current=true;void enterRoom(target)},[isAuthenticated,fbUser?.uid,S.rooms]);
-  if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} stage={authStage} onRetry={()=>setAuthRetry(n=>n+1)}/>;
+  if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} stage={authStage} onRetry={()=>{automaticAuthRetries.current=0;setAuthRetry(n=>n+1)}}/>;
 
   return (
     <div id="app">
-      {(offline||authError)&&<div className="app-connection-banner" role="status">{offline?'নেটওয়ার্ক নেই। আপনার লগইন সেভ আছে। সংযোগ ফিরলে আবার চালু হবে।':'সার্ভারে আবার সংযোগ হচ্ছে। আপনার লগইন সেভ আছে।'}{!offline&&<button onClick={()=>setAuthRetry(n=>n+1)}>আবার চেষ্টা করুন</button>}</div>}
+      {(offline||authError)&&<div className="app-connection-banner" role="status">{offline?'নেটওয়ার্ক নেই। আপনার লগইন সেভ আছে। সংযোগ ফিরলে আবার চালু হবে।':'অ্যাপের প্রোফাইল সার্ভারের সংযোগ পাওয়া যায়নি। আপনার লগইন সেভ আছে।'}{!offline&&<button onClick={()=>setAuthRetry(n=>n+1)}>আবার চেষ্টা করুন</button>}</div>}
       {fbUser&&<GameWinFeed/>}
       {activePage==='game_rank'&&<GlobalGameRanks onClose={()=>setActivePage(null)}/>}
       {activePage==='coin_sellers'&&<CoinSellers onClose={()=>setActivePage(null)} onSeller={()=>setActivePage('seller')}/>}
