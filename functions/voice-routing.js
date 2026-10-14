@@ -37,6 +37,10 @@ export function createRoutedVoiceConfig(store,{env=process.env,clock=Date.now}={
    let until=lease.until;
    if(!same){until=now+90000;used[provider.name]=(used[provider.name]||0)+1.5;tx.set(budgetRef,{reservedMinutes:used,updatedAt:now});tx.set(leaseRef,{cycle,provider:provider.name,until});}
    if(changed)tx.set(routeRef,{provider:provider.name,cycle,epoch,changedAt:now});
+   // Successful authenticated RTC renewal also keeps room membership visible.
+   // Never change a confirmed seat while refreshing presence.
+   const seen=user.lastSeen?.toMillis?.()??user.lastSeen?.getTime?.()??Date.parse(user.lastSeen||'');
+   if(!Number.isFinite(seen)||now-seen>=30000)tx.set(store.doc(`users/${uid}`),{...user,online:true,lastSeen:new Date(now)});
    return {provider:provider.name,epoch,canPublish,leaseUntil:until,reservedMinutes:used[provider.name],quotaMinutes:provider.cap};
   });
   if(route.provider==='agora')return {...await createAgoraVoiceConfig(store,{appId:env.AGORA_APP_ID,certificate:env.AGORA_APP_CERTIFICATE,clock,lifetime:Math.max(1,Math.floor((route.leaseUntil-clock())/1000))})(data,uid),...route};

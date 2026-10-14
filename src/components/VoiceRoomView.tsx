@@ -133,7 +133,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   useEffect(()=>{
     if(!auth.currentUser)return;
     let initial=true;let seen=new Set<string>();setRoomEntry(null);
-    return onSnapshot(query(collection(db,'users'),where('currentRoomId','==',room.id)),snapshot=>{const members=snapshot.docs.map(d=>({...d.data(),uid:d.id})).filter((u:any)=>u.online&&!['banned','archived'].includes(u.status)&&Date.now()-(u.lastSeen?.toMillis?.()||0)<90000);if(!initial)for(const member of members)if(!seen.has(member.uid)&&member.uid!==auth.currentUser?.uid)setRoomEntry({...member,at:Date.now()});seen=new Set(members.map(m=>m.uid));initial=false;setLiveMembers(members)},()=>{});
+    return onSnapshot(query(collection(db,'users'),where('currentRoomId','==',room.id)),snapshot=>{const members=snapshot.docs.map(d=>({...d.data(),uid:d.id})).filter((u:any)=>u.online&&!['banned','archived'].includes(u.status)&&(u.uid===auth.currentUser?.uid||Date.now()-(u.lastSeen?.toMillis?.()||0)<90000));if(!initial)for(const member of members)if(!seen.has(member.uid)&&member.uid!==auth.currentUser?.uid)setRoomEntry({...member,at:Date.now()});seen=new Set(members.map(m=>m.uid));initial=false;setLiveMembers(members)},()=>{});
   },[room.id]);
 
   const [roomRoles,setRoomRoles]=useState<Record<string,any>>({}),[roomControls,setRoomControls]=useState<Record<string,any>>({}),[policyOpen,setPolicyOpen]=useState(false),[policyTarget,setPolicyTarget]=useState(''),[policyStatus,setPolicyStatus]=useState('');
@@ -181,9 +181,9 @@ export const VoiceRoomView: React.FC<Props> = ({
     const occupant=liveSeats[index];
     if(occupant&&occupant.uid!==auth.currentUser.uid){onOpenUsers(occupant.uid);return;}
     if(seatedIndex!==index&&lockedSeats.includes(index)){setSeatError('🔒 এই সিট লক করা আছে।');return;}
-    seatLock.current=true;setSeatBusy(true);setSeatError('');
+    seatLock.current=true;setSeatBusy(true);setSeatError('');voice.unlock();
     const next=seatedIndex===index?null:index;
-    try{await updateDoc(doc(db,'users',auth.currentUser.uid),{currentRoomId:room.id,roomSeat:next,online:true,lastSeen:serverTimestamp()});setRoomReady(true);setSeatedIndex(next);if(next===null)setIsMicOn(false)}catch{setSeatError('সিট সেভ হয়নি। সংযোগ পরীক্ষা করুন।')}finally{seatLock.current=false;setSeatBusy(false)}
+    try{await updateDoc(doc(db,'users',auth.currentUser.uid),{currentRoomId:room.id,roomSeat:next,online:true,lastSeen:serverTimestamp()});setRoomReady(true);setSeatedIndex(next);setIsMicOn(next!==null&&!roomControls[myUid]?.muted&&!roomControls[myUid]?.blocked)}catch{setSeatError('সিট সেভ হয়নি। সংযোগ পরীক্ষা করুন।')}finally{seatLock.current=false;setSeatBusy(false)}
   };
 
   const [micBusy,setMicBusy]=useState(false);const micLock=useRef(false);

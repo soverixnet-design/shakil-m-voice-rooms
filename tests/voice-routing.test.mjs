@@ -19,3 +19,5 @@ test('all exhausted providers fail closed rather than issuing a billable token',
 test('expired Tencent trial is never selected even when budget remains',async()=>{const f=fixture();f.advance(20*86400000);f.rows.set('system/voiceBudget_2026-10',{reservedMinutes:{agora:3}});await assert.rejects(f.config({roomId:'room'},'alice'),/voice-quota-exhausted/);});
 
 test('free-only routing excludes an Agora fallback whose remaining quota is unverified',()=>{const f=fixture();delete f.env.AGORA_FREE_MINUTES;assert.deepEqual(voiceProviders(f.env).map(p=>p.name),['tencent']);});
+
+test('voice renewal keeps presence fresh without dropping the confirmed seat',async()=>{const f=fixture();await f.config({roomId:'room'},'alice');const before=f.rows.get('users/alice');assert.equal(before.roomSeat,0);assert.equal(before.online,true);f.advance(40000);await f.config({roomId:'room'},'alice');const after=f.rows.get('users/alice');assert.equal(after.roomSeat,0);assert.equal(after.currentRoomId,'room');assert(after.lastSeen.getTime()>before.lastSeen.getTime());});
