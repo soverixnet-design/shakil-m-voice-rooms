@@ -1,3 +1,4 @@
+import {isDirectVoiceRelayMissing} from '../lib/voiceHealth';
 import {onSnapshot} from '../lib/reliableFirestore';
 import React,{useEffect,useState} from 'react';
 import {doc} from 'firebase/firestore';
@@ -10,7 +11,7 @@ export function ServerStatus(){
   useEffect(()=>onSnapshot(doc(db,'system','gameServer'),s=>setUrl(s.data()?.url||fallback.url),()=>setState('unavailable')),[]);
   useEffect(()=>{
     let stopped=false,inFlight=false,timer:ReturnType<typeof setTimeout>|undefined,controller:AbortController|undefined;
-    setState('checking');setDetail('');
+    setState('checking');setDetail('');setVoiceRelayMissing(false);
     const check=async()=>{
       if(stopped||inFlight)return;
       if(timer)clearTimeout(timer);
@@ -18,7 +19,7 @@ export function ServerStatus(){
       try{
         const r=await fetch(`${gameServerUrl(url)}/health`,{signal:controller.signal,cache:'no-store'});const data=await r.json();
         if(stopped)return;
-        setVoiceRelayMissing(data.voiceProvider!=='agora'&&data.voiceRelayConfigured===false);
+        setVoiceRelayMissing(isDirectVoiceRelayMissing(data));
         if(!r.ok||data.status!=='ok'||data.service!=='earnbd-shared-games'){
           const database=data.socialDatabase==='supabase'?'Supabase':'Firebase';
           const messages:Record<string,string>={'database-quota-exceeded':'Firebase daily write quota is exhausted. Room, game and voice updates cannot be saved.','server-database-permission-denied':`The server cannot access ${database}. Check database permissions.`,'database-connection-failed':`The server could not connect to ${database}. Connection will be checked again automatically.`};
