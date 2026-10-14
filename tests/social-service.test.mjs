@@ -16,6 +16,7 @@ function fixture(){
  put('rooms/room/voiceSignals/two',{from:'alice',to:'bob',payload:'other private'});
  put('users/bob/roomLibrary/room',{followed:true});
  const client={query:async(sql,args=[])=>{
+  if(sql.startsWith("select fields from earnbd.social_documents where parent='users'")){const rows=[...docs.values()].filter(r=>r.path.startsWith('users/')&&r.path.split('/').length===2&&decodeFields(r.fields).currentRoomId===args[0]);return {rows,rowCount:rows.length};}
   if(sql.startsWith('select path,fields')){
    const rows=sql.includes('where parent=')?[...docs.values()].filter(r=>r.path.slice(0,r.path.lastIndexOf('/'))===args[0]):docs.has(args[0])?[docs.get(args[0])]:[];
    return {rows,rowCount:rows.length};
@@ -165,3 +166,18 @@ test('other profiles expose gift totals for levels but hide wallet balances and 
  await assert.rejects(service.social({action:'query',structuredQuery:{from:[{collectionId:'users'}],where:{fieldFilter:{field:{fieldPath:'coins'},op:'GREATER_THAN',value:{integerValue:'0'}}}}},identity('alice')),{code:'permission-denied'});
 });
 test('public celebration feed is readable across rooms by active members and cannot be forged',async()=>{const {service,put}=fixture();put('liveAnnouncements/one',{type:'win',uid:'alice',name:'Alice',publicId:'111',amount:5000,createdAt:now});assert.equal(decodeFields((await service.social({action:'get',path:'liveAnnouncements/one'},identity('bob'))).fields).amount,5000);await assert.rejects(service.social({action:'get',path:'liveAnnouncements/one'},identity('banned')),/permission-denied/);await assert.rejects(service.social({action:'commit',writes:[update('liveAnnouncements/fake',{type:'win',amount:999999})]},identity('alice')),/permission-denied/);});
+
+test('room owner can choose five, ten and twelve seats but cannot remove an occupied seat',async()=>{
+ const f=fixture();await f.service.social({action:'commit',writes:[update('rooms/room',{sc:10})]},identity('host'));assert.equal(decodeFields(f.docs.get('rooms/room').fields).sc,10);
+ f.put('users/bob',{id:'222',status:'active',currentRoomId:'room',roomSeat:9});
+ await assert.rejects(f.service.social({action:'commit',writes:[update('rooms/room',{sc:5})]},identity('host')),{code:'permission-denied'});assert.equal(decodeFields(f.docs.get('rooms/room').fields).sc,10);
+ f.put('users/bob',{id:'222',status:'active',currentRoomId:'room',roomSeat:2});await f.service.social({action:'commit',writes:[update('rooms/room',{sc:5})]},identity('host'));assert.equal(decodeFields(f.docs.get('rooms/room').fields).sc,5);
+ await assert.rejects(f.service.social({action:'commit',writes:[update('rooms/room',{sc:7})]},identity('host')),{code:'permission-denied'});
+});
+
+test('admin registers and withdrawal destinations are private while owners can read room history',async()=>{
+ const f=fixture();f.put('system/adminOperations',{withdrawals:[{destination:'private-bank-account'}]});
+ await assert.rejects(f.service.social({action:'get',path:'system/adminOperations'},identity('alice')),{code:'permission-denied'});
+ const owner={uid:'alice',email:'yfastvpn@gmail.com',email_verified:true};assert((await f.service.social({action:'get',path:'system/adminOperations'},owner)).fields);
+ assert((await f.service.social({action:'get',path:'users/bob/roomLibrary/room'},owner)).fields);
+});

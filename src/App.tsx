@@ -387,7 +387,7 @@ export default function App() {
   useEffect(() => {
     const handleUrlRoute = () => {
       if (window.location.hash === '#admin' || window.location.search.includes('admin=true')) {
-        setActivePage('admin');
+        window.location.assign(new URL('admin.html',window.location.href).href);
       }
     };
     handleUrlRoute();
@@ -602,7 +602,9 @@ export default function App() {
 
   const roomActionBusy=useRef(false);
   async function leaveActiveRoom(){const roomId=activeRoom?.id,uid=fbUser?.uid;if(!roomId||!uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুম ছাড়ার অনুরোধ চলছে…');try{await runTransaction(db,async tx=>{const ref=doc(db,'users',uid),snap=await tx.get(ref);if(snap.data()?.currentRoomId===roomId)tx.update(ref,{currentRoomId:null,roomSeat:null,activeRoom:null,lastSeen:serverTimestamp()})});setActiveRoom(null);setIsRoomMinimized(false);toast('রুম ত্যাগ করেছেন')}catch{toast('রুম ছাড়ার তথ্য সেভ হয়নি। আবার চেষ্টা করুন।')}finally{roomActionBusy.current=false}}
-  async function enterRoom(candidate:any){if(!fbUser?.uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুমে ঢুকছি…');try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await runTransaction(db,async tx=>{const ref=doc(db,'users',fbUser.uid),snap=await tx.get(ref),profile=snap.data();tx.update(ref,{currentRoomId:room.id,roomSeat:profile?.currentRoomId===room.id?(profile?.roomSeat??null):null,online:true,lastSeen:serverTimestamp(),activeRoom:{id:room.id,name:room.name,host:room.host||'',hostId:room.hostId||'',cv:room.cv||'🎙️',sc:room.sc||8}})});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='resource-exhausted'?'Firebase daily write quota is exhausted. Rooms, games and voice updates cannot be saved until the quota resets or the database is moved.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}finally{roomActionBusy.current=false}}
+  async function enterRoom(candidate:any){if(!fbUser?.uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুমে ঢুকছি…');try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid&&!isSuperAdmin){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await runTransaction(db,async tx=>{const ref=doc(db,'users',fbUser.uid),snap=await tx.get(ref),profile=snap.data();tx.update(ref,{currentRoomId:room.id,roomSeat:profile?.currentRoomId===room.id?(profile?.roomSeat??null):null,online:true,lastSeen:serverTimestamp(),activeRoom:{id:room.id,name:room.name,host:room.host||'',hostId:room.hostId||'',cv:room.cv||'🎙️',sc:room.sc||8}})});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='resource-exhausted'?'Firebase daily write quota is exhausted. Rooms, games and voice updates cannot be saved until the quota resets or the database is moved.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}finally{roomActionBusy.current=false}}
+  const roomLinkConsumed=useRef(false);
+  useEffect(()=>{if(roomLinkConsumed.current||!isAuthenticated||!fbUser?.uid)return;const id=new URLSearchParams(window.location.search).get('room');if(!id||id.length>200||id.includes('/'))return;const target=S.rooms.find((room:any)=>String(room.id)===id);if(!target)return;roomLinkConsumed.current=true;void enterRoom(target)},[isAuthenticated,fbUser?.uid,S.rooms]);
   if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} stage={authStage} onRetry={()=>setAuthRetry(n=>n+1)}/>;
 
   return (
@@ -683,7 +685,7 @@ export default function App() {
                   cursor: 'pointer'
                 }}
                 onClick={() => {
-                  setActivePage('admin');
+                  window.location.assign(new URL('admin.html',window.location.href).href);
                 }}
                 title="সুপার অ্যাডমিন প্যানেল"
               >
@@ -2627,7 +2629,7 @@ export default function App() {
                   <button
                     onClick={() => {
                       setSelectedRechargePackage(null);
-                      setActivePage('admin');
+                      window.location.assign(new URL('admin.html',window.location.href).href);
                     }}
                     className="w-full py-2.5 rounded-xl bg-purple-600/50 hover:bg-purple-600 text-white font-bold text-xs active:scale-95 border border-purple-400/30 flex items-center justify-center gap-1.5"
                   >

@@ -147,7 +147,7 @@ service cloud.firestore {
     }
 
     match /system/{id} {
-      allow read: if true;
+      allow read: if id != 'adminOperations' || owner();
       allow write: if owner();
       allow create: if permission('content') && ((id == 'notices' && request.resource.data.keys().hasOnly(['items'])) || (id == 'config' && request.resource.data.keys().hasOnly(['bn','customGifts'])));
       allow update: if permission('content') && ((id == 'notices' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['items'])) || (id == 'config' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bn','customGifts'])));

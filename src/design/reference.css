@@ -117,3 +117,25 @@ body:has(.admin-portal) #root{max-width:1200px}#app.admin-portal{overflow-y:auto
 .quality-slot-machine{background:radial-gradient(ellipse at top,#73345b,#28152d 70%)!important;border:1px solid #eebc66!important;box-shadow:0 12px 30px #0005,inset 0 2px #fff4!important}.quality-slot-reels{padding:16px 10px;border-radius:18px;background:linear-gradient(#c99a42,#6d3b1b);box-shadow:inset 0 3px 8px #0007;margin-bottom:14px}.quality-slot-reels>span{display:grid;place-items:center;min-width:65px;min-height:84px;padding:10px!important;background:linear-gradient(#f3e5bd,#fffdf2 48%,#d4c59d)!important;color:#522037;border-radius:12px!important;box-shadow:inset 0 5px 9px #46321e44,0 3px 0 #6b341d;font-size:clamp(28px,8vw,44px)}.quality-slot-machine[data-phase=result] .quality-slot-reels{box-shadow:0 0 26px #ffd16366,inset 0 3px 8px #0007}
 
 .reference-room button,.reference-room .s3w,.reference-room summary{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.reference-room .s3w{cursor:pointer;min-height:104px}.reference-room .seat-edit-trigger{min-width:36px;min-height:36px}.room-action-status{padding:10px 14px;border-radius:12px;background:#31245c;color:#fff;font-weight:700}.room-bottom-controls button{min-height:56px}.reference-room .room-header-actions button{min-width:44px;min-height:44px}
+
+/* The stage and seats stay anchored; only the chat message list scrolls. */
+.reference-room{height:100dvh;justify-content:flex-start!important;background-size:cover}
+.reference-room .room-reference-header{padding:8px 12px 0;flex-shrink:0}
+.reference-room .room-stage{overflow:hidden!important;min-height:0;flex:1;padding-top:4px;position:relative}
+.reference-room .room-fixed-seats{flex:0 0 auto;margin:8px 0 12px!important;gap:14px 5px}
+.reference-room .room-fixed-seats .s3w{min-height:0;position:relative}
+.reference-room .room-fixed-seats .s3{width:clamp(42px,14vw,62px);height:clamp(42px,14vw,62px);margin:auto}
+.reference-room .room-fixed-seats .nm3{font-size:10px;line-height:16px;margin-top:4px}
+.reference-room .room-fixed-seats .sc3{font-size:8px;padding:1px 5px}
+.reference-room .seat-edit-trigger{width:24px;height:24px;min-width:24px;min-height:24px;right:0;font-size:10px}
+.reference-room .ct3{margin-top:auto;flex:0 1 190px;min-height:70px;max-height:30vh!important;display:flex;flex-direction:column;overflow:hidden;border:0!important;background:#0002!important;border-radius:16px!important}
+.reference-room .ctb{flex-shrink:0;gap:8px;font-size:11px}
+.reference-room #ch3{min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;height:auto!important;max-height:none!important}
+.reference-room .room-event-badge{position:absolute;right:10px;top:55%;display:flex;align-items:center;flex-direction:column;width:58px;height:62px;border-radius:16px;background:linear-gradient(150deg,#f8d674,#eaa63b);color:#422b17;box-shadow:0 5px 15px #0004;z-index:25}
+.reference-room .room-event-badge span{font-size:29px}.reference-room .room-event-badge small{font-size:10px;font-weight:700}.reference-room .room-event-badge img{width:100%;height:100%;object-fit:cover;border-radius:16px}
+.reference-room .room-bottom-controls{flex-shrink:0;padding:7px 12px calc(10px + env(safe-area-inset-bottom));background:#060c11a6}
+.reference-room .room-settings-tools{display:flex;flex-direction:column;gap:12px;margin-top:20px}.room-seat-count{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0}
+.reference-room .room-action-status,.reference-room .room-stage>p[role=status]{position:absolute;left:10px;right:10px;top:0;z-index:30;padding:6px 10px;font-size:11px;background:#1d172ee6;border-radius:10px}
+@media(max-height:680px){.reference-room .room-fixed-seats{gap:8px 4px}.reference-room .room-fixed-seats .s3{width:44px;height:44px}.reference-room .room-fixed-seats .nm3{font-size:9px}.reference-room .ct3{flex-basis:125px}.reference-room .room-bottom-controls>button>span{width:36px;height:36px}.reference-room .room-bottom-controls>button.gift>span{width:42px;height:42px}}
+
+.reference-room .room-event-badge{position:relative;top:auto;right:auto;align-self:flex-end;flex-shrink:0;margin-top:auto;margin-bottom:8px;width:52px;height:52px}.reference-room .ct3{margin-top:0}.reference-room .room-more-card .room-action-status{position:static;font-size:12px}.reference-room .room-more-card{max-height:85dvh;overflow-y:auto}.reference-room .room-voice-status{width:100%;padding:12px;border-radius:14px;background:#ffffff09}.reference-room .room-voice-status button{margin-top:8px;font-size:11px}

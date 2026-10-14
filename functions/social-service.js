@@ -40,12 +40,13 @@ export function createSocialService(database,clock=Date.now){
     if(root==='gameWins'||root==='liveAnnouncements')return Boolean(active)&&!sub;
     if(root==='gameReceipts')return Boolean(active)&&!sub&&decodeFields(fields).uid===identity.uid;
     if(root==='directMessages'){const d=decodeFields(fields);return !sub&&Boolean(active)&&[d.senderId,d.receiverId].includes(identity.uid);}
-    if(root==='system'||root==='assets')return !sub;
+    if(root==='system')return !sub&&(id!=='adminOperations'||owner);
+    if(root==='assets')return !sub;
     if(root==='admins')return !sub&&(owner||id===identity.uid);
     if(root==='sellerWallets')return !sub&&(owner||active&&id===identity.uid);
     if(root==='sellerTransfers'){const d=decodeFields(fields);return !sub&&(owner||active&&[d.sellerId,d.receiverId].includes(identity.uid));}
     if(root==='supportTickets')return active&&(id===identity.uid||owner||permission('support'))&&(!sub||sub==='messages');
-    if(root==='users')return sub==='roomLibrary'?id===identity.uid:(!sub||sub==='visitors')&&(active||!sub&&id===identity.uid);
+    if(root==='users')return sub==='roomLibrary'?id===identity.uid||owner:(!sub||sub==='visitors')&&(active||!sub&&id===identity.uid);
     if(root==='roomOwners')return !sub&&(id===identity.uid||owner);
     if(root==='rooms'){
      if(!sub)return true;
@@ -146,7 +147,7 @@ export function createSocialService(database,clock=Date.now){
      if(permitted&&next.photoURL!==undefined&&!photo(next.photoURL))permitted=false;
      if(permitted&&next.currentRoomId){
       const room=await after('rooms/'+next.currentRoomId),control=await after(`rooms/${next.currentRoomId}/controls/${identity.uid}`),role=await after(`rooms/${next.currentRoomId}/roles/${identity.uid}`);
-      permitted=!!room.hostId&&control.blocked!==true&&(!room.locked||room.hostId===identity.uid||role.role==='admin'||profile.currentRoomId===next.currentRoomId);
+      permitted=!!room.hostId&&control.blocked!==true&&(!room.locked||owner||room.hostId===identity.uid||role.role==='admin'||profile.currentRoomId===next.currentRoomId);
       if(next.roomSeat!==null&&next.roomSeat!==undefined){const count=room.sc||(room.d?12:8),policy=await after(`rooms/${next.currentRoomId}/seatPolicy/config`);permitted=permitted&&Number.isInteger(next.roomSeat)&&next.roomSeat>=0&&next.roomSeat<count&&((old.currentRoomId===next.currentRoomId&&old.roomSeat===next.roomSeat)||!(policy.locked||[]).includes(next.roomSeat));}
      }
     }else if(root==='directMessages'&&!sub){
@@ -173,6 +174,13 @@ export function createSocialService(database,clock=Date.now){
     else if(root==='rooms'&&!sub){
      permitted=owner||(oldRows.get(path)?await roomOwner(id)&&(removed||next.hostId===old.hostId):!removed&&id==='user-'+identity.uid&&next.hostId===identity.uid&&(await after('roomOwners/'+identity.uid)).roomId===id);
      if(!removed&&next.photoURL!==undefined&&!photo(next.photoURL))permitted=false;
+     if(permitted&&!removed&&next.sc!==old.sc){
+      if(![5,8,10,12,20].includes(next.sc))permitted=false;
+      if(permitted&&next.sc<(old.sc||(old.d?12:8))){
+       const occupied=await client.query("select fields from earnbd.social_documents where parent='users' and fields->'currentRoomId'->>'stringValue'=$1",[id]);
+       if(occupied.rows.some(row=>{const user=decodeFields(row.fields);const seen=user.lastSeen?.getTime?.()??Date.parse(user.lastSeen||'');return user.online!==false&&(!Number.isFinite(seen)||clock()-seen<90000)&&Number.isInteger(user.roomSeat)&&user.roomSeat>=next.sc}))permitted=false;
+      }
+     }
     }else if(root==='rooms'){
      if(sub==='roles')permitted=await roomOwner(id)&&(removed||child!==(await plain('rooms/'+id)).hostId&&allowed(next,['role','canLockSeats'])&&next.role==='admin'&&(next.canLockSeats===undefined||typeof next.canLockSeats==='boolean'));
      if(sub==='controls')permitted=removed?await roomOwner(id):await roomAdmin(id)&&child!==(await plain('rooms/'+id)).hostId&&(await roomOwner(id)||!(await plain(`rooms/${id}/roles/${child}`)).role)&&allowed(next,['muted','blocked'])&&typeof next.muted==='boolean'&&typeof next.blocked==='boolean';
