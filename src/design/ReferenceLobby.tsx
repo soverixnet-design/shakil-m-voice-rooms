@@ -1,4 +1,3 @@
-import {ActivityRooms} from '../components/ActivityRooms';
 import {ProfileLevels} from '../components/ProfileLevels';
 import {activeRankingAward} from '../lib/rankingAwards';
 import {LobbyBannerCarousel} from '../components/LobbyBannerCarousel';
@@ -65,9 +64,7 @@ export function ReferenceLobby({state:s,screen,onScreen,onAction,admin,staff=fal
         <div className="ref-card ref-link-list">{[['🎙️','আমার রুম',()=>onScreen('mine')],['✨','এন্ট্রি','entries'],['👑','SVIP','svip'],['🎁','ইনভাইট রিওয়ার্ড','invite'],['🧾','লেনদেনের ইতিহাস','hist'],['🪙','কয়েন সেলার তালিকা','coin_sellers'],['🎧','কাস্টমার সার্ভিস','support_chat'],['📜','Privacy Policy','policy_privacy'],['📋','Terms & Conditions','policy_terms'],...(seller?[['🪙','সেলার ওয়ালেট','seller']]:[]),...((admin||staff)?[['🛡️','অ্যাডমিন প্যানেল','admin']]:[])].map(([icon,label,page])=><button key={String(label)} onClick={()=>typeof page==='function'?page():onAction('page',String(page))}><span>{String(icon)} {String(label)}</span>›</button>)}</div><button className="ref-button wide" onClick={()=>onAction('logout')}>লগআউট</button></div></>}
       {screen==='messages'&&<div className="ref-surface message-home">
         <header className="message-home-heading"><h1>মেসেজ</h1><button aria-label="মেসেজ করার ইউজার খুঁজুন" onClick={()=>onAction('users')}>⌕</button></header>
-        <ActivityRooms rooms={s.rooms} onJoin={r=>onAction('room',String(r.id))}/>
         <div className="message-official-links">
-          <button onClick={()=>setSelectedEvent('all')}><span>🏆</span><b>অ্যাক্টিভিটি / ইভেন্ট</b><small>চলতি ইভেন্ট দেখুন ›</small></button>
           <button onClick={()=>onAction('page','support_chat')}><span>🛡️</span><b>অফিশিয়াল</b><small>অফিশিয়াল সহায়তা ›</small></button>
           <button onClick={()=>onAction('page','notices')}><span>📢</span><b>অফিশিয়াল নোটিশ</b><small>আপডেট দেখুন ›</small></button>
         </div>
