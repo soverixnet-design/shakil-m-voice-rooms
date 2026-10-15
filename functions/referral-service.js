@@ -10,8 +10,7 @@ export function createReferralService(store){
   if(code==='SM'+user.id)throw Error('self-referral');
   if(user.referrerUid){if(user.ref===code)return {ref:user.ref};throw Error('referral-already-set');}
   const found=await tx.get(store.collection('users').where('id','==',code.slice(2)));
-  const legacy=!found.docs.length?await tx.get(store.collection('users').where('legacyPublicId','==',code.slice(2))):null;
-  const inviter=[...found.docs,...(legacy?.docs||[])].find(x=>active(x.data()));
+  const inviter=found.docs.find(x=>active(x.data()));
   if(!inviter)throw Error('referral-not-found');
   // Prevent cycles, including longer existing referral chains.
   let ancestor=inviter.id;const visited=new Set();

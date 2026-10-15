@@ -35,8 +35,6 @@ import {
 
 interface AdminPanelProps {
   currentUser: any;
-  section?: string;
-  embedded?: boolean;
   appState: any;
   onUpdateAppState: (updater: (prev: any) => any) => void;
   onToast: (msg: string) => void;
@@ -46,8 +44,6 @@ interface AdminPanelProps {
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   currentUser,
-  section,
-  embedded=false,
   appState,
   onUpdateAppState,
   onToast,
@@ -56,7 +52,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const assets=useMediaAssets();
   const [activeTab, setActiveTab] = useState<'users' | 'requests' | 'quick_boost' | 'rooms' | 'gifts' | 'packages' | 'banner' | 'system' | 'events'>('users');
-  useEffect(()=>{if(section)setActiveTab(section as any)},[section]);
 
   // Search & Filters
   const [searchUser, setSearchUser] = useState('');
@@ -531,10 +526,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </div>
 
-      {!embedded&&<><ServerStatus/><AdminSellerManager/></>}
+      <ServerStatus/><AdminSellerManager/>
       {activeTab==='events'&&<EventCenter admin rooms={appState.rooms||[]} gifts={[...(appState.customGifts||[{name:'হার্ট',icon:'❤️'},{name:'গোলাপ',icon:'🌹'},{name:'স্টার',icon:'⭐'},{name:'লাভ রিং',icon:'💍'},{name:'ডায়মন্ড',icon:'💎'},{name:'VIP কার',icon:'🚗'},{name:'রকেট',icon:'🚀'},{name:'ক্রাউন',icon:'👑'}]),...assets.filter((a:any)=>a.kind==='gift')]}/>}
       {/* 2. Navigation Tabs */}
-      <div hidden={embedded} className="admin-tabs flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+      <div className="admin-tabs flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
         {[
           { id: 'users', label: '👥 ইউজার ও কয়েন', icon: Users },
           {

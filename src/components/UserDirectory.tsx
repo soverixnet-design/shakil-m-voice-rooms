@@ -1,4 +1,4 @@
-import {getDoc,onSnapshot,query,where} from '../lib/reliableFirestore';
+import {getDoc,onSnapshot} from '../lib/reliableFirestore';
 import {UserSocialCard} from './UserSocialCard';
 import {useMediaAssets,MediaAvatar} from './MediaAssets';
 import {RoomGiftBox} from './RoomGiftBox';
@@ -9,24 +9,20 @@ import {sendDirectGift} from '../lib/gifts';
 import {collection,doc} from 'firebase/firestore';
 const GIFTS = [{emoji:'🌹',name:'গোলাপ',cost:10},{emoji:'❤️',name:'হার্ট',cost:1},{emoji:'⭐',name:'স্টার',cost:250},{emoji:'💎',name:'ডায়মন্ড',cost:1100},{emoji:'🚀',name:'রকেট',cost:5000},{emoji:'👑',name:'ক্রাউন',cost:15000}];
 export function UserDirectory({onClose,onJoin,roomId,initialRecipient,onGiftSent}:{onClose:()=>void;onJoin:(room:any)=>void;roomId?:string;initialRecipient?:string;onGiftSent?:(event:any)=>void}) {
-  const [rooms,setRooms]=useState<any[]>([]),[users,setUsers]=useState<any[]>([]),[search,setSearch]=useState(''),[selected,setSelected]=useState(initialRecipient||''),[gift,setGift]=useState(0),[quantity,setQuantity]=useState(1),[busy,setBusy]=useState(false),[status,setStatus]=useState(''),[loading,setLoading]=useState(true),[error,setError]=useState(''),[now,setNow]=useState(Date.now()),[animation,setAnimation]=useState(false),[animationGift,setAnimationGift]=useState<any>(null);
+  const [users,setUsers]=useState<any[]>([]),[search,setSearch]=useState(''),[selected,setSelected]=useState(initialRecipient||''),[gift,setGift]=useState(0),[quantity,setQuantity]=useState(1),[busy,setBusy]=useState(false),[status,setStatus]=useState(''),[loading,setLoading]=useState(true),[error,setError]=useState(''),[now,setNow]=useState(Date.now()),[animation,setAnimation]=useState(false),[animationGift,setAnimationGift]=useState<any>(null);
   const [showGiftForm,setShowGiftForm]=useState(!initialRecipient);
   const [recipients,setRecipients]=useState<string[]>(initialRecipient?[initialRecipient]:[]);
   const roomGiftMode=Boolean(roomId&&!initialRecipient);
   const [catalog,setCatalog]=useState(GIFTS);
   useEffect(()=>onSnapshot(doc(db,'system','config'),snapshot=>{const gifts=snapshot.data()?.customGifts;if(Array.isArray(gifts)){setCatalog(gifts.filter(g=>Number.isSafeInteger(g.price)&&g.price>0).map(g=>({emoji:g.icon,name:g.name,cost:g.price})));setGift(0)}}),[]);
   const media=useMediaAssets();
-  const gifts:any[]=catalog.concat(media.filter(a=>a.kind==='gift'&&Number.isSafeInteger(a.price)&&a.price>0).map(a=>({emoji:'🎁',name:a.name,cost:a.price,image:a.image,assetId:a.id})));
+  const gifts:any[]=catalog.concat(media.filter(a=>a.kind==='gift'&&Number.isSafeInteger(a.price)&&a.price>0).map(a=>({emoji:'🎁',name:a.name,cost:a.price,image:a.image})));
   const lock=useRef(false),avatar=useRef<HTMLDivElement>(null),particle=useRef<HTMLSpanElement>(null);
-  useEffect(()=>{setLoading(true);setUsers([]);const fail=()=>{setLoading(false);setError('ইউজার লোড হয়নি। সংযোগ পরীক্ষা করুন।')};if(initialRecipient){const ids=[...new Set([initialRecipient,auth.currentUser?.uid].filter(Boolean))] as string[];const stops=ids.map(uid=>onSnapshot(doc(db,'users',uid),snapshot=>{if(snapshot.exists())setUsers(previous=>[...previous.filter(u=>u.uid!==uid),{...snapshot.data(),uid}]);setLoading(false);setError('')},fail));return()=>stops.forEach(stop=>stop())}return onSnapshot(roomId?query(collection(db,'users'),where('currentRoomId','==',roomId)):collection(db,'users'),snapshot=>{setUsers(snapshot.docs.map(d=>({...d.data(),uid:d.id})));setLoading(false);setError('')},fail)},[roomId,initialRecipient]);
-
-  useEffect(()=>{if(roomId||initialRecipient)return;return onSnapshot(collection(db,'rooms'),snapshot=>setRooms(snapshot.docs.filter(d=>!d.data().archived).map(d=>({...d.data(),id:d.id}))),()=>setError('রুম তালিকা লোড হয়নি। সংযোগ পরীক্ষা করুন।'))},[roomId,initialRecipient]);
+  useEffect(()=>onSnapshot(collection(db,'users'),snapshot=>{setUsers(snapshot.docs.map(d=>({...d.data(),uid:d.id})));setLoading(false);setError('')},()=>{setLoading(false);setError('ইউজার তালিকা লোড হয়নি। Google লগইন ও সংযোগ পরীক্ষা করুন।')}),[]);
   useEffect(()=>{const t=setInterval(()=>setNow(Date.now()),10000);return()=>clearInterval(t)},[]);
   const online=(u:any)=>u.online===true&&now-(u.lastSeen?.toMillis?.()||0)<90000;
   const target=users.find(u=>u.uid===selected),item=gifts[gift],cost=(item?.cost||0)*quantity;
   const filtered=users.filter(u=>!['banned','archived'].includes(u.status)).filter(u=>search.trim()?String(u.id||'')===search.trim()||String(u.uid)===search.trim()||String(u.name||'').toLowerCase().includes(search.trim().toLowerCase()):!roomId||u.currentRoomId===roomId);
-  const foundRooms=rooms.filter(r=>search.trim()&&String(r.publicId)===search.trim());
-  const ownRoom=target?rooms.find(r=>r.hostId===target.uid):null;
   const roomMembers=users.filter(u=>u.currentRoomId===roomId&&online(u)&&!['banned','archived'].includes(u.status));
   const chosen=recipients.map(uid=>users.find(u=>u.uid===uid)).filter(Boolean);
   const totalCost=cost*chosen.length;
@@ -65,15 +61,13 @@ export function UserDirectory({onClose,onJoin,roomId,initialRecipient,onGiftSent
   }
   if(roomGiftMode)return <RoomGiftBox members={roomMembers} recipients={recipients} gifts={gifts} gift={gift} quantity={quantity} busy={busy} loading={loading} error={error} status={status} balance={Number(users.find(u=>u.uid===auth.currentUser?.uid)?.coins||0)} frames={media} onToggle={toggle} onAll={()=>{setRecipients(roomMembers.map(u=>u.uid));setStatus('')}} onClear={()=>{setRecipients([]);setStatus('')}} onGift={setGift} onQuantity={setQuantity} onSend={()=>void sendRoomGifts()} onClose={onClose}/>;
   return <div data-gift-dialog="true" className={initialRecipient?'fixed inset-0 z-[80] bg-black/50 text-white flex items-end justify-center':'fixed inset-0 z-[80] bg-[#0a1024] text-white overflow-y-auto p-4'}><div className={initialRecipient?'profile-bottom-sheet':'max-w-lg mx-auto space-y-4'}>
-    <div className="flex justify-between items-center"><h2 className="text-xl font-bold">{initialRecipient?'ইউজার প্রোফাইল':roomGiftMode?'🎁 রুমের গিফট বক্স':'🔍 ইউজার ও রুম খুঁজুন'}</h2><button disabled={busy} className="back-card" onClick={onClose}>‹ ফিরে যান</button></div>
+    <div className="flex justify-between items-center"><h2 className="text-xl font-bold">{initialRecipient?'ইউজার প্রোফাইল':roomGiftMode?'🎁 রুমের গিফট বক্স':'🔍 ইউজার খুঁজুন ও গিফট দিন'}</h2><button disabled={busy} className="back-card" onClick={onClose}>‹ ফিরে যান</button></div>
     {!initialRecipient&&!roomGiftMode&&auth.currentUser&&<button disabled={busy} className="b t w-full" onClick={()=>{setSelected(auth.currentUser!.uid);setSearch('');setStatus('')}}>🎁 নিজের আইডিতে গিফট দিন</button>}
-    {!initialRecipient&&<label className="block">ইউজার / রুম ID<input className="in w-full mt-2" disabled={busy} value={search} onChange={e=>{setSearch(e.target.value);setStatus('')}} placeholder="৬ সংখ্যার ID বা ইউজারের নাম লিখুন" /></label>}
-    {loading&&<p>লোড হচ্ছে…</p>}{error&&<p role="alert">{error}</p>}{!loading&&!error&&!filtered.length&&!foundRooms.length&&<p>ইউজার পাওয়া যায়নি। নিবন্ধিত প্রোফাইলের ID দিন।</p>}
-    {foundRooms.map(r=><button key={r.id} className="b t w-full" onClick={()=>onJoin({...r,own:r.hostId===auth.currentUser?.uid})}>🎙️ {r.name} · রুম ID {r.publicId}</button>)}
+    {!initialRecipient&&<label className="block">ইউজার ID<input className="in w-full mt-2" disabled={busy} value={search} onChange={e=>{setSearch(e.target.value);setStatus('')}} placeholder="ইউজার ID বা নাম লিখুন" /></label>}
+    {loading&&<p>লোড হচ্ছে…</p>}{error&&<p role="alert">{error}</p>}{!loading&&!error&&!filtered.length&&<p>ইউজার পাওয়া যায়নি। নিবন্ধিত প্রোফাইলের ID দিন।</p>}
     <div className="space-y-2">{(initialRecipient&&!search?[]:filtered).map(u=><button disabled={busy} key={u.uid} onClick={()=>{setSelected(u.uid);setStatus('')}} className={`gl p-3 w-full text-left flex gap-3 items-center ${selected===u.uid?'border-cyan-400':''}`}>
-      <MediaAvatar avatar={u.avatar} frame={media.find(a=>a.id===u.customFrameId)?.image}/><span className="flex-1"><b data-no-translate="true">{u.name||'ইউজার'}</b><small className="block">ID {u.id||u.uid}</small><span className={online(u)?'text-green-400':'text-gray-400'}>{online(u)?'🟢 অনলাইন':'⚪ অফলাইন'}</span>{online(u)&&u.activeRoom&&<small className="block">🎙️ {u.activeRoom.name} · রুম {u.activeRoom.publicId||u.currentRoomId}</small>}</span></button>)}</div>
+      <MediaAvatar avatar={u.avatar} frame={media.find(a=>a.id===u.customFrameId)?.image}/><span className="flex-1"><b data-no-translate="true">{u.name||'ইউজার'}</b><small className="block">ID {u.id||u.uid}</small><span className={online(u)?'text-green-400':'text-gray-400'}>{online(u)?'🟢 অনলাইন':'⚪ অফলাইন'}</span>{online(u)&&u.activeRoom&&<small className="block">🎙️ {u.activeRoom.name} · রুম {u.currentRoomId}</small>}</span></button>)}</div>
     {!roomGiftMode&&target&&<section className="gl p-4 space-y-3"><UserSocialCard user={target} avatarRef={avatar} onGift={()=>setShowGiftForm(true)}/>
-      {ownRoom&&<button className="b t w-full" onClick={()=>onJoin({...ownRoom,own:ownRoom.hostId===auth.currentUser?.uid})}>🎙️ এই ইউজারের নিজের রুম · ID {target.id}</button>}
       {online(target)&&target.activeRoom&&<button className="b t w-full" onClick={()=>onJoin({...target.activeRoom,own:target.activeRoom.hostId===auth.currentUser?.uid})}>🎙️ এই ইউজারের রুমে যান</button>}
       {showGiftForm&&<><label className="block">গিফট<select disabled={busy} className="in w-full" value={gift} onChange={e=>setGift(Number(e.target.value))}>{gifts.map((g,i)=><option key={g.name} value={i}>{g.emoji} {g.name} — {g.cost} কয়েন</option>)}</select></label>
       {item?.image&&<img src={item.image} className="h-28 mx-auto object-contain" alt={item.name}/>}

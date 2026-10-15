@@ -1,17 +1,16 @@
-import {allocatePublicId,retryPublicIdTransaction,PUBLIC_ID_COUNTER} from './public-id-service.js';
 import {applyReferralRewards} from './referral-service.js';
-import {createHmac} from 'node:crypto';
+import {randomInt,createHmac} from 'node:crypto';
 import {decodeFields,decodeValue,encodeFields} from './social-migration.js';
 const OWNER='yfastvpn@gmail.com';
-const ROOTS=new Set(['users','rooms','roomOwners','follows','moments','diamondWallets','transactions','admins','assets','system','supportTickets','sellerWallets','sellerTransfers','sharedGames','gameRanks','gameReceipts','gameWins','liveAnnouncements','directMessages','roomApplications','pushDevices']);
-const PROTECTED=new Set(['legacyPublicId','profileTagIds','badge','rankingAwards','ref','referrerUid','referralAt','referralStats','inv','role','status','email','id','userId','coins','diamond','lastSellerTransfer','lastGiftReceipt','giftSentCount','giftSentCoins','totalRecharged','giftReceivedCount','giftReceivedCoins']);
+const ROOTS=new Set(['users','rooms','roomOwners','follows','moments','diamondWallets','transactions','admins','assets','system','supportTickets','sellerWallets','sellerTransfers','sharedGames','gameRanks','gameReceipts','gameWins','liveAnnouncements','directMessages']);
+const PROTECTED=new Set(['rankingAwards','ref','referrerUid','referralAt','referralStats','inv','role','status','email','id','userId','coins','diamond','lastSellerTransfer','lastGiftReceipt','giftSentCount','giftSentCoins','totalRecharged','giftReceivedCount','giftReceivedCoins']);
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const allowed=(value,keys)=>Object.keys(value).every(k=>keys.includes(k));
 const photo=v=>typeof v==='string'&&v.length<=300000&&(!v||/^https:\/\//.test(v)||/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]*={0,2}$/.test(v));
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const changed=(a,b)=>[...new Set([...Object.keys(a),...Object.keys(b)])].filter(k=>!same(a[k],b[k]));
 export function socialPath(path){return typeof path==='string'&&path.split('/').length<=6&&path.length<=512&&path.split('/').every(v=>v&&!['.','..','__proto__','constructor','prototype'].includes(v))&&ROOTS.has(path.split('/')[0]);}
-export function createSocialService(database,clock=Date.now,onMessage=async()=>{}){
+export function createSocialService(database,clock=Date.now){
  const nameRoot='projects/gen-lang-client-0043151803/databases/ai-studio-22dd0b7a-14da-47df-9bc8-d4b58ab5ab0b/documents';
  const wire=row=>row?{name:nameRoot+'/'+row.path,fields:row.fields,updateTime:'version-'+String(row.version)}:null;
  const read=(client,path)=>client.query('select path,fields,updated_at,version from earnbd.social_documents where path=$1',[path]).then(r=>r.rows[0]);
@@ -40,16 +39,13 @@ export function createSocialService(database,clock=Date.now,onMessage=async()=>{
     if(root==='gameRanks')return Boolean(active)&&sub==='players'&&path.split('/').length===4;
     if(root==='gameWins'||root==='liveAnnouncements')return Boolean(active)&&!sub;
     if(root==='gameReceipts')return Boolean(active)&&!sub&&decodeFields(fields).uid===identity.uid;
-    if(root==='pushDevices')return !sub&&decodeFields(fields).userId===identity.uid;
-    if(root==='roomApplications')return !sub&&(owner||id===identity.uid);
     if(root==='directMessages'){const d=decodeFields(fields);return !sub&&Boolean(active)&&[d.senderId,d.receiverId].includes(identity.uid);}
-    if(root==='system')return path!==PUBLIC_ID_COUNTER&&!sub&&(!['adminOperations','pushStatus'].includes(id)||owner);
-    if(root==='assets')return !sub;
+    if(root==='system'||root==='assets')return !sub;
     if(root==='admins')return !sub&&(owner||id===identity.uid);
     if(root==='sellerWallets')return !sub&&(owner||active&&id===identity.uid);
     if(root==='sellerTransfers'){const d=decodeFields(fields);return !sub&&(owner||active&&[d.sellerId,d.receiverId].includes(identity.uid));}
     if(root==='supportTickets')return active&&(id===identity.uid||owner||permission('support'))&&(!sub||sub==='messages');
-    if(root==='users')return sub==='roomLibrary'?id===identity.uid||owner:(!sub||sub==='visitors')&&(active||!sub&&id===identity.uid);
+    if(root==='users')return sub==='roomLibrary'?id===identity.uid:(!sub||sub==='visitors')&&(active||!sub&&id===identity.uid);
     if(root==='roomOwners')return !sub&&(id===identity.uid||owner);
     if(root==='rooms'){
      if(!sub)return true;
@@ -92,10 +88,7 @@ export function createSocialService(database,clock=Date.now,onMessage=async()=>{
     let rows;
     const order=q.orderBy?.length===1?q.orderBy[0]:null;
     const fast=['sharedGames','gameRanks','gameReceipts','gameWins','liveAnnouncements'].includes(path.split('/')[0]);
-    if(path==='directMessages'&&q.where?.fieldFilter&&['senderId','receiverId'].includes(q.where.fieldFilter.field?.fieldPath)&&q.where.fieldFilter.op==='EQUAL'){
-     const field=q.where.fieldFilter.field.fieldPath,cap=q.limit??300;if(!Number.isInteger(cap)||cap<1||cap>300)fail('invalid-argument');
-     rows=(await client.query("select path,fields,updated_at,version from earnbd.social_documents where parent=$1 and fields->$2::text->>'stringValue'=$3 order by coalesce(fields->'createdAt'->>'timestampValue',fields->'createdAt'->>'stringValue') desc limit $4",[path,field,decodeValue(q.where.fieldFilter.value),cap])).rows;
-    }else if(fast&&(!q.where||q.where.fieldFilter?.field?.fieldPath==='uid'&&q.where.fieldFilter.op==='EQUAL')&&order&&['createdAt','startAt','won'].includes(order.field?.fieldPath)&&['ASCENDING','DESCENDING'].includes(order.direction)){
+    if(fast&&(!q.where||q.where.fieldFilter?.field?.fieldPath==='uid'&&q.where.fieldFilter.op==='EQUAL')&&order&&['createdAt','startAt','won'].includes(order.field?.fieldPath)&&['ASCENDING','DESCENDING'].includes(order.direction)){
      const cap=q.limit??1000;if(!Number.isInteger(cap)||cap<1||cap>1000)fail('invalid-argument');
      const values=[path,order.field.fieldPath],f=q.where?.fieldFilter;
      let filter='';
@@ -150,26 +143,18 @@ export function createSocialService(database,clock=Date.now,onMessage=async()=>{
      if(owner&&!removed)permitted=(!keys.includes('coins')||Number.isSafeInteger(next.coins)&&next.coins>=0)&&(!keys.includes('diamond')||Number.isSafeInteger(next.diamond)&&next.diamond>=0);
      if(permission('moderate')&&!removed&&old.email!==OWNER&&keys.every(k=>k==='status')&&['active','banned'].includes(next.status))permitted=true;
      if(permission('seller')&&!removed&&keys.every(k=>['coins','lastSellerTransfer'].includes(k))&&next.lastSellerTransfer){const receipt=await after('sellerTransfers/'+next.lastSellerTransfer),walletBefore=await plain('sellerWallets/'+identity.uid),walletAfter=await after('sellerWallets/'+identity.uid);permitted=receipt.sellerId===identity.uid&&receipt.receiverId===id&&receipt.amount>0&&Number.isSafeInteger(receipt.amount)&&receipt.createdAt===timestamp&&next.coins===old.coins+receipt.amount&&walletAfter.balance===walletBefore.balance-receipt.amount&&walletAfter.balance>=0&&walletAfter.lastTransferId===next.lastSellerTransfer&&receipt.receiverBefore===old.coins&&receipt.receiverAfter===next.coins&&receipt.sellerBefore===walletBefore.balance&&receipt.sellerAfter===walletAfter.balance&&!await read(client,'sellerTransfers/'+next.lastSellerTransfer);}
-     if(keys.some(k=>['id','userId','legacyPublicId'].includes(k)))permitted=false;
-     if(permitted&&keys.includes('profileTagIds')&&(!Array.isArray(next.profileTagIds)||next.profileTagIds.length>20||next.profileTagIds.some(id=>typeof id!=='string'||id.length>80)))permitted=false;
      if(permitted&&next.photoURL!==undefined&&!photo(next.photoURL))permitted=false;
      if(permitted&&next.currentRoomId){
       const room=await after('rooms/'+next.currentRoomId),control=await after(`rooms/${next.currentRoomId}/controls/${identity.uid}`),role=await after(`rooms/${next.currentRoomId}/roles/${identity.uid}`);
-      permitted=!!room.hostId&&control.blocked!==true&&(!room.locked||owner||room.hostId===identity.uid||role.role==='admin'||profile.currentRoomId===next.currentRoomId);
+      permitted=!!room.hostId&&control.blocked!==true&&(!room.locked||room.hostId===identity.uid||role.role==='admin'||profile.currentRoomId===next.currentRoomId);
       if(next.roomSeat!==null&&next.roomSeat!==undefined){const count=room.sc||(room.d?12:8),policy=await after(`rooms/${next.currentRoomId}/seatPolicy/config`);permitted=permitted&&Number.isInteger(next.roomSeat)&&next.roomSeat>=0&&next.roomSeat<count&&((old.currentRoomId===next.currentRoomId&&old.roomSeat===next.roomSeat)||!(policy.locked||[]).includes(next.roomSeat));}
      }
-    }else if(root==='pushDevices'&&!sub){
-     permitted=!removed&&allowed(next,['userId','token','updatedAt'])&&next.userId===identity.uid&&/^[a-zA-Z0-9-]{20,80}$/.test(id)&&typeof next.token==='string'&&next.token.length>=20&&next.token.length<=4096&&next.updatedAt===timestamp&&(!oldRows.get(path)||old.userId===identity.uid||old.token===next.token);
-    }else if(root==='roomApplications'&&!sub){
-     const room=await plain('rooms/'+next.roomId);
-     permitted=owner&&!removed&&['pending','approved','rejected'].includes(next.status)||!removed&&id===identity.uid&&allowed(next,['userId','roomId','status','createdAt'])&&next.userId===identity.uid&&next.status==='pending'&&next.createdAt===timestamp&&room.hostId===identity.uid&&!room.archived;
     }else if(root==='directMessages'&&!sub){
      const recipient=await plain('users/'+next.receiverId);
-     const linked=!!await read(client,'follows/'+identity.uid+'~'+next.receiverId)||!!await read(client,'follows/'+next.receiverId+'~'+identity.uid);
-     permitted=linked&&!removed&&(!oldRows.get(path)||old.senderId===identity.uid&&old.receiverId===next.receiverId&&old.text===next.text&&(old.image||'')===(next.image||''))&&allowed(next,['senderId','receiverId','text','image','createdAt'])&&next.senderId===identity.uid&&next.receiverId!==identity.uid&&!!recipient.id&&!['banned','archived'].includes(recipient.status)&&typeof next.text==='string'&&(next.text.trim().length>0||Boolean(next.image))&&next.text.length<=3000&&(next.image===undefined||typeof next.image==='string'&&next.image.length<=300000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]*={0,2}$/.test(next.image))&&next.createdAt===timestamp;
+     permitted=!removed&&(!oldRows.get(path)||old.senderId===identity.uid&&old.receiverId===next.receiverId&&old.text===next.text&&(old.image||'')===(next.image||''))&&allowed(next,['senderId','receiverId','text','image','createdAt'])&&next.senderId===identity.uid&&next.receiverId!==identity.uid&&!!recipient.id&&!['banned','archived'].includes(recipient.status)&&typeof next.text==='string'&&(next.text.trim().length>0||Boolean(next.image))&&next.text.length<=3000&&(next.image===undefined||typeof next.image==='string'&&next.image.length<=300000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]*={0,2}$/.test(next.image))&&next.createdAt===timestamp;
      if(permitted&&oldRows.get(path))staged.set(path,oldRows.get(path).fields);
     }else if(root==='admins'&&!sub)permitted=owner;
-    else if(root==='system'&&!sub)permitted=path!==PUBLIC_ID_COUNTER&&(owner||permission('content')&&((id==='notices'&&changed(old,next).every(k=>k==='items'))||(id==='config'&&changed(old,next).every(k=>['bn','customGifts'].includes(k)))));
+    else if(root==='system'&&!sub)permitted=owner||permission('content')&&((id==='notices'&&changed(old,next).every(k=>k==='items'))||(id==='config'&&changed(old,next).every(k=>['bn','customGifts'].includes(k))));
     else if(root==='assets'&&!sub)permitted=(owner||permission('content'))&&(removed||['frame','entry','banner','gift'].includes(next.kind)&&typeof next.name==='string'&&next.name.length<=80&&typeof next.image==='string'&&next.image.length<=600000&&/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]*={0,2}$/.test(next.image)&&(next.kind!=='gift'||Number.isSafeInteger(next.price)&&next.price>0));
     else if(root==='sellerWallets'&&!sub){
      permitted=owner&&(!next.balance||Number.isSafeInteger(next.balance)&&next.balance>=0);
@@ -188,14 +173,6 @@ export function createSocialService(database,clock=Date.now,onMessage=async()=>{
     else if(root==='rooms'&&!sub){
      permitted=owner||(oldRows.get(path)?await roomOwner(id)&&(removed||next.hostId===old.hostId):!removed&&id==='user-'+identity.uid&&next.hostId===identity.uid&&(await after('roomOwners/'+identity.uid)).roomId===id);
      if(!removed&&next.photoURL!==undefined&&!photo(next.photoURL))permitted=false;
-     if(permitted&&!removed&&(!oldRows.get(path)||next.publicId!==old.publicId)){const host=await plain('users/'+next.hostId);if(host.id&&String(next.publicId)!==String(host.id))permitted=false;}
-     if(permitted&&!removed&&next.sc!==old.sc){
-      if(![5,8,10,12,20].includes(next.sc))permitted=false;
-      if(permitted&&next.sc<(old.sc||(old.d?12:8))){
-       const occupied=await client.query("select fields from earnbd.social_documents where parent='users' and fields->'currentRoomId'->>'stringValue'=$1",[id]);
-       if(occupied.rows.some(row=>{const user=decodeFields(row.fields);const seen=user.lastSeen?.getTime?.()??Date.parse(user.lastSeen||'');return user.online!==false&&(!Number.isFinite(seen)||clock()-seen<90000)&&Number.isInteger(user.roomSeat)&&user.roomSeat>=next.sc}))permitted=false;
-      }
-     }
     }else if(root==='rooms'){
      if(sub==='roles')permitted=await roomOwner(id)&&(removed||child!==(await plain('rooms/'+id)).hostId&&allowed(next,['role','canLockSeats'])&&next.role==='admin'&&(next.canLockSeats===undefined||typeof next.canLockSeats==='boolean'));
      if(sub==='controls')permitted=removed?await roomOwner(id):await roomAdmin(id)&&child!==(await plain('rooms/'+id)).hostId&&(await roomOwner(id)||!(await plain(`rooms/${id}/roles/${child}`)).role)&&allowed(next,['muted','blocked'])&&typeof next.muted==='boolean'&&typeof next.blocked==='boolean';
@@ -210,14 +187,6 @@ export function createSocialService(database,clock=Date.now,onMessage=async()=>{
     else if(root==='moments'&&!sub)permitted=removed?owner||old.userId===identity.uid:!oldRows.get(path)&&allowed(next,['userId','text','name','avatar','createdAt'])&&next.userId===identity.uid&&typeof next.text==='string'&&next.text.length>0&&next.text.length<=2000&&typeof next.name==='string'&&next.name.length<=100&&typeof next.avatar==='string'&&next.avatar.length<=300000&&next.createdAt===timestamp;
     if(!permitted)fail('permission-denied');
    }
-   if(staged.has('system/activityRooms')){
-    const config=decodeFields(staged.get('system/activityRooms'));if(!owner||!allowed(config,['slots'])||!Array.isArray(config.slots)||config.slots.length!==3||config.slots.some(id=>typeof id!=='string'||id.length>200)||new Set(config.slots.filter(Boolean)).size!==config.slots.filter(Boolean).length)fail('invalid-argument');
-    for(const id of config.slots.filter(Boolean)){const room=await after('rooms/'+id);if(!room.hostId||room.archived)fail('invalid-argument');}
-   }
-   // Outbox is written with the message: rejected/replayed writes never create a second notification.
-   for(const [path,fields] of [...staged])if(path.startsWith('directMessages/')&&fields&&!oldRows.get(path)){
-    const message=decodeFields(fields);staged.set('pushOutbox/'+path.split('/')[1],encodeFields({userId:message.receiverId,senderId:identity.uid,messageId:path.split('/')[1],status:'pending',attempts:0,nextAttemptAt:0,createdAt:timestamp}));
-   }
    await applyReferralRewards({client,staged,oldRows,read,timestamp});
    for(const [path,fields]of staged){
     if(fields===null){await client.query('delete from earnbd.social_documents where path=$1',[path]);continue;}
@@ -225,17 +194,19 @@ export function createSocialService(database,clock=Date.now,onMessage=async()=>{
     await client.query('insert into earnbd.social_documents(path,parent,document_id,fields,updated_at) values($1,$2,$3,$4::jsonb,$5) on conflict(path) do update set fields=excluded.fields,version=social_documents.version+1,updated_at=excluded.updated_at',[path,parent,id,JSON.stringify(fields),timestamp]);
    }
    return {commitTime:timestamp};
-  }).then(result=>{if(data.action==='commit'&&data.writes?.some(w=>w.update?.name?.includes('/directMessages/')))void Promise.resolve().then(onMessage).catch(()=>{});return result;});
+  });
  }
  async function account(_data,identity){
-  return retryPublicIdTransaction(database,async client=>{
+  return database.transaction(async client=>{
    const path='users/'+identity.uid,existing=await read(client,path),old=decodeFields(existing?.fields);
    if(['banned','archived'].includes(old.status))fail('inactive-user');
    const owner=identity.email_verified===true&&identity.email?.toLowerCase()===OWNER;
    const name=String(identity.name||identity.email?.split('@')[0]||'User').slice(0,80);
    let fields=existing?.fields;
    if(!existing){
-    const publicId=await allocatePublicId(client);
+    const publicId=String(randomInt(100000000,1000000000));
+    const collision=await client.query("select path from earnbd.social_documents where parent='users' and fields->'id'->>'stringValue'=$1",[publicId]);
+    if(collision.rowCount)fail('failed-precondition');
     fields=encodeFields({id:publicId,userId:identity.uid,name,email:identity.email||'',photoURL:typeof identity.picture==='string'&&identity.picture.startsWith('https://')?identity.picture:'',avatar:'👤',coins:50000,role:owner?'admin':'user',status:'active',createdAt:new Date(clock()),online:true,currentRoomId:null,roomSeat:null,lastSeen:new Date(clock())});
    }else fields={...fields,...encodeFields({online:true,lastSeen:new Date(clock())})};
    await client.query("insert into earnbd.social_documents(path,parent,document_id,fields) values($1,'users',$2,$3::jsonb) on conflict(path) do update set fields=excluded.fields,updated_at=now(),version=social_documents.version+1",[path,identity.uid,JSON.stringify(fields)]);

@@ -1,6 +1,6 @@
 {
-  "name": "Shakil M Voice Rooms & Games",
-  "description": "ভয়েস রুম, রিয়েল-টাইম পার্টি, কয়েন রিচার্জ ও কয়েন আদান-প্রদান ওয়ালেট, এবং জ্যাকপট ফ্রুট, সিংহ ফুড হুইল, নাইট ফুড হুইল, স্লটস, ক্যারাম ও থ্রিডি দাবা গেমস।",
-  "requestFramePermissions": [],
+  "name": "EarnBD Shakil - Voice Rooms & Games",
+  "description": "Shakil M Voice Rooms with embedded games, wallet coin transfer, and real-time audio party.",
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

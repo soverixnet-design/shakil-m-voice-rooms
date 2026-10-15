@@ -874,6 +874,8 @@ export default function App() {
                 </div>
               </div>
               <button 
+                type="button"
+                onClick={() => setShowCreateRoomModal(true)}
                 className="b"
                 style={{
                   background: 'linear-gradient(135deg, #19e6c1, #06b6d4)',
@@ -883,7 +885,8 @@ export default function App() {
                   padding: '8px 14px',
                   borderRadius: '10px',
                   border: 'none',
-                  boxShadow: '0 3px 10px rgba(25, 230, 193, 0.4)'
+                  boxShadow: '0 3px 10px rgba(25, 230, 193, 0.4)',
+                  cursor: 'pointer'
                 }}
               >
                 + রুম বানান
@@ -2273,6 +2276,13 @@ export default function App() {
           }}
           onLeaveRoom={() => {void leaveActiveRoom()}}
           onClose={() => {void leaveActiveRoom()}}
+          onUpdateRoom={(updated: any) => {
+            setActiveRoom((prev: any) => ({ ...prev, ...updated }));
+            setS((prev: any) => ({
+              ...prev,
+              rooms: (prev.rooms || []).map((r: any) => r.id === updated.id ? { ...r, ...updated } : r)
+            }));
+          }}
         /></div>
       )}
 
@@ -2483,8 +2493,11 @@ export default function App() {
                     onChange={e => setNewRoomSeatCount(Number(e.target.value))}
                     className="w-full bg-[#1e133e] border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400"
                   >
-                    <option value={8}>৮ সিট (8 Seats)</option><option value={10}>১০ সিট (10 Seats)</option>
+                    <option value={5}>৫ সিট (5 Seats)</option>
+                    <option value={8}>৮ সিট (8 Seats)</option>
+                    <option value={10}>১০ সিট (10 Seats)</option>
                     <option value={12}>১২ সিট (12 Seats)</option>
+                    <option value={16}>১৬ সিট (16 Seats)</option>
                     <option value={20}>২০ সিট (20 Seats)</option>
                   </select>
                 </div>

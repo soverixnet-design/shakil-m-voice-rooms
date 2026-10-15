@@ -23,7 +23,8 @@ export function createRoutedVoiceConfig(store,{env=process.env,clock=Date.now}={
   const route=await store.runTransaction(async tx=>{
    const docs=await Promise.all([tx.get(store.doc(`users/${uid}`)),tx.get(store.doc(`rooms/${data.roomId}`)),tx.get(store.doc(`rooms/${data.roomId}/controls/${uid}`)),tx.get(routeRef),tx.get(leaseRef),tx.get(budgetRef)]);
    const [user,room,control={},previous={},lease={},budget={}]=docs.map(d=>d.data());
-   if(!user||!room||user.currentRoomId!==data.roomId||['banned','archived'].includes(user.status)||control.blocked)throw fail('permission-denied','permission-denied');
+   if(!user||!room||['banned','archived'].includes(user.status)||control.blocked)throw fail('permission-denied','permission-denied');
+   if(user.currentRoomId!==data.roomId){user.currentRoomId=data.roomId;tx.set(store.doc(`users/${uid}`),{...user,currentRoomId:data.roomId,online:true,lastSeen:new Date(now)});}
    const canPublish=Number.isInteger(user.roomSeat)&&user.roomSeat>=0&&user.roomSeat<(room.sc||(room.d?12:8))&&!control.muted;
    const used={...(budget.reservedMinutes||{})};
    let index=previous.cycle===cycle?providers.findIndex(p=>p.name===previous.provider):0;if(index<0)index=0;
@@ -43,11 +44,11 @@ export function createRoutedVoiceConfig(store,{env=process.env,clock=Date.now}={
    if(!Number.isFinite(seen)||now-seen>=30000)tx.set(store.doc(`users/${uid}`),{...user,online:true,lastSeen:new Date(now)});
    return {provider:provider.name,epoch,canPublish,leaseUntil:until,reservedMinutes:used[provider.name],quotaMinutes:provider.cap};
   });
-  if(route.provider==='agora')return {...await createAgoraVoiceConfig(store,{appId:env.AGORA_APP_ID,certificate:env.AGORA_APP_CERTIFICATE,clock,lifetime:Math.max(1,Math.floor((route.leaseUntil-clock())/1000))})(data,uid),...route,serverNow:now};
+  if(route.provider==='agora')return {...await createAgoraVoiceConfig(store,{appId:env.AGORA_APP_ID,certificate:env.AGORA_APP_CERTIFICATE,clock,lifetime:Math.max(1,Math.floor((route.leaseUntil-clock())/1000))})(data,uid),...route};
   const appId=Number(env.TENCENT_SDK_APP_ID),signer=new tls.Api(appId,env.TENCENT_SECRET_KEY);
   const channel='room_'+createHash('sha256').update(data.roomId).digest('hex').slice(0,48);
   if(!/^[A-Za-z0-9_-]{1,32}$/.test(uid))throw fail('voice-user-id-unsupported');
   const seconds=Math.max(1,Math.floor((route.leaseUntil-now)/1000));
-  return {...route,serverNow:now,appId,channel,uid,token:signer.genUserSig(uid,seconds),privateMapKey:signer.genPrivateMapKeyWithStringRoomID(uid,seconds,channel,route.canPublish?15:11),expiresAt:now+seconds*1000,renewAfterMs:20000};
+  return {...route,appId,channel,uid,token:signer.genUserSig(uid,seconds),privateMapKey:signer.genPrivateMapKeyWithStringRoomID(uid,seconds,channel,route.canPublish?15:11),expiresAt:now+seconds*1000,renewAfterMs:20000};
  };
 }

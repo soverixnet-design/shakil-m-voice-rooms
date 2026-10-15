@@ -118,47 +118,194 @@ body:has(.admin-portal) #root{max-width:1200px}#app.admin-portal{overflow-y:auto
 
 .reference-room button,.reference-room .s3w,.reference-room summary{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.reference-room .s3w{cursor:pointer;min-height:104px}.reference-room .seat-edit-trigger{min-width:36px;min-height:36px}.room-action-status{padding:10px 14px;border-radius:12px;background:#31245c;color:#fff;font-weight:700}.room-bottom-controls button{min-height:56px}.reference-room .room-header-actions button{min-width:44px;min-height:44px}
 
-/* The stage and seats stay anchored; only the chat message list scrolls. */
-.reference-room{height:100dvh;justify-content:flex-start!important;background-size:cover}
-.reference-room .room-reference-header{padding:8px 12px 0;flex-shrink:0}
-.reference-room .room-stage{overflow:hidden!important;min-height:0;flex:1;padding-top:4px;position:relative}
-.reference-room .room-fixed-seats{flex:0 0 auto;margin:8px 0 12px!important;gap:14px 5px}
-.reference-room .room-fixed-seats .s3w{min-height:0;position:relative}
-.reference-room .room-fixed-seats .s3{width:clamp(42px,14vw,62px);height:clamp(42px,14vw,62px);margin:auto}
-.reference-room .room-fixed-seats .nm3{font-size:10px;line-height:16px;margin-top:4px}
-.reference-room .room-fixed-seats .sc3{font-size:8px;padding:1px 5px}
-.reference-room .seat-edit-trigger{width:24px;height:24px;min-width:24px;min-height:24px;right:0;font-size:10px}
-.reference-room .ct3{margin-top:auto;flex:0 1 190px;min-height:70px;max-height:30vh!important;display:flex;flex-direction:column;overflow:hidden;border:0!important;background:#0002!important;border-radius:16px!important}
-.reference-room .ctb{flex-shrink:0;gap:8px;font-size:11px}
-.reference-room #ch3{min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;height:auto!important;max-height:none!important}
-.reference-room .room-event-badge{position:absolute;right:10px;top:55%;display:flex;align-items:center;flex-direction:column;width:58px;height:62px;border-radius:16px;background:linear-gradient(150deg,#f8d674,#eaa63b);color:#422b17;box-shadow:0 5px 15px #0004;z-index:25}
-.reference-room .room-event-badge span{font-size:29px}.reference-room .room-event-badge small{font-size:10px;font-weight:700}.reference-room .room-event-badge img{width:100%;height:100%;object-fit:cover;border-radius:16px}
-.reference-room .room-bottom-controls{flex-shrink:0;padding:7px 12px calc(10px + env(safe-area-inset-bottom));background:#060c11a6}
-.reference-room .room-settings-tools{display:flex;flex-direction:column;gap:12px;margin-top:20px}.room-seat-count{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0}
-.reference-room .room-action-status,.reference-room .room-stage>p[role=status]{position:absolute;left:10px;right:10px;top:0;z-index:30;padding:6px 10px;font-size:11px;background:#1d172ee6;border-radius:10px}
-@media(max-height:680px){.reference-room .room-fixed-seats{gap:8px 4px}.reference-room .room-fixed-seats .s3{width:44px;height:44px}.reference-room .room-fixed-seats .nm3{font-size:9px}.reference-room .ct3{flex-basis:125px}.reference-room .room-bottom-controls>button>span{width:36px;height:36px}.reference-room .room-bottom-controls>button.gift>span{width:42px;height:42px}}
+/* 3D Activity and Customer Service boxes for Messages tab */
+.ref-activity-3d {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 4px 2px 14px;
+}
+.ref-card-3d {
+  position: relative;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #fff;
+  text-align: left;
+  box-shadow: 0 8px 0 #1b0d3d, 0 16px 24px rgba(0, 0, 0, 0.28), inset 0 2px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 0 rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
+  cursor: pointer;
+  overflow: hidden;
+}
+.ref-card-3d:active {
+  transform: translateY(4px);
+  box-shadow: 0 4px 0 #1b0d3d, 0 8px 12px rgba(0, 0, 0, 0.2);
+}
+.activity-3d-card {
+  background: linear-gradient(145deg, #7b2cbf, #9d4edd 50%, #5a189a);
+  padding: 14px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-height: 120px;
+}
+.activity-3d-card .badge-3d {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffd166;
+  margin-bottom: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+}
+.activity-3d-card .icon-3d {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #e0aaff 40%, #7b2cbf);
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), inset 0 2px 0 rgba(255,255,255,0.7);
+  border: 2px solid #ffd166;
+  margin-bottom: 8px;
+}
+.activity-3d-card b {
+  font-size: 13px;
+  display: block;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-3d-card small {
+  font-size: 10px;
+  color: #e2d9f3;
+  margin-top: 3px;
+}
+.ref-service-3d-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 4px 2px 14px;
+}
+.service-3d-support {
+  background: linear-gradient(145deg, #0077b6, #0096c7 50%, #03045e);
+  padding: 14px 10px;
+  min-height: 125px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 8px 0 #021a36, 0 16px 24px rgba(0, 119, 182, 0.3), inset 0 2px 0 rgba(255, 255, 255, 0.6);
+}
+.service-3d-notice {
+  background: linear-gradient(145deg, #e63946, #f72585 50%, #7209b7);
+  padding: 14px 10px;
+  min-height: 125px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 8px 0 #3d0022, 0 16px 24px rgba(247, 37, 133, 0.3), inset 0 2px 0 rgba(255, 255, 255, 0.6);
+}
+.service-3d-seller {
+  background: linear-gradient(145deg, #2a9d8f, #e76f51 85%);
+  padding: 14px 10px;
+  min-height: 125px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 8px 0 #1b3d36, 0 16px 24px rgba(42, 157, 143, 0.3), inset 0 2px 0 rgba(255, 255, 255, 0.6);
+}
+.service-3d-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.service-3d-head .icon-3d {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+.live-status-pill {
+  font-size: 8.5px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #4ade80;
+}
+.live-status-pill.gold {
+  color: #fbbf24;
+}
+.live-status-pill.cyan {
+  color: #22d3ee;
+}
+.service-3d-support b, .service-3d-notice b, .service-3d-seller b {
+  font-size: 13px;
+  display: block;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 3px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.service-3d-support small, .service-3d-notice small, .service-3d-seller small {
+  font-size: 10px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.85);
+  display: block;
+}
+.ref-message-banner-3d {
+  background: linear-gradient(135deg, #3a0ca3, #4361ee 50%, #4cc9f0);
+  padding: 22px 18px;
+  text-align: center;
+  border-radius: 24px;
+  box-shadow: 0 10px 0 #1b0959, 0 20px 30px rgba(67, 97, 238, 0.35), inset 0 2px 0 rgba(255,255,255,0.6);
+}
+.ref-notice-3d {
+  background: linear-gradient(135deg, #1f143d, #2d1b54);
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  box-shadow: 0 6px 0 #100824, 0 12px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+}
 
-.reference-room .room-event-badge{position:relative;top:auto;right:auto;align-self:flex-end;flex-shrink:0;margin-top:auto;margin-bottom:8px;width:52px;height:52px}.reference-room .ct3{margin-top:0}.reference-room .room-more-card .room-action-status{position:static;font-size:12px}.reference-room .room-more-card{max-height:85dvh;overflow-y:auto}.reference-room .room-voice-status{width:100%;padding:12px;border-radius:14px;background:#ffffff09}.reference-room .room-voice-status button{margin-top:8px;font-size:11px}
-
-.profile-tags{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;margin:8px 0}.profile-tag{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:99px;color:#fff;box-shadow:0 2px 5px #0002;white-space:nowrap;font-family:system-ui,sans-serif}.profile-tag b{font-size:13px}.profile-tag small{font-size:10px;font-weight:700}.profile-tag img{height:22px;width:22px;object-fit:contain}.profile-tags.compact{position:absolute;right:-2px;bottom:-2px;margin:0;z-index:4}.profile-tags.compact .profile-tag{padding:0;width:23px;height:23px;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px #0003}.social-avatar,.ref-avatar.large,.reference-room .s3{position:relative}.admin-gift-media-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:15px;margin-top:20px}.admin-gift-media-grid article{display:flex;flex-direction:column;align-items:center;padding:12px;border-radius:14px;background:#192740}.admin-gift-media-grid img{width:100px;height:100px;object-fit:contain}.admin-gift-media-grid small{color:#ffd374;margin:8px}.admin-tag-selection{display:flex;flex-wrap:wrap;gap:14px;margin:18px 0}.admin-tag-selection label{display:flex;align-items:center;gap:7px;padding:10px;background:#1f2e48;border-radius:10px}.admin-tag-selection input{width:18px;height:18px}.seller-transfer-entry{margin-top:12px}.reference-room .room-fixed-seats .profile-tags.compact{right:0;bottom:-4px}
-
-/* Compact lobby: familiar features with room discovery as the main content. */
-.reference-lobby .lobby-ranking-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 16px 14px}
-.reference-lobby .lobby-ranking-cards>button{min-height:100px;height:100px;min-width:0;border-radius:18px;padding:10px 6px;box-shadow:0 4px 12px #4c277522;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
-.reference-lobby .lobby-ranking-cards b{font-size:15px;line-height:1.2}.reference-lobby .lobby-ranking-cards small{font-size:9px;line-height:1.4}
-.reference-lobby .lobby-podium{height:38px;gap:4px;align-items:center}.reference-lobby .lobby-podium img{width:27px!important;height:27px!important}.reference-lobby .lobby-podium span{font-size:20px}.reference-lobby .lobby-podium small{display:none}.reference-lobby .lobby-cp-feature>span,.reference-lobby .lobby-week-feature>span{font-size:30px;line-height:1}
-.reference-lobby .lobby-banner-carousel{height:112px;margin-top:0;margin-bottom:14px;border-radius:18px}
-.reference-lobby .lobby-showcase-rooms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:0 16px}
-.reference-lobby .lobby-showcase-room:first-child{grid-row:auto;grid-column:auto}.reference-lobby .lobby-showcase-art,.reference-lobby .lobby-showcase-room:first-child .lobby-showcase-art{height:164px;min-height:0;border-radius:20px;border-width:3px}
-.reference-lobby .lobby-showcase-rooms.list{grid-template-columns:1fr}.reference-lobby .lobby-showcase-rooms.list .lobby-showcase-room{display:grid;grid-template-columns:82px 1fr;column-gap:12px;align-items:center;text-align:left}.reference-lobby .lobby-showcase-rooms.list .lobby-showcase-art{width:82px;height:82px;grid-row:span 2}.reference-lobby .lobby-showcase-rooms.list .lobby-showcase-room b{align-self:end}.reference-lobby .lobby-showcase-rooms.list .lobby-showcase-room>small{align-self:start}
-.reference-lobby .ref-profile-hero{padding-top:18px;padding-bottom:18px}.reference-lobby .ref-profile-hero .ref-avatar.large{margin-bottom:8px}.reference-lobby .ref-social-counts{margin:10px 0 18px}.reference-lobby .ref-quick-links{gap:10px}.reference-lobby .ref-quick-links>button{border-radius:18px;box-shadow:0 4px 0 #d4c5ee;padding:13px 4px}.reference-lobby .ref-link-list>button{min-height:52px}.reference-lobby .ref-find-friends{margin:14px 0}.reference-lobby .ref-service-grid{gap:10px}.reference-lobby .ref-service-grid .ref-card{padding:12px 6px;box-shadow:0 4px 0 #d4c5ee}.reference-lobby button:focus-visible,.gift-category-tabs button:focus-visible{outline:3px solid #b595ff;outline-offset:3px}
-.gift-category-tabs{display:flex;gap:6px;padding:0 12px 10px;flex-shrink:0;overflow-x:auto}.gift-category-tabs button{flex:1;white-space:nowrap;border-radius:12px;padding:8px 6px;background:#ffffff08;color:#cfc3e6;font-size:11px;border:1px solid transparent}.gift-category-tabs button[aria-pressed=true]{background:#7753d6;color:white;border-color:#ad8df4}.gift-empty{text-align:center;color:#b9abc9;padding:20px 10px;font-size:13px}
-@media(max-width:360px){.reference-lobby .lobby-ranking-cards{margin-left:12px;margin-right:12px;gap:7px}.reference-lobby .lobby-showcase-rooms{padding:0 12px;gap:10px}.reference-lobby .lobby-showcase-art,.reference-lobby .lobby-showcase-room:first-child .lobby-showcase-art{height:138px}}
-@media(prefers-reduced-motion:reduce){.reference-lobby *{scroll-behavior:auto!important;transition:none!important}}
-
-.reference-lobby .lobby-cp-feature>span,.reference-lobby .lobby-week-feature>span{position:static}.reference-lobby .lobby-showcase-rooms{padding-left:0;padding-right:0}.reference-lobby .lobby-showcase-room:first-child{display:block}.reference-lobby .lobby-showcase-room:first-child .lobby-showcase-art{flex:none}
-.global-announcement{min-height:72px;padding:8px 10px;border-radius:18px;gap:8px}.announcement-portrait>span{font-size:15px}.announcement-copy strong{font-size:14px;margin:2px 0}.announcement-copy p{margin-top:3px}.announcement-prize{max-width:34%}.announcement-prize b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* Messages: compact service cards, three moderated room slots, real chats. */
-.messages-page{padding:12px 16px 24px;background:#fff;min-height:100%;color:#211a30}.dm-global-search{display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border-radius:24px;background:#f6f4ff;color:#8a809a;text-align:left;font-size:13px;border:1px solid #efebf7}.dm-services{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0 18px}.dm-services>button{display:flex;flex-direction:column;align-items:center;gap:7px;border-radius:18px;padding:11px 5px;border:1px solid #00000005;min-width:0;color:#31263b}.dm-services span{width:36px;height:36px;display:grid;place-items:center;border-radius:50%;background:#ffffff80}.dm-services b{font-size:10px;font-weight:600}.dm-services .peach{background:#fff1e8;color:#cb6244}.dm-services .gold{background:#fff8e1;color:#a27b12}.dm-services .blue{background:#eef6ff;color:#3578ba}.dm-activity header,.dm-chats-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0}.dm-activity h2,.dm-chats-heading h2{font-size:16px;font-weight:800}.dm-activity header button{font-size:11px;color:#7c5cfc;background:#f6f3ff;padding:7px 10px;border-radius:16px}.dm-activity-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.dm-activity-room,.dm-activity-empty{min-width:0;min-height:96px;border-radius:18px;padding:10px 7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:linear-gradient(145deg,#7357cc,#534195);color:white}.dm-activity-room b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}.dm-activity-room small{font-size:9px;color:#eee5ff}.dm-activity-empty{background:#faf8ff;border:1px dashed #dfd5f5;color:#9e91b1;font-size:10px}.dm-activity>small,.dm-activity>p{display:block;font-size:10px;color:#8a809a;margin:7px 0}.dm-chats-heading{margin-top:20px;border-bottom:1px solid #f0edf7;padding-bottom:12px}.dm-chats-heading h2 span{font-size:11px;background:#211a30;color:white;border-radius:12px;padding:2px 7px;margin-left:5px}.dm-chats-heading>small{font-size:10px;color:#8a809a}.dm-search{display:flex;gap:8px;align-items:center;background:#f8f6fc;border-radius:15px;padding:8px 12px;color:#8a809a}.dm-search input{width:100%;border:0;outline:none;background:none;color:#211a30;font-size:12px;min-height:28px}.dm-contact{width:100%;display:flex;align-items:center;gap:11px;padding:14px 2px;background:white;color:#211a30;text-align:left;border-bottom:1px solid #f4f1f8}.dm-contact-avatar{position:relative;flex-shrink:0}.dm-contact-avatar>i{position:absolute;bottom:0;right:0;background:#22c55e;width:12px;height:12px;border:2px solid white;border-radius:50%}.dm-contact-copy{flex:1;min-width:0}.dm-contact-copy b,.dm-contact-copy small{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.dm-contact-copy b{font-size:14px}.dm-contact-copy small{font-size:11px;color:#8a809a;margin-top:4px}.dm-contact-meta{display:flex;align-items:flex-end;flex-direction:column;gap:7px}.dm-contact-meta time{font-size:10px;color:#8a809a}.dm-contact-meta b{background:#7c5cfc;color:white;border-radius:12px;padding:2px 6px;font-size:10px}.dm-overlay{position:fixed;inset:0;z-index:160;background:#fff;color:#211a30;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}.dm-thread{height:100%;max-width:600px;margin:auto;display:flex;flex-direction:column;background:#faf8ff;color:#211a30}.dm-inbox .dm-thread{height:min(74dvh,720px);border:1px solid #eee7f8;border-radius:22px;overflow:hidden}.dm-thread-header{display:flex;align-items:center;gap:10px;padding:12px;background:white;border-bottom:1px solid #eee7f8;flex-shrink:0}.dm-thread-header>button{font-size:30px;width:36px;height:40px;background:#f6f4ff;border-radius:14px;color:#7c5cfc}.dm-thread-header b,.dm-thread-header small{display:block}.dm-thread-header small{font-size:10px;color:#8a809a}.dm-thread-body{flex:1;min-height:0;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}.dm-bubble{max-width:84%;padding:10px 12px;border-radius:17px;background:white;box-shadow:0 2px 5px #35224a08;align-self:flex-start}.dm-bubble.mine{align-self:flex-end;background:#7c5cfc;color:white;border-bottom-right-radius:5px}.dm-bubble.theirs{border-bottom-left-radius:5px}.dm-bubble p{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}.dm-bubble time{display:block;text-align:right;font-size:9px;opacity:.65;margin-top:4px}.dm-bubble img{max-width:100%;max-height:260px;border-radius:10px}.dm-composer{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px;background:white;border-top:1px solid #eee7f8}.dm-composer textarea{flex:1;min-width:0;resize:none;height:44px;max-height:100px;border:0;background:#f6f4ff;border-radius:20px;padding:12px;color:#211a30;font-size:13px}.dm-attach{position:relative;width:36px;height:40px;overflow:hidden;display:grid;place-items:center;font-size:25px;color:#7c5cfc;cursor:pointer}.dm-attach input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}.dm-send{width:42px;height:42px;background:#7c5cfc;border-radius:50%;color:white}.dm-composer button:disabled{opacity:.45}.dm-photo-preview{flex-basis:100%;display:flex;align-items:start;gap:10px}.dm-photo-preview img{max-height:100px;border-radius:10px}.dm-follow-hint,.dm-status,.dm-empty{font-size:12px;padding:12px;color:#8a809a;text-align:center}.admin-activity-request{padding:14px;margin:10px 0;background:#fff;border:1px solid #e6dcf6;border-radius:14px}.admin-activity-request button{margin:7px;padding:9px 14px;border-radius:10px;background:#7654d5;color:white}.messages-page button:focus-visible,.dm-overlay button:focus-visible{outline:3px solid #bca3ff;outline-offset:2px}
-
-.dm-notification-enable{display:block;width:100%;padding:9px 12px;background:#f6f3ff;color:#7c5cfc;border-radius:14px;margin-top:12px;font-size:11px}
+/* Voice room seat layouts for 5, 8, 10, 12, 16, 20 seats */
+.reference-room .sg3.seats-5 {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+.reference-room .sg3.seats-5 .s3w:first-child {
+  grid-column: 2 / span 2;
+  margin-bottom: 8px;
+}
+.reference-room .sg3.seats-10 {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+}
+.reference-room .sg3.seats-12 {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+.reference-room .sg3.seats-16 {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+.reference-room .sg3.seats-20 {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+}
+.reference-room .sg3.seats-20 .s3 {
+  width: clamp(40px, 12vw, 50px);
+  height: clamp(40px, 12vw, 50px);
+}
+.reference-room .sg3.seats-20 .nm3 {
+  font-size: 9px;
+}
