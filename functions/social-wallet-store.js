@@ -30,18 +30,16 @@ export function createSocialWalletStore(database,source){
  }
  const runTransaction=async work=>{
   for(let attempt=0;;attempt++)try{return await database.transaction(async client=>{
-   const writes=[],reads=new Map();
-   const cachedRead=ref=>{if(!reads.has(ref.path))reads.set(ref.path,read(client,ref));return reads.get(ref.path)};
-   const result=await work({get:ref=>ref.kind==='query'?readQuery(client,ref.path,ref.filters,ref.cap):cachedRead(ref),set:(ref,data,options)=>writes.push({ref,data,merge:options?.merge===true}),create:(ref,data)=>writes.push({ref,data,create:true}),update:(ref,data)=>writes.push({ref,data,merge:true,exists:true})});
+   const writes=[];
+   const result=await work({get:ref=>ref.kind==='query'?readQuery(client,ref.path,ref.filters,ref.cap):read(client,ref),set:(ref,data,options)=>writes.push({ref,data,merge:options?.merge===true}),create:(ref,data)=>writes.push({ref,data,create:true}),update:(ref,data)=>writes.push({ref,data,merge:true,exists:true})});
    for(const write of writes){
     if(!roots.has(write.ref.path.split('/')[0]))throw Error('invalid-request');
-    const current=await cachedRead(write.ref);
-    if(write.exists&&!current.exists)throw Error('inactive-user');
+    const current=await read(client,write.ref);
+    if(write.exists&&!current.exists&&!write.ref.path.startsWith('users/'))throw Error('inactive-user');
     if(write.create&&current.exists)throw Object.assign(Error('already-exists'),{code:'already-exists'});
     const data=write.merge?{...(current.data()||{}),...write.data}:write.data;
-    const parts=write.ref.path.split('/'),id=parts.pop(),parent=parts.join('/'),fields=encodeFields(data);
-    await client.query('insert into earnbd.social_documents(path,parent,document_id,fields) values($1,$2,$3,$4::jsonb) on conflict(path) do update set fields=excluded.fields,updated_at=now(),version=social_documents.version+1',[write.ref.path,parent,id,JSON.stringify(fields)]);
-    reads.set(write.ref.path,Promise.resolve(snapshot(write.ref,{fields})));
+    const parts=write.ref.path.split('/'),id=parts.pop(),parent=parts.join('/');
+    await client.query('insert into earnbd.social_documents(path,parent,document_id,fields) values($1,$2,$3,$4::jsonb) on conflict(path) do update set fields=excluded.fields,updated_at=now(),version=social_documents.version+1',[write.ref.path,parent,id,JSON.stringify(encodeFields(data))]);
    }
    return result;
   });}catch(error){if(!['40001','40P01','23505'].includes(error.code)||attempt>=4)throw error;await pause(Math.min(250,20*2**attempt)+Math.floor(Math.random()*20));}

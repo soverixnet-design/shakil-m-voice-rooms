@@ -1,5 +1,3 @@
-import {useMessageNotifications} from './lib/messageNotifications';
-import {DirectMessages} from './components/DirectMessages';
 import {LanguagePicker,useLanguage} from './i18n/LanguagePicker';
 import {ProfileLevels} from './components/ProfileLevels';
 import {giftLevel} from './lib/giftLevel';
@@ -19,6 +17,7 @@ import {UploadedSharedGame} from './games/UploadedSharedGame';
 import {WalletRanks} from './components/WalletRanks';
 import {CoinSellers} from './components/CoinSellers';
 import {DiamondWallet} from './components/DiamondWallet';
+import {SharedRoundGame} from './games/SharedRoundGame';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   auth, 
@@ -324,15 +323,29 @@ export default function App() {
   const [editBio, setEditBio] = useState('');
   const [editCountry, setEditCountry] = useState('');
   
-  // Mandatory Login Gate: অ্যাপসে লগইন ছাড়া কোনোভাবেই প্রবেশ করা যাবে না
-  const [isAuthenticated,setIsAuthenticated]=useState(false);
-  const [notificationPeer,setNotificationPeer]=useState<any>(null);
-  useMessageNotifications(fbUser?.uid,isAuthenticated);
-  const verifiedSession=useRef<string|null>(null);
-  const automaticAuthRetries=useRef(0);
-  const [offline,setOffline]=useState(()=>!navigator.onLine);
-  useEffect(()=>{const update=()=>setOffline(!navigator.onLine);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[]);
-  const [authChecking,setAuthChecking]=useState(true),[authError,setAuthError]=useState(''),[authRetry,setAuthRetry]=useState(0),[authStage,setAuthStage]=useState('Checking saved sign-in…');
+  // Persistent Login: সেভ করা সেশন থাকলে সরাসরি অ্যাপে ঢুকবে, বারবার লগইন চাইবে না
+  const cachedUid = (() => {
+    try {
+      const session = localStorage.getItem('sv_auth_session');
+      return session ? JSON.parse(session)?.uid || null : null;
+    } catch {
+      return null;
+    }
+  })();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => Boolean(cachedUid));
+  const verifiedSession = useRef<string | null>(cachedUid);
+  const [offline, setOffline] = useState(() => !navigator.onLine);
+  useEffect(() => {
+    const update = () => setOffline(!navigator.onLine);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
+  const [authChecking, setAuthChecking] = useState<boolean>(() => !Boolean(cachedUid));
+  const [authError, setAuthError] = useState(''), [authRetry, setAuthRetry] = useState(0), [authStage, setAuthStage] = useState('Checking saved sign-in…');
   const [loginTab, setLoginTab] = useState<'google' | 'user'>('google');
   const [loginUserName, setLoginUserName] = useState<string>('');
   const [loginUserPhone, setLoginUserPhone] = useState<string>('');
@@ -392,7 +405,7 @@ export default function App() {
   useEffect(() => {
     const handleUrlRoute = () => {
       if (window.location.hash === '#admin' || window.location.search.includes('admin=true')) {
-        window.location.assign(new URL('admin.html',window.location.href).href);
+        setActivePage('admin');
       }
     };
     handleUrlRoute();
@@ -406,41 +419,63 @@ export default function App() {
     } catch (_) {}
   }, [S]);
 
+  const makePublicId = async () => {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const id = String(100000000 + crypto.getRandomValues(new Uint32Array(1))[0] % 900000000);
+      const matches = await getDocs(query(collection(db, 'users'), where('id', '==', id)));
+      if (matches.empty) return id;
+    }
+    throw new Error('Could not allocate user ID');
+  };
+
   useEffect(()=>{
     let current=true,version=0;
-    setAuthChecking(true);setAuthError('');
-    const startup=setTimeout(()=>{if(current){setAuthChecking(false);setAuthError('Login connection timed out. Check your internet connection and retry.')}},15000);
+    if(!verifiedSession.current){setAuthChecking(true);setAuthError('');}
+    const startup=setTimeout(()=>{if(current&&!verifiedSession.current){setAuthChecking(false);setAuthError('লগইন সংযোগে সময় লাগছে। ইন্টারনেট চেক করে আবার চেষ্টা করুন।')}},20000);
     const unsub=onAuthStateChanged(auth,async u=>{
       clearTimeout(startup);
       const attempt=++version;
       const valid=()=>current&&attempt===version&&auth.currentUser?.uid===u?.uid;
-      setFbUser(u);if(!u||verifiedSession.current!==u.uid)setIsAuthenticated(false);setAuthChecking(true);setAuthError('');
-      if(!u){localStorage.removeItem('sv_auth_session');setAuthChecking(false);setActiveRoom(null);setActiveGame(null);return;}
+      setFbUser(u);
+      if(!u){
+        localStorage.removeItem('sv_auth_session');
+        verifiedSession.current=null;
+        setIsAuthenticated(false);
+        setAuthChecking(false);
+        setActiveRoom(null);
+        setActiveGame(null);
+        return;
+      }
+      // ইউজার ইতিমধ্যে লগইন অবস্থায় আছেন - সরাসরি সেশন সক্রিয় রাখুন
+      verifiedSession.current=u.uid;
+      setIsAuthenticated(true);
+      localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
       try{
-        await withTimeout((async()=>{
-          const profile=await accountBootstrap(stage=>{if(valid())setAuthStage(stage)});
-          if(!valid())return;
-          setS((prev:any)=>({...prev,id:profile.id,uid:u.uid,name:profile.name,img:profile.photoURL,role:profile.role,coins:profile.coins}));
-          automaticAuthRetries.current=0;verifiedSession.current=u.uid;setFbUser(u);setIsAuthenticated(true);
-          localStorage.setItem('sv_auth_session',JSON.stringify({uid:u.uid,role:'user'}));
-        })(),100000);
-      }catch(e:any){if(current&&attempt===version){
-        if(e.message==='blocked-account'||e.message==='inactive-user'){verifiedSession.current=null;setIsAuthenticated(false);setActiveRoom(null);setActiveGame(null)}
-        version++;setAuthChecking(false);
-        setAuthError((e.message==='blocked-account'||e.message==='inactive-user')?'This account is blocked.':e.code?.startsWith('login/')?`${e.message} (${e.code})`:e.code==='account-timeout'?'Google/email sign-in is complete, but the account database did not respond. Check your connection and retry account setup.':`Account setup failed (${e.code||e.message||'connection-error'}). Please retry.`);
-      }}finally{if(current&&attempt===version)setAuthChecking(false)}
-    },e=>{clearTimeout(startup);if(current){setAuthChecking(false);setAuthError(`Login connection failed (${e.message}). Please retry.`)}});
+        const profile=await accountBootstrap(stage=>{if(valid())setAuthStage(stage)});
+        if(!valid())return;
+        setS((prev:any)=>({...prev,id:profile.id,uid:u.uid,name:profile.name,img:profile.photoURL,role:profile.role,coins:profile.coins}));
+        setAuthError('');
+      }catch(e:any){
+        console.warn('Profile bootstrap warning:', e);
+        if(current&&attempt===version){
+          if(e.message==='blocked-account'){
+            verifiedSession.current=null;
+            setIsAuthenticated(false);
+            setActiveRoom(null);
+            setActiveGame(null);
+            setAuthError('এই অ্যাকাউন্টটি স্থগিত করা হয়েছে।');
+          }
+        }
+      }finally{if(current&&attempt===version)setAuthChecking(false)}
+    },e=>{clearTimeout(startup);if(current&&!verifiedSession.current){setAuthChecking(false);setAuthError(`লগইন সংযোগ বিঘ্নিত হয়েছে (${e.message})। আবার চেষ্টা করুন।`)}});
     return()=>{current=false;version++;clearTimeout(startup);unsub()};
   },[authRetry]);
 
   useEffect(()=>{
-    if(!fbUser||!authError||!(/login\/(profile-server|session-verification)/.test(authError)))return;
+    if(!fbUser||!authError||authError.includes('স্থগিত')||authError.includes('blocked'))return;
     const retry=()=>setAuthRetry(n=>n+1);
-    let timer:ReturnType<typeof setTimeout>|undefined;
-    if(automaticAuthRetries.current<1){automaticAuthRetries.current++;timer=setTimeout(retry,5000);}
-    const reconnect=()=>{automaticAuthRetries.current=0;retry()};
-    window.addEventListener('online',reconnect);
-    return()=>{clearTimeout(timer);window.removeEventListener('online',reconnect)};
+    window.addEventListener('online',retry);
+    return()=>window.removeEventListener('online',retry);
   },[fbUser?.uid,authError]);
 
   useEffect(() => {
@@ -455,7 +490,7 @@ export default function App() {
       if(data.giftReceivedCoins!==undefined)setS((prev:any)=>({...prev,giftReceivedCoins:data.giftReceivedCoins,giftReceivedCount:data.giftReceivedCount||0}));
       if (data.giftSentCount !== undefined) setS((prev:any)=>({...prev,giftSentCount:data.giftSentCount,giftSentCoins:data.giftSentCoins,gifts:{...prev.gifts,sent:data.giftSentCoins||0}}));
       if(data.photoURL!==undefined)setS((prev:any)=>({...prev,img:data.photoURL}));
-      for(const field of ['name','svip','badge','customFrameId','customEntryId','rankingAwards','profileTagIds']) if(data[field]!==undefined)setS((prev:any)=>({...prev,[field]:data[field]}));
+      for(const field of ['name','svip','badge','customFrameId','customEntryId','rankingAwards']) if(data[field]!==undefined)setS((prev:any)=>({...prev,[field]:data[field]}));
       const coins = confirmedCoins(data,snapshot.metadata);
       if (Number.isSafeInteger(coins) && coins >= 0) setS((prev: any) => ({ ...prev, coins }));
     }, () => setToastText('লাইভ ব্যালেন্স লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
@@ -600,15 +635,12 @@ export default function App() {
 
   const roomActionBusy=useRef(false);
   async function leaveActiveRoom(){const roomId=activeRoom?.id,uid=fbUser?.uid;if(!roomId||!uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুম ছাড়ার অনুরোধ চলছে…');try{await runTransaction(db,async tx=>{const ref=doc(db,'users',uid),snap=await tx.get(ref);if(snap.data()?.currentRoomId===roomId)tx.update(ref,{currentRoomId:null,roomSeat:null,activeRoom:null,lastSeen:serverTimestamp()})});setActiveRoom(null);setIsRoomMinimized(false);toast('রুম ত্যাগ করেছেন')}catch{toast('রুম ছাড়ার তথ্য সেভ হয়নি। আবার চেষ্টা করুন।')}finally{roomActionBusy.current=false}}
-  async function enterRoom(candidate:any){if(!fbUser?.uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুমে ঢুকছি…');try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid&&!isSuperAdmin){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await runTransaction(db,async tx=>{const ref=doc(db,'users',fbUser.uid),snap=await tx.get(ref),profile=snap.data();tx.update(ref,{currentRoomId:room.id,roomSeat:profile?.currentRoomId===room.id?(profile?.roomSeat??null):null,online:true,lastSeen:serverTimestamp(),activeRoom:{id:room.id,name:room.name,host:room.host||'',hostId:room.hostId||'',cv:room.cv||'🎙️',sc:room.sc||8}})});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='resource-exhausted'?'Firebase daily write quota is exhausted. Rooms, games and voice updates cannot be saved until the quota resets or the database is moved.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}finally{roomActionBusy.current=false}}
-  const roomLinkConsumed=useRef(false);
-  useEffect(()=>{if(!isAuthenticated||!fbUser?.uid)return;const peer=new URLSearchParams(window.location.search).get('chat');if(!peer||peer===fbUser.uid||!/^[A-Za-z0-9_-]{1,128}$/.test(peer))return;let alive=true;void getDoc(doc(db,'users',peer)).then(s=>{if(alive&&s.exists())setNotificationPeer({...s.data(),uid:peer})}).catch(()=>{});return()=>{alive=false}},[isAuthenticated,fbUser?.uid]);
-  useEffect(()=>{if(roomLinkConsumed.current||!isAuthenticated||!fbUser?.uid)return;const id=new URLSearchParams(window.location.search).get('room');if(!id||id.length>200||id.includes('/'))return;const target=S.rooms.find((room:any)=>(String(room.id)===id||String(room.publicId)===id));if(!target)return;roomLinkConsumed.current=true;void enterRoom(target)},[isAuthenticated,fbUser?.uid,S.rooms]);
-  if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} stage={authStage} onRetry={()=>{automaticAuthRetries.current=0;setAuthRetry(n=>n+1)}}/>;
+  async function enterRoom(candidate:any){if(!fbUser?.uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুমে ঢুকছি…');try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await runTransaction(db,async tx=>{const ref=doc(db,'users',fbUser.uid),snap=await tx.get(ref),profile=snap.data();tx.update(ref,{currentRoomId:room.id,roomSeat:profile?.currentRoomId===room.id?(profile?.roomSeat??null):null,online:true,lastSeen:serverTimestamp(),activeRoom:{id:room.id,name:room.name,host:room.host||'',hostId:room.hostId||'',cv:room.cv||'🎙️',sc:room.sc||8}})});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='resource-exhausted'?'Firebase daily write quota is exhausted. Rooms, games and voice updates cannot be saved until the quota resets or the database is moved.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}finally{roomActionBusy.current=false}}
+  if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} stage={authStage} onRetry={()=>setAuthRetry(n=>n+1)}/>;
 
   return (
     <div id="app">
-      {(offline||authError)&&<div className="app-connection-banner" role="status">{offline?'নেটওয়ার্ক নেই। আপনার লগইন সেভ আছে। সংযোগ ফিরলে আবার চালু হবে।':'অ্যাপের প্রোফাইল সার্ভারের সংযোগ পাওয়া যায়নি। আপনার লগইন সেভ আছে।'}{!offline&&<button onClick={()=>setAuthRetry(n=>n+1)}>আবার চেষ্টা করুন</button>}</div>}
+      {(offline||authError)&&<div className="app-connection-banner" role="status">{offline?'নেটওয়ার্ক নেই। আপনার লগইন সেভ আছে। সংযোগ ফিরলে আবার চালু হবে।':'সার্ভারে আবার সংযোগ হচ্ছে। আপনার লগইন সেভ আছে।'}{!offline&&<button onClick={()=>setAuthRetry(n=>n+1)}>আবার চেষ্টা করুন</button>}</div>}
       {fbUser&&<GameWinFeed/>}
       {activePage==='game_rank'&&<GlobalGameRanks onClose={()=>setActivePage(null)}/>}
       {activePage==='coin_sellers'&&<CoinSellers onClose={()=>setActivePage(null)} onSeller={()=>setActivePage('seller')}/>}
@@ -616,7 +648,6 @@ export default function App() {
       {activePage==='support_chat'&&<SupportChat user={fbUser} onClose={()=>setActivePage(null)}/>}
       {activePage==='notices'&&<Notices onClose={()=>setActivePage(null)}/>}
       {activeRoom&&(customEntry?<EntryMedia key={activeRoom.id+customEntry.id} image={customEntry.image} name={S.name}/>:<RoomWelcome key={activeRoom.id} name={S.name} avatar={S.img||S.av} roomName={activeRoom.name}/>)}
-      {notificationPeer&&<DirectMessages recipient={notificationPeer} onClose={()=>setNotificationPeer(null)}/>}
       {showUserDirectory && <UserDirectory initialRecipient={giftRecipient} onGiftSent={event=>{setShowUserDirectory(false);toast(`✅ ID ${event.receiverPublicId}-তে ${event.quantity}টি ${event.giftName} পাঠানো হয়েছে। বাকি ${event.balance} কয়েন।`)}} roomId={activeRoom?.id} onClose={()=>setShowUserDirectory(false)} onJoin={room=>{void enterRoom(room);setShowUserDirectory(false)}} />}
       {incomingGift && (!activeRoom||isRoomMinimized||incomingGift.roomId!==activeRoom.id) && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.giftImage?<img src={incomingGift.giftImage} alt={incomingGift.giftName} className="w-24 h-24 object-contain"/>:incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · 💎 {incomingGift.cost} ডায়মন্ড যোগ হয়েছে</p></div>}
 
@@ -626,7 +657,7 @@ export default function App() {
         if(action==='page'&&value){if(value==='admin'&&!isSuperAdmin)return;if(value==='edit_profile'){setEditName(S.name||'');setEditBio(S.bio||'');setEditCountry(S.country||'');}setActivePage(value)}
         if(action==='create-room'){const own=S.rooms.find((r:any)=>r.hostId===fbUser?.uid);if(own)void enterRoom(own);else setShowCreateRoomModal(true)}
         if(action==='room'){const room=S.rooms.find((r:any)=>String(r.id)===value);if(room)void enterRoom(room)}
-        if(action==='game'&&['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'].includes(value||'')){setActiveGame(value!);setIsGameMinimized(false)}
+        if(action==='game'&&['greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots'].includes(value||'')){setActiveGame(value!);setIsGameMinimized(false)}
         if(action==='recharge'){const pkg=S.pk[Number(value)];if(pkg)setSelectedRechargePackage(pkg)}
       }}/>} 
       {pendingRoom&&<RoomEntryCard room={pendingRoom} onClose={()=>setPendingRoom(null)} onEnter={seat=>{setActiveRoom({...pendingRoom,entrySeat:seat});setIsRoomMinimized(false);setPendingRoom(null)}}/>}
@@ -685,7 +716,7 @@ export default function App() {
                   cursor: 'pointer'
                 }}
                 onClick={() => {
-                  window.location.assign(new URL('admin.html',window.location.href).href);
+                  setActivePage('admin');
                 }}
                 title="সুপার অ্যাডমিন প্যানেল"
               >
@@ -771,6 +802,13 @@ export default function App() {
                 onClick={() => setActiveGame('jackpot_fruit')}
               >
                 <b>🍒</b>জ্যাকপট ফ্রুট
+              </div>
+              <div
+                className="tl"
+                style={{ background: 'linear-gradient(#ffd08a,#ff8a2a)' }}
+                onClick={() => setActiveGame('slots')}
+              >
+                <b>🎰</b>স্লটস
               </div>
               <div
                 className="tl"
@@ -951,6 +989,12 @@ export default function App() {
                 <div className="cvv">🌙</div>
                 <b>নাইট হুইল</b>
                 <div className="sm2">রাতের চাকা</div>
+              </div>
+              <div className="rc" style={{ background: GR[3] }} onClick={() => setActiveGame('slots')}>
+                <span className="ls">Game</span>
+                <div className="cvv">🎰</div>
+                <b>স্লটস</b>
+                <div className="sm2">ক্লাসিক স্লট</div>
               </div>
             </div>
           </>
@@ -2292,13 +2336,17 @@ export default function App() {
           <span className="text-2xl drop-shadow">
             {activeGame === 'greedy_lion' ? '🦁' : activeGame === 'jackpot_fruit' ? '🍒' :
              activeGame === 'lion_wheel' ? '🦁' :
-             activeGame === 'night_wheel' ? '🌙' : '♟️'}
+             activeGame === 'night_wheel' ? '🌙' :
+             activeGame === 'slots' ? '🎰' :
+             activeGame === 'carrom' ? '🔴' : '♟️'}
           </span>
           <div className="text-left pr-1">
             <b className="text-[11px] block font-black leading-tight text-white drop-shadow">
               {activeGame === 'greedy_lion' ? 'Greedy Lion' : activeGame === 'jackpot_fruit' ? 'জ্যাকপট ফ্রুট' :
                activeGame === 'lion_wheel' ? 'ফুড হুইল' :
-               activeGame === 'night_wheel' ? 'নাইট হুইল' : 'দাবা ৩ডি'}
+               activeGame === 'night_wheel' ? 'নাইট হুইল' :
+               activeGame === 'slots' ? 'স্লটস' :
+               activeGame === 'carrom' ? 'ক্যারাম বোর্ড' : 'দাবা ৩ডি'}
             </b>
             <span className="text-[9px] text-yellow-200 block font-bold">▶ খেলুন (ট্যাপ করুন)</span>
           </div>
@@ -2366,7 +2414,9 @@ export default function App() {
 
           <div className="flex-1 relative overflow-hidden">
             {['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'].includes(activeGame) && <UploadedSharedGame key={activeGame} game={activeGame} userName={S.name} onClose={()=>setActiveGame(null)} onWallet={()=>{setActiveGame(null);setTab('wallet');setIsRoomMinimized(Boolean(activeRoom))}}/>}
+            {activeGame==='slots'&&<SharedRoundGame game="slots" onClose={()=>setActiveGame(null)}/>}
             {activeGame==='chess_3d'&&<div className="w-full h-full flex flex-col bg-[#15191a]"><div className="p-2.5 bg-black/60 border-b border-amber-500/30 flex justify-between items-center text-white px-4 shrink-0"><b>♟️ দাবা ৩ডি (3D Chess)</b><button onClick={()=>setActiveGame(null)} className="px-3 py-1 bg-red-600/80 hover:bg-red-600 rounded-xl text-xs font-bold active:scale-95">✕ গেম বন্ধ</button></div><iframe title="দাবা ৩ডি" src="./games/chess.html" className="w-full flex-1 border-0" /></div>}
+            {activeGame==='carrom'&&<div className="w-full h-full flex flex-col bg-[#1b1464]"><div className="p-2.5 bg-black/60 border-b border-emerald-500/30 flex justify-between items-center text-white px-4 shrink-0"><b>🔴 ক্যারাম বোর্ড (Carrom Board)</b><button onClick={()=>setActiveGame(null)} className="px-3 py-1 bg-red-600/80 hover:bg-red-600 rounded-xl text-xs font-bold active:scale-95">✕ গেম বন্ধ</button></div><iframe title="ক্যারাম" src="./games/carrom.html" className="w-full flex-1 border-0" /></div>}
           </div>
         </div>
       )}
@@ -2629,7 +2679,7 @@ export default function App() {
                   <button
                     onClick={() => {
                       setSelectedRechargePackage(null);
-                      window.location.assign(new URL('admin.html',window.location.href).href);
+                      setActivePage('admin');
                     }}
                     className="w-full py-2.5 rounded-xl bg-purple-600/50 hover:bg-purple-600 text-white font-bold text-xs active:scale-95 border border-purple-400/30 flex items-center justify-center gap-1.5"
                   >
