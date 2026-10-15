@@ -82,18 +82,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   const room={...roomInput,...roomData};
   useEffect(()=>{setRoomData({});return onSnapshot(doc(db,'rooms',roomInput.id),s=>{if(s.exists())setRoomData(s.data())},()=>{})},[roomInput.id]);
   const seatCount = Number(room.sc) || (room.d ? 12 : 8);
-  const isCurrentUserHost = Boolean(
-    auth.currentUser && (
-      room.hostId === auth.currentUser.uid ||
-      (room as any).own === true ||
-      (room as any).hostId === (user as any)?.id ||
-      (room as any).publicId === String((user as any)?.id) ||
-      room.host === user?.name ||
-      !room.hostId ||
-      room.id === `user-${auth.currentUser.uid}`
-    )
-  );
-  
+  const isCurrentUserHost=Boolean(auth.currentUser&&room.hostId===auth.currentUser.uid);
   const [seatedIndex, setSeatedIndex] = useState<number | null>(() => {
     return null;
   });
@@ -110,7 +99,9 @@ export const VoiceRoomView: React.FC<Props> = ({
   const [activeChatTab, setActiveChatTab] = useState<'All' | 'Chat' | 'Gift' | 'Notice'>('All');
   const [showGiftModal, setShowGiftModal] = useState<boolean>(false);
   const [showReactionModal, setShowReactionModal] = useState<boolean>(false);
+  const [eventsOpen,setEventsOpen]=useState(false),[toolsOpen,setToolsOpen]=useState(false);
   const [moreOpen,setMoreOpen]=useState(false),[roomProfileOpen,setRoomProfileOpen]=useState(false);
+  const [roomBackgroundDraft,setRoomBackgroundDraft]=useState('');
   const [roomNameDraft,setRoomNameDraft]=useState(''),[roomAnnDraft,setRoomAnnDraft]=useState(''),[roomSaveBusy,setRoomSaveBusy]=useState(false),[roomThemeDraft,setRoomThemeDraft]=useState(0),[roomSeatCountDraft,setRoomSeatCountDraft]=useState<number>(room.sc || (room.d ? 12 : 8)),[roomLockedDraft,setRoomLockedDraft]=useState(false);
   const [selectedSeatUser, setSelectedSeatUser] = useState<any | null>(null);
   const [giftRecipients, setGiftRecipients] = useState<string[]>([]);
@@ -121,11 +112,13 @@ export const VoiceRoomView: React.FC<Props> = ({
 
   useEffect(()=>{
     if(roomProfileOpen){
+      setSeatError('');
       setRoomNameDraft(room.name);
       setRoomAnnDraft(room.ann||'');
       setRoomThemeDraft(Number(room.th||0) % roomThemes.length);
       setRoomSeatCountDraft(room.sc || (room.d ? 12 : 8));
       setRoomLockedDraft((room as any).locked===true);
+      setRoomBackgroundDraft(String((room as any).customBackgroundId||''));
     }
   },[roomProfileOpen,room.id,room.th,room.sc]);
 
@@ -136,6 +129,7 @@ export const VoiceRoomView: React.FC<Props> = ({
       name: roomNameDraft.trim(),
       ann: roomAnnDraft.trim(),
       th: roomThemeDraft,
+      customBackgroundId:roomBackgroundDraft,
       sc: roomSeatCountDraft,
       locked: roomLockedDraft,
       hostId: room.hostId || auth.currentUser?.uid || ''
@@ -145,13 +139,11 @@ export const VoiceRoomView: React.FC<Props> = ({
       setRoomData(p => ({ ...p, ...payload }));
       onUpdateRoom?.({ ...room, ...payload });
       setSeatError('✅ রুমের থিম ও সিট সংখ্যা সফলভাবে সেভ হয়েছে');
+      setRoomProfileOpen(false);
     }catch(err){
-      setRoomData(p => ({ ...p, ...payload }));
-      onUpdateRoom?.({ ...room, ...payload });
-      setSeatError('✅ রুমের সেটিংস লোকালভাবে সফলভাবে প্রয়োগ হয়েছে');
+      setSeatError('সেটিংস সেভ হয়নি। নিচের সিটে কেউ বসে থাকলে তাঁকে আগে উপরের সিটে আনুন, তারপর আবার চেষ্টা করুন।');
     }finally{
       setRoomSaveBusy(false);
-      setRoomProfileOpen(false);
     }
   }
   const [showGameDrawer, setShowGameDrawer] = useState<boolean>(false);
@@ -355,24 +347,29 @@ export const VoiceRoomView: React.FC<Props> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const currentThemeBg = roomThemes[Number(roomThemeDraft !== undefined && roomProfileOpen ? roomThemeDraft : (room.th || 0)) % roomThemes.length];
+  const backgroundAsset=mediaAssets.find(a=>a.kind==='room_background'&&a.id===(roomProfileOpen?roomBackgroundDraft:(room as any).customBackgroundId));
+  const currentThemeBg = backgroundAsset?`linear-gradient(#0003,#0006),url("${backgroundAsset.image}") center/cover`: roomThemes[Number(roomThemeDraft !== undefined && roomProfileOpen ? roomThemeDraft : (room.th || 0)) % roomThemes.length];
 
+  const roomAdvancedTools=<>
+        <label className="room-action-status">🎛️ ভয়েস ইফেক্ট <select aria-label="ভয়েস ইফেক্ট" value={voiceEffect} disabled={voice.effectsAvailable===false} onChange={e=>setVoiceEffect(e.target.value as VoiceEffect)} style={{marginLeft:8,padding:10,borderRadius:10,background:'#201534',color:'#fff'}}><option value="normal">স্বাভাবিক</option><option value="radio">রেডিও</option><option value="warm">নরম / উষ্ণ</option><option value="echo">ইকো</option></select><small style={{display:'block',marginTop:6}}>{voice.effectsAvailable===false?'এই ডিভাইসে ইফেক্ট চালু হয়নি; স্বাভাবিক ভয়েস চলবে।':'মাইক চালু করলে অন্যরা এই ইফেক্টে আপনার কথা শুনবেন।'}</small></label>
+        {voice.audioBlocked&&<button className="b mx-3" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে এখানে চাপুন</button>}
+        <div className="room-utility-row"><LanguagePicker/><details className="room-voice-status" open={Boolean(voice.diagnostic)}><summary>🎙️ ভয়েস সংযোগ ও সহায়তা</summary><p className="text-xs text-cyan-300" role="status">{roomReady?voice.status:'রুমের সংযোগ তৈরি হচ্ছে…'}</p><p className="text-xs" data-no-translate>Mic: {Math.round(voice.micLevel*100)}% · Remote audio: {voice.remoteAudioCount} · {voice.connectionState}{voice.diagnostic?` · Code: ${voice.diagnostic}`:''}</p><button className="b" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে অডিও চালু করুন</button>{voice.diagnostic==='STALE_APP'&&<button className="b" onClick={()=>window.location.reload()}>↻ আপডেট লোড করুন</button>}<button className="b" onClick={()=>void voice.reconnect()}>↻ ভয়েস আবার সংযোগ করুন</button></details><button className="back-card" onClick={()=>void followRoom()}>{isFollowed?"♥ রুম ফলো করা আছে":"♡ রুম ফলো করুন"}</button>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}</div>
+  </>;
   return (
     <div className="rv reference-room fixed inset-0 z-40 flex flex-col justify-between overflow-hidden select-none pt-safe pb-safe" style={{background: currentThemeBg}}>
       <header className="room-reference-header relative z-10">
-        <div className="room-header-line"><button className="room-title-pill" onClick={()=>setRoomProfileOpen(true)}><MediaAvatar avatar={room.photoURL||room.cv} size={42}/><span><b>{room.name}</b><small>রুমের তথ্য দেখুন ›</small></span></button><div className="room-header-actions"><button title="অডিও চালু/বন্ধ" onClick={()=>{voice.unlock();setIsRoomSoundOn(!isRoomSoundOn)}}>{isRoomSoundOn?'🔊':'🔇'}</button><button title="রুম মিনিমাইজ" onClick={onMinimize}>⌄</button><button title="রুম থেকে ফিরুন" onClick={onLeaveRoom}>✕</button></div></div>
+        <div className="room-header-line"><button className="room-title-pill" onClick={()=>setRoomProfileOpen(true)}><MediaAvatar avatar={room.photoURL||room.cv} size={42}/><span><b>{room.name}</b><small>রুমের তথ্য দেখুন ›</small></span></button><div className="room-header-actions"><button title="রুমের সেটিংস" aria-label="রুমের সেটিংস" onClick={()=>setRoomProfileOpen(true)}>⚙️</button><button title="অডিও চালু/বন্ধ" onClick={()=>{voice.unlock();setIsRoomSoundOn(!isRoomSoundOn)}}>{isRoomSoundOn?'🔊':'🔇'}</button><button title="রুম মিনিমাইজ" onClick={onMinimize}>⌄</button><button title="রুম থেকে ফিরুন" onClick={onLeaveRoom}>✕</button></div></div>
         <div className="room-header-line"><button className="room-value-pill" onClick={()=>setRoomProfileOpen(true)}>🏆 {roomCoinTotal.toLocaleString()} ›</button><div className="room-header-members">{liveMembers.slice(0,2).map(m=><button key={m.uid} onClick={()=>onOpenUsers(m.uid)}><MediaAvatar avatar={m.avatar} size={30}/></button>)}<button onClick={()=>setRoomProfileOpen(true)}>{liveMembers.length} জন</button><button title="রুমের আরও অপশন" onClick={()=>setMoreOpen(true)}>⋯</button></div></div>
       </header>
 
       {/* Center Seats Grid (.sg3, .s3w, .s3, .nm3, .sc3) */}
-      <div className="room-stage relative z-10 flex-1 overflow-y-auto px-3 py-2 flex flex-col">
+      <div className="room-stage relative z-10 flex-1 overflow-hidden px-3 py-2 flex flex-col">
         <RoomGiftFlights roomId={room.id} onGift={event=>{setRoomCoinTotal(p=>p+event.cost);setChatMessages(p=>[...p,{id:event.id,type:'gift',sender:event.senderName,text:`${event.senderName} → ${event.receiverName} (ID ${event.receiverPublicId}): ${event.quantity}টি ${event.giftName} · ${event.cost} কয়েন`}])}}/>
         
         {seatBusy&&<p className="room-action-status" role="status">সিট সেভ হচ্ছে…</p>}{seatError&&<p role="status">{seatError}</p>}
 
         {roomEntry&&(mediaAssets.find(a=>a.id===roomEntry.customEntryId)?<EntryMedia key={roomEntry.uid+roomEntry.at} image={mediaAssets.find(a=>a.id===roomEntry.customEntryId)!.image} name={roomEntry.name}/>:<RoomWelcome key={roomEntry.uid+roomEntry.at} name={roomEntry.name} avatar={roomEntry.avatar}/>) }
-        <div className="flex gap-2 overflow-x-auto pb-2">{liveMembers.filter(member=>!Number.isInteger(member.roomSeat)).map(member=><button key={member.uid} className="shrink-0 text-center" title={member.name} onClick={()=>onOpenUsers(member.uid)}><span data-gift-uid={member.uid}><MediaAvatar avatar={member.avatar} frame={mediaAssets.find(a=>a.id===(activeRankingAward(member)?.frameId||member.customFrameId))?.image}/></span><small className="block" data-no-translate="true">{member.name}</small></button>)}</div>
-        <div className={`sg3 ${seatCount===5?'seats-5':seatCount===10?'seats-10':seatCount===20?'seats-20':seatCount%4===2?'center-first':''}`} style={{gridTemplateColumns:seatCount===5?'repeat(4,minmax(0,1fr))':seatCount===10||seatCount===20?'repeat(5,minmax(0,1fr))':'repeat(4,minmax(0,1fr))'}}>
+        <div className={`sg3 ${seatCount===5?'seats-5':seatCount===10?'seats-10':seatCount===20?'seats-20':seatCount%4===2?'center-first':''}`} style={{gridTemplateColumns:seatCount===5?'repeat(4,minmax(0,1fr))':seatCount===10||seatCount===15||seatCount===20?'repeat(5,minmax(0,1fr))':'repeat(4,minmax(0,1fr))'}}>
           {liveSeats.map((seat, idx) => {
             const isUserSeatedHere = seatedIndex === idx;
             return (
@@ -399,9 +396,6 @@ export const VoiceRoomView: React.FC<Props> = ({
           })}
         </div>
 
-        <label className="room-action-status">🎛️ ভয়েস ইফেক্ট <select aria-label="ভয়েস ইফেক্ট" value={voiceEffect} disabled={voice.effectsAvailable===false} onChange={e=>setVoiceEffect(e.target.value as VoiceEffect)} style={{marginLeft:8,padding:10,borderRadius:10,background:'#201534',color:'#fff'}}><option value="normal">স্বাভাবিক</option><option value="radio">রেডিও</option><option value="warm">নরম / উষ্ণ</option><option value="echo">ইকো</option></select><small style={{display:'block',marginTop:6}}>{voice.effectsAvailable===false?'এই ডিভাইসে ইফেক্ট চালু হয়নি; স্বাভাবিক ভয়েস চলবে।':'মাইক চালু করলে অন্যরা এই ইফেক্টে আপনার কথা শুনবেন।'}</small></label>
-        {voice.audioBlocked&&<button className="b mx-3" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে এখানে চাপুন</button>}
-        <details className="relative z-20 mx-3"><summary className="b">🏆 ইভেন্ট ও পুরস্কার</summary><EventCenter/></details><div className="room-utility-row"><LanguagePicker/><details className="room-voice-status" open={Boolean(voice.diagnostic)}><summary>🎙️ ভয়েস সংযোগ ও সহায়তা</summary><p className="text-xs text-cyan-300" role="status">{roomReady?voice.status:'রুমের সংযোগ তৈরি হচ্ছে…'}</p><p className="text-xs" data-no-translate>Mic: {Math.round(voice.micLevel*100)}% · Remote audio: {voice.remoteAudioCount} · {voice.connectionState}{voice.diagnostic?` · Code: ${voice.diagnostic}`:''}</p><button className="b" onClick={()=>{voice.unlock();setIsRoomSoundOn(true)}}>🔊 কথা শুনতে অডিও চালু করুন</button>{voice.diagnostic==='STALE_APP'&&<button className="b" onClick={()=>window.location.reload()}>↻ আপডেট লোড করুন</button>}<button className="b" onClick={()=>void voice.reconnect()}>↻ ভয়েস আবার সংযোগ করুন</button></details><button className="back-card" onClick={()=>void followRoom()}>{isFollowed?"♥ রুম ফলো করা আছে":"♡ রুম ফলো করুন"}</button>{seatedIndex!==null&&<button className="b" disabled={seatBusy} onClick={()=>void handleSeatClick(seatedIndex)}>সিট ছেড়ে উঠুন</button>}</div>
         {/* Live Chat Container (.ct3, .ctb, #ch3) */}
         <div className="ct3" style={{ maxHeight: '170px', background: 'rgba(0,0,0,0.5)', borderRadius: '20px', padding: '8px 10px', border: '1px solid rgba(255,255,255,0.1)' }}>
           {/* Tabs */}
@@ -433,6 +427,9 @@ export const VoiceRoomView: React.FC<Props> = ({
       </div>
 
       {chatOpen&&<form className="ref-chat-form relative z-20 mx-3" onSubmit={handleSendMessage}><input autoFocus maxLength={1000} placeholder="রুমে কিছু বলুন…" value={inputText} onChange={e=>setInputText(e.target.value)}/><button type="submit" disabled={chatBusy}>{chatBusy?'সেভ হচ্ছে…':'পাঠান'}</button><button type="button" aria-label="চ্যাট বন্ধ" onClick={()=>setChatOpen(false)}>✕</button></form>}
+      <button className="room-event-shortcut" aria-label="ইভেন্ট ও পুরস্কার" onClick={()=>setEventsOpen(true)}>{mediaAssets.find(a=>a.kind==='room_event_banner')?<img src={mediaAssets.find(a=>a.kind==='room_event_banner')!.image} alt="ইভেন্ট"/>:<span>🏆</span>}<small>ইভেন্ট</small></button>
+      {eventsOpen&&<div className="room-sheet-overlay"><section className="room-more-card"><header><h3>🏆 ইভেন্ট ও পুরস্কার</h3><button className="back-card" onClick={()=>setEventsOpen(false)}>✕ বন্ধ</button></header><EventCenter/></section></div>}
+      {toolsOpen&&<div className="room-sheet-overlay"><section className="room-more-card"><header><h3>ভয়েস ও রুমের টুলস</h3><button className="back-card" onClick={()=>setToolsOpen(false)}>✕ বন্ধ</button></header>{roomAdvancedTools}</section></div>}
       <button className="room-wallet-orb" aria-label="রুম থেকে ওয়ালেট খুলুন" onClick={onOpenWallet}>🪙<small>ওয়ালেট</small></button>
       <nav className="room-bottom-controls" aria-label="রুমের অ্যাকশন">
         <button onClick={()=>setChatOpen(x=>!x)}><span>💬</span><small>চ্যাট</small></button>
@@ -496,8 +493,8 @@ export const VoiceRoomView: React.FC<Props> = ({
 
       {policyOpen&&<div className="room-sheet-overlay"><section className="seat-policy-sheet"><header className="flex justify-between items-center"><h3>⚙️ রুম পরিচালনা</h3><button className="back-card" onClick={()=>setPolicyOpen(false)}>‹ ফিরে যান</button></header><p className="text-xs text-violet-200 my-3">লক করা খালি সিটে কেউ বসতে পারবেন না। আগে বসে থাকা ইউজার থাকবেন; তাঁকে সরাতে আলাদা কন্ট্রোল ব্যবহার করুন।</p><article className="seat-policy-card"><h3>🎙️ সিট লক / আনলক</h3><div className="seat-lock-grid">{Array.from({length:seatCount},(_,i)=><button key={i} disabled={!canLockSeats||policyBusy} className={lockedSeats.includes(i)?'locked':''} onClick={()=>void toggleSeatLock(i)}><span>{lockedSeats.includes(i)?'🔒':'🎙️'}</span><b>সিট {i+1}</b><small>{lockedSeats.includes(i)?'লক':'খোলা'}</small></button>)}</div>{!canLockSeats&&<p className="text-xs mt-3">সিট লকের অনুমতি কেবল ওনার বা অনুমতিপ্রাপ্ত অ্যাডমিনের।</p>}</article>{isCurrentUserHost&&<article className="seat-policy-card"><h3>👑 ইউজার ID দিয়ে অ্যাডমিন দিন</h3><div className="flex gap-2"><input className="in min-w-0 flex-1" inputMode="numeric" placeholder="ইউজার ID" value={adminId} onChange={e=>setAdminId(e.target.value)}/><button disabled={policyBusy} className="b t" onClick={()=>void findAdmin()}>অ্যাডমিন দিন</button></div><p className="text-xs mt-2">ইউজার রুমের বাইরে থাকলেও নিবন্ধিত ID দিয়ে অ্যাডমিন দিতে পারবেন।</p></article>}{canModerate&&<article className="seat-policy-card"><h3>🛡️ ইউজার ও অ্যাডমিনের অনুমতি</h3><select className="in w-full" value={policyTarget} onChange={e=>setPolicyTarget(e.target.value)}><option value="">ইউজার বেছে নিন</option>{Array.from(new Set([...liveMembers.map(m=>m.uid),...Object.keys(roomRoles),...Object.keys(roomControls)])).filter(uid=>uid!==room.hostId&&(isCurrentUserHost||roomRoles[uid]?.role!=='admin')).map(uid=><option key={uid} value={uid}>{liveMembers.find(m=>m.uid===uid)?.name||policyUsers[uid]?.name||'ইউজার'} · {liveMembers.find(m=>m.uid===uid)?.id||policyUsers[uid]?.id||'আইডি লোড হচ্ছে'}{roomRoles[uid]?.role==='admin'?' · অ্যাডমিন':''}</option>)}</select>{policyTarget&&<div className="policy-action-grid">{isCurrentUserHost&&<><button className="back-card" onClick={()=>void policyAction('admin')}>👑 অ্যাডমিন দিন</button><button className="back-card" onClick={()=>void policyAction('user')}>অ্যাডমিন সরান</button>{roomRoles[policyTarget]?.role==='admin'&&<button className="back-card" onClick={()=>void policyAction(roomRoles[policyTarget]?.canLockSeats?'no-lock-permission':'lock-permission')}>{roomRoles[policyTarget]?.canLockSeats?'সিট লকের অনুমতি বন্ধ':'🔑 সিট লকের অনুমতি দিন'}</button>}</>}<button className="back-card" onClick={()=>void policyAction('mute')}>🔇 মাইক বন্ধ</button><button className="back-card" onClick={()=>void policyAction('block')}>🚫 রুম থেকে সরান</button><button className="back-card" onClick={()=>void policyAction('clear')}>মাইক / প্রবেশ চালু</button></div>}</article>}<p className="text-sm text-cyan-200 mt-3" role="status">{policyStatus}</p></section></div>}
 
-      {roomProfileOpen&&<div className="room-sheet-overlay"><section className="room-profile-card"><button className="back-card" onClick={()=>setRoomProfileOpen(false)}>‹ ফিরে যান</button><h2 data-no-translate="true">🏠 {room.name}</h2><button className="back-card" onClick={()=>void followRoom()}>{isFollowed?'♥ Following room':'♡ Follow room'}</button><p>ID: {(room as any).publicId||room.id}</p>{isCurrentUserHost&&<><ProfilePhotoEditor roomId={room.id}/><div className="room-settings-section"><h3>সিট সংখ্যা পরিবর্তন (Seat Count)</h3><div className="flex flex-wrap gap-2 my-2.5">{[5,8,10,12,16,20].map(cnt=><button key={cnt} type="button" className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${roomSeatCountDraft===cnt?'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/40 scale-105':'bg-white/10 text-white hover:bg-white/20'}`} onClick={()=>setRoomSeatCountDraft(cnt)}>{cnt} সিট ({cnt} Seats)</button>)}</div><p className="text-xs text-violet-200">রুমের সিট সংখ্যা পছন্দ করুন। সেভ করলে রুমে তৎক্ষণাৎ নতুন সিট লেআউট তৈরি হবে।</p></div><div className="room-settings-section"><h3>রুমের থিম (Room Theme)</h3><div className="grid grid-cols-4 gap-2 my-2.5">{roomThemeDetails.map((theme,i)=><button key={theme.id} type="button" className={`h-16 rounded-xl border-2 flex flex-col items-center justify-center p-1 relative transition-all ${roomThemeDraft===i?'border-amber-400 scale-105 shadow-lg shadow-amber-400/30 ring-2 ring-amber-300':'border-white/20 opacity-80 hover:opacity-100'}`} style={{background:theme.bg}} onClick={()=>setRoomThemeDraft(i)}>{roomThemeDraft===i&&<span className="absolute top-1 right-1 text-xs text-amber-300 font-black">✓</span>}<small className="text-[10px] text-white font-bold drop-shadow leading-tight text-center">{theme.name}</small></button>)}</div><p className="text-xs text-violet-200">থিম ক্লিক করে প্রিভিউ দেখুন এবং প্রোফাইল সেভ করুন।</p></div><label className="room-lock-toggle"><input type="checkbox" checked={roomLockedDraft} onChange={e=>setRoomLockedDraft(e.target.checked)}/><span>{roomLockedDraft?'🔒 Room locked':'🔓 Room unlocked'}</span></label><p>Save to apply. Locked rooms allow the owner, room admins and existing members.</p><label className="block text-sm my-3">রুমের নাম<input maxLength={80} className="in w-full" value={roomNameDraft} onChange={e=>setRoomNameDraft(e.target.value)}/></label><label className="block text-sm my-3">পরিচিতি / ঘোষণা<textarea maxLength={500} className="in w-full" value={roomAnnDraft} onChange={e=>setRoomAnnDraft(e.target.value)}/></label><button disabled={roomSaveBusy||!roomNameDraft.trim()} className="back-card" onClick={()=>void saveRoomProfile()}>{roomSaveBusy?'সেভ হচ্ছে…':'প্রোফাইল সেভ করুন'}</button></>}<div className="room-info-grid"><div>Room Value<b>{roomCoinTotal.toLocaleString()}</b></div><div>Members<b>{liveMembers.length}</b></div></div><h3>📢 Announcement</h3><p>{room.ann||'সবাইকে স্বাগতম!'}</p><h3>রুমের সদস্য</h3>{liveMembers.map(m=><button className="back-card" key={m.uid} onClick={()=>{setRoomProfileOpen(false);onOpenUsers(m.uid)}}>{m.name} · ID {m.id}</button>)}</section></div>}
-      {moreOpen&&<div className="room-sheet-overlay"><section className="room-more-card"><header className="flex justify-between"><h3>✨ More</h3><button className="back-card" onClick={()=>setMoreOpen(false)}>‹ ফিরে যান</button></header><div className="room-info-grid">{[['🎮','Games',()=>setShowGameDrawer(true)],['🏠','Room Profile',()=>setRoomProfileOpen(true)],['🎁','Gift',()=>setShowGiftModal(true)],['🔊','Audio',()=>{voice.unlock();setIsRoomSoundOn(true)}],['🪙','Wallet',onOpenWallet],['⚙️','Settings',()=>setPolicyOpen(true)]].map(([icon,label,action])=><button className="room-tool" key={String(label)} onClick={()=>{setMoreOpen(false);(action as ()=>void)()}}><span>{String(icon)}</span>{String(label)}</button>)}</div></section></div>}
+      {roomProfileOpen&&<div className="room-sheet-overlay"><section className="room-profile-card"><button className="back-card" onClick={()=>setRoomProfileOpen(false)}>‹ ফিরে যান</button><h2 data-no-translate="true">🏠 {room.name}</h2><button className="back-card" onClick={()=>void followRoom()}>{isFollowed?'♥ Following room':'♡ Follow room'}</button><p>ID: {(room as any).publicId||room.id}</p>{isCurrentUserHost&&<><ProfilePhotoEditor roomId={room.id}/><div className="room-settings-section"><h3>সিট সংখ্যা পরিবর্তন (Seat Count)</h3><div className="flex flex-wrap gap-2 my-2.5">{[5,8,10,12,15,16,20].map(cnt=><button key={cnt} type="button" className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${roomSeatCountDraft===cnt?'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/40 scale-105':'bg-white/10 text-white hover:bg-white/20'}`} onClick={()=>setRoomSeatCountDraft(cnt)}>{cnt} সিট ({cnt} Seats)</button>)}</div><p className="text-xs text-violet-200">রুমের সিট সংখ্যা পছন্দ করুন। সেভ করলে রুমে তৎক্ষণাৎ নতুন সিট লেআউট তৈরি হবে।</p></div><div className="room-settings-section"><h3>রুমের থিম (Room Theme)</h3><div className="grid grid-cols-4 gap-2 my-2.5">{roomThemeDetails.map((theme,i)=><button key={theme.id} type="button" className={`h-16 rounded-xl border-2 flex flex-col items-center justify-center p-1 relative transition-all ${roomThemeDraft===i?'border-amber-400 scale-105 shadow-lg shadow-amber-400/30 ring-2 ring-amber-300':'border-white/20 opacity-80 hover:opacity-100'}`} style={{background:theme.bg}} onClick={()=>{setRoomThemeDraft(i);setRoomBackgroundDraft('')}}>{roomThemeDraft===i&&<span className="absolute top-1 right-1 text-xs text-amber-300 font-black">✓</span>}<small className="text-[10px] text-white font-bold drop-shadow leading-tight text-center">{theme.name}</small></button>)}</div><p className="text-xs text-violet-200">থিম ক্লিক করে প্রিভিউ দেখুন এবং প্রোফাইল সেভ করুন।</p></div><div className="room-settings-section"><h3>গ্যালারির রুম ব্যাকগ্রাউন্ড</h3><div className="room-background-options"><button type="button" aria-pressed={!roomBackgroundDraft} onClick={()=>setRoomBackgroundDraft('')}>সাধারণ থিম</button>{mediaAssets.filter(a=>a.kind==='room_background').map(a=><button key={a.id} type="button" aria-pressed={roomBackgroundDraft===a.id} onClick={()=>setRoomBackgroundDraft(a.id)}><img src={a.image} alt={a.name}/><small>{a.name}</small></button>)}</div></div><label className="room-lock-toggle"><input type="checkbox" checked={roomLockedDraft} onChange={e=>setRoomLockedDraft(e.target.checked)}/><span>{roomLockedDraft?'🔒 Room locked':'🔓 Room unlocked'}</span></label><p>Save to apply. Locked rooms allow the owner, room admins and existing members.</p><label className="block text-sm my-3">রুমের নাম<input maxLength={80} className="in w-full" value={roomNameDraft} onChange={e=>setRoomNameDraft(e.target.value)}/></label><label className="block text-sm my-3">পরিচিতি / ঘোষণা<textarea maxLength={500} className="in w-full" value={roomAnnDraft} onChange={e=>setRoomAnnDraft(e.target.value)}/></label><p role="status" className="room-settings-feedback">{seatError}</p><button disabled={roomSaveBusy||!roomNameDraft.trim()} className="back-card" onClick={()=>void saveRoomProfile()}>{roomSaveBusy?'সেভ হচ্ছে…':'প্রোফাইল সেভ করুন'}</button></>}<div className="room-info-grid"><div>Room Value<b>{roomCoinTotal.toLocaleString()}</b></div><div>Members<b>{liveMembers.length}</b></div></div><h3>📢 Announcement</h3><p>{room.ann||'সবাইকে স্বাগতম!'}</p><h3>রুমের সদস্য</h3>{liveMembers.map(m=><button className="back-card" key={m.uid} onClick={()=>{setRoomProfileOpen(false);onOpenUsers(m.uid)}}>{m.name} · ID {m.id}</button>)}</section></div>}
+      {moreOpen&&<div className="room-sheet-overlay"><section className="room-more-card"><header className="flex justify-between"><h3>✨ More</h3><button className="back-card" onClick={()=>setMoreOpen(false)}>‹ ফিরে যান</button></header><div className="room-info-grid">{[['🎛️','ভয়েস ও রুমের টুলস',()=>setToolsOpen(true)],['🎮','Games',()=>setShowGameDrawer(true)],['🏠','Room Profile',()=>setRoomProfileOpen(true)],['🎁','Gift',()=>setShowGiftModal(true)],['🔊','Audio',()=>{voice.unlock();setIsRoomSoundOn(true)}],['🪙','Wallet',onOpenWallet],['⚙️','Settings',()=>setPolicyOpen(true)]].map(([icon,label,action])=><button className="room-tool" key={String(label)} onClick={()=>{setMoreOpen(false);(action as ()=>void)()}}><span>{String(icon)}</span>{String(label)}</button>)}</div></section></div>}
       {/* In-Room Game Drawer Modal */}
       {showGameDrawer && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-end justify-center p-0">

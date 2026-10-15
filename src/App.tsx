@@ -36,7 +36,7 @@ import {RoomEntryCard} from './design/RoomEntryCard';
 import {roomThemes} from './design/catalog';
 import { collection, serverTimestamp } from 'firebase/firestore';
 import { VoiceRoomView } from './components/VoiceRoomView';
-import { AdminPanel } from './components/AdminPanel';
+import { AdminWorkspace } from './components/AdminWorkspace';
 import { 
   Maximize2, 
   ChevronDown, 
@@ -651,10 +651,10 @@ export default function App() {
       {showUserDirectory && <UserDirectory initialRecipient={giftRecipient} onGiftSent={event=>{setShowUserDirectory(false);toast(`✅ ID ${event.receiverPublicId}-তে ${event.quantity}টি ${event.giftName} পাঠানো হয়েছে। বাকি ${event.balance} কয়েন।`)}} roomId={activeRoom?.id} onClose={()=>setShowUserDirectory(false)} onJoin={room=>{void enterRoom(room);setShowUserDirectory(false)}} />}
       {incomingGift && (!activeRoom||isRoomMinimized||incomingGift.roomId!==activeRoom.id) && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.giftImage?<img src={incomingGift.giftImage} alt={incomingGift.giftName} className="w-24 h-24 object-contain"/>:incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · 💎 {incomingGift.cost} ডায়মন্ড যোগ হয়েছে</p></div>}
 
-      {isAuthenticated&&!activePage&&(!activeRoom||isRoomMinimized)&&(!activeGame||isGameMinimized)&&!showCreateRoomModal&&!splashVisible&&<ReferenceLobby state={S} screen={lobbyScreen} roomLibrary={roomLibrary} myRoom={S.rooms.find((r:any)=>r.hostId===fbUser?.uid)} media={mediaAssets} admin={isSuperAdmin} seller={Boolean(delegatedAccess?.active&&delegatedAccess.permissions?.seller)} onScreen={screen=>{const next=screen==='wallet'?'wallet':screen==='messages'?'msg':screen==='games'?'explore':screen==='moments'?'moments':'home';if(tab!==next)lobbyNavigation.current=true;setTab(next);setLobbyScreen(screen)}} onAction={(action,value)=>{
+      {isAuthenticated&&!activePage&&(!activeRoom||isRoomMinimized)&&(!activeGame||isGameMinimized)&&!showCreateRoomModal&&!splashVisible&&<ReferenceLobby state={S} screen={lobbyScreen} roomLibrary={roomLibrary} myRoom={S.rooms.find((r:any)=>r.hostId===fbUser?.uid)} media={mediaAssets} admin={isSuperAdmin} staff={Boolean(delegatedAccess?.active)} seller={Boolean(delegatedAccess?.active&&delegatedAccess.permissions?.seller)} onScreen={screen=>{const next=screen==='wallet'?'wallet':screen==='messages'?'msg':screen==='games'?'explore':screen==='moments'?'moments':'home';if(tab!==next)lobbyNavigation.current=true;setTab(next);setLobbyScreen(screen)}} onAction={(action,value)=>{
         if(action==='users'){setGiftRecipient(value||undefined);setShowUserDirectory(true)}
         if(action==='logout')handleLogout();
-        if(action==='page'&&value){if(value==='admin'&&!isSuperAdmin)return;if(value==='edit_profile'){setEditName(S.name||'');setEditBio(S.bio||'');setEditCountry(S.country||'');}setActivePage(value)}
+        if(action==='page'&&value){if(value==='admin'&&!isSuperAdmin&&!delegatedAccess?.active)return;if(value==='edit_profile'){setEditName(S.name||'');setEditBio(S.bio||'');setEditCountry(S.country||'');}setActivePage(value)}
         if(action==='create-room'){const own=S.rooms.find((r:any)=>r.hostId===fbUser?.uid);if(own)void enterRoom(own);else setShowCreateRoomModal(true)}
         if(action==='room'){const room=S.rooms.find((r:any)=>String(r.id)===value);if(room)void enterRoom(room)}
         if(action==='game'&&['food_wheel','greedy_lion','lion_wheel','night_wheel','jackpot_fruit','slots'].includes(value||'')){setActiveGame(value!);setIsGameMinimized(false)}
@@ -1954,15 +1954,16 @@ export default function App() {
 
             {/* SUBPAGE: ADMIN PANEL */}
             {activePage === 'admin' && (
-              isSuperAdmin ? (
-                <AdminPanel
+              (isSuperAdmin||delegatedAccess?.active) ? (
+                <div className="in-app-admin"><AdminWorkspace
+                  access={delegatedAccess}
                   currentUser={fbUser}
                   appState={S}
                   onUpdateAppState={setS}
                   onToast={toast}
                   onClose={() => setActivePage(null)}
                   onUpdateCoins={updateCoins}
-                />
+                /></div>
               ) : (
                 <div className="gl" style={{ padding: '28px 20px', textAlign: 'center' }}>
                   <p>এই পেজে প্রবেশের অনুমতি নেই।</p>

@@ -170,7 +170,7 @@ export function createSocialService(database,clock=Date.now,onMessage=async()=>{
      if(permitted&&oldRows.get(path))staged.set(path,oldRows.get(path).fields);
     }else if(root==='admins'&&!sub)permitted=owner;
     else if(root==='system'&&!sub)permitted=path!==PUBLIC_ID_COUNTER&&(owner||permission('content')&&((id==='notices'&&changed(old,next).every(k=>k==='items'))||(id==='config'&&changed(old,next).every(k=>['bn','customGifts'].includes(k)))));
-    else if(root==='assets'&&!sub)permitted=(owner||permission('content'))&&(removed||['frame','entry','banner','gift'].includes(next.kind)&&typeof next.name==='string'&&next.name.length<=80&&typeof next.image==='string'&&next.image.length<=600000&&/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]*={0,2}$/.test(next.image)&&(next.kind!=='gift'||Number.isSafeInteger(next.price)&&next.price>0));
+    else if(root==='assets'&&!sub)permitted=(owner||permission('content'))&&(removed||['frame','entry','banner','gift','room_background','room_event_banner'].includes(next.kind)&&typeof next.name==='string'&&next.name.length<=80&&typeof next.image==='string'&&next.image.length<=600000&&/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]*={0,2}$/.test(next.image)&&(next.kind!=='gift'||Number.isSafeInteger(next.price)&&next.price>0));
     else if(root==='sellerWallets'&&!sub){
      permitted=owner&&(!next.balance||Number.isSafeInteger(next.balance)&&next.balance>=0);
      if(!owner&&permission('seller')&&id===identity.uid&&!removed&&changed(old,next).every(k=>['balance','lastTransferId'].includes(k))){const receipt=await after('sellerTransfers/'+next.lastTransferId),recipientBefore=await plain('users/'+receipt.receiverId),recipientAfter=await after('users/'+receipt.receiverId);permitted=receipt.sellerId===identity.uid&&receipt.receiverId!==identity.uid&&Number.isSafeInteger(receipt.amount)&&receipt.amount>0&&next.balance===old.balance-receipt.amount&&next.balance>=0&&recipientAfter.coins===recipientBefore.coins+receipt.amount&&recipientAfter.lastSellerTransfer===next.lastTransferId&&receipt.createdAt===timestamp&&!await read(client,'sellerTransfers/'+next.lastTransferId);}
@@ -190,7 +190,7 @@ export function createSocialService(database,clock=Date.now,onMessage=async()=>{
      if(!removed&&next.photoURL!==undefined&&!photo(next.photoURL))permitted=false;
      if(permitted&&!removed&&(!oldRows.get(path)||next.publicId!==old.publicId)){const host=await plain('users/'+next.hostId);if(host.id&&String(next.publicId)!==String(host.id))permitted=false;}
      if(permitted&&!removed&&next.sc!==old.sc){
-      if(![5,8,10,12,20].includes(next.sc))permitted=false;
+      if(![5,8,10,12,15,16,20].includes(next.sc))permitted=false;
       if(permitted&&next.sc<(old.sc||(old.d?12:8))){
        const occupied=await client.query("select fields from earnbd.social_documents where parent='users' and fields->'currentRoomId'->>'stringValue'=$1",[id]);
        if(occupied.rows.some(row=>{const user=decodeFields(row.fields);const seen=user.lastSeen?.getTime?.()??Date.parse(user.lastSeen||'');return user.online!==false&&(!Number.isFinite(seen)||clock()-seen<90000)&&Number.isInteger(user.roomSeat)&&user.roomSeat>=next.sc}))permitted=false;
