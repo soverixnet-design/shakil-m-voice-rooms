@@ -29,7 +29,7 @@ import {
   doc,
 } from './firebase';
 import {SellerWallet,SupportChat,Notices,useAccess} from './components/AdminExtensions';
-import {AssetShop,EntryMedia,useMediaAssets} from './components/MediaAssets';
+import {AssetShop,EntryMedia,MediaAvatar,useMediaAssets} from './components/MediaAssets';
 import { UserDirectory } from './components/UserDirectory';
 import {ReferenceLobby,LobbyScreen} from './design/ReferenceLobby';
 import {RoomEntryCard} from './design/RoomEntryCard';
@@ -648,7 +648,7 @@ export default function App() {
       {activePage==='support_chat'&&<SupportChat user={fbUser} onClose={()=>setActivePage(null)}/>}
       {activePage==='notices'&&<Notices onClose={()=>setActivePage(null)}/>}
       {activeRoom&&(customEntry?<EntryMedia key={activeRoom.id+customEntry.id} image={customEntry.image} name={S.name}/>:<RoomWelcome key={activeRoom.id} name={S.name} avatar={S.img||S.av} roomName={activeRoom.name}/>)}
-      {showUserDirectory && <UserDirectory initialRecipient={giftRecipient} onGiftSent={event=>{setShowUserDirectory(false);toast(`✅ ID ${event.receiverPublicId}-তে ${event.quantity}টি ${event.giftName} পাঠানো হয়েছে। বাকি ${event.balance} কয়েন।`)}} roomId={activeRoom?.id} onClose={()=>setShowUserDirectory(false)} onJoin={room=>{void enterRoom(room);setShowUserDirectory(false)}} />}
+      {showUserDirectory && <UserDirectory initialRecipient={giftRecipient} onGiftSent={event=>{setShowUserDirectory(false);toast(`✅ ID ${event.receiverPublicId}-তে ${event.quantity}টি ${event.giftName} পাঠানো হয়েছে। বাকি ${event.balance} কয়েন।`)}} roomId={activeRoom&&!isRoomMinimized?activeRoom.id:undefined} onClose={()=>{setShowUserDirectory(false);setGiftRecipient(undefined)}} onJoin={room=>{void enterRoom(room);setShowUserDirectory(false)}} />}
       {incomingGift && (!activeRoom||isRoomMinimized||incomingGift.roomId!==activeRoom.id) && <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-[95] gl p-5 text-center"><div className="text-5xl relative h-24 flex justify-center items-center"><span>{S.av}</span><span className="gift-arrival absolute">{incomingGift.giftImage?<img src={incomingGift.giftImage} alt={incomingGift.giftName} className="w-24 h-24 object-contain"/>:incomingGift.emoji}</span></div><b>{incomingGift.senderName} থেকে {incomingGift.quantity}টি {incomingGift.giftName} পেয়েছেন 🎁</b><p>ID {S.id} · 💎 {incomingGift.cost} ডায়মন্ড যোগ হয়েছে</p></div>}
 
       {isAuthenticated&&!activePage&&(!activeRoom||isRoomMinimized)&&(!activeGame||isGameMinimized)&&!showCreateRoomModal&&!splashVisible&&<ReferenceLobby state={S} screen={lobbyScreen} roomLibrary={roomLibrary} myRoom={S.rooms.find((r:any)=>r.hostId===fbUser?.uid)} media={mediaAssets} admin={isSuperAdmin} staff={Boolean(delegatedAccess?.active)} seller={Boolean(delegatedAccess?.active&&delegatedAccess.permissions?.seller)} onScreen={screen=>{const next=screen==='wallet'?'wallet':screen==='messages'?'msg':screen==='games'?'explore':screen==='moments'?'moments':'home';if(tab!==next)lobbyNavigation.current=true;setTab(next);setLobbyScreen(screen)}} onAction={(action,value)=>{
@@ -2287,51 +2287,11 @@ export default function App() {
         /></div>
       )}
 
-      {/* 6b. Minimized Floating Room Bar */}
-      {activeRoom && isRoomMinimized && (
-        <div 
-          className="reference-mini-room fixed bottom-[84px] left-3 right-3 max-w-[456px] mx-auto z-[70] bg-[#12082e]/95 border-2 border-cyan-400 rounded-2xl p-2.5 flex items-center justify-between shadow-[0_8px_25px_rgba(0,0,0,0.85)] backdrop-blur-md"
-        >
-          <div 
-            onClick={() => setIsRoomMinimized(false)}
-            className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
-          >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-400 to-indigo-600 p-0.5 flex items-center justify-center text-lg shadow relative">
-              <span className="w-full h-full bg-slate-900 rounded-xl flex items-center justify-center">
-                {activeRoom.cv}
-              </span>
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping"></span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <b className="text-xs text-white truncate block">{activeRoom.name}</b>
-              <span className="text-[10px] text-cyan-300 font-bold block truncate">
-                হোস্ট: {activeRoom.host} · মিনিমাইজড (ট্যাপ করে খুলুন)
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 ml-2">
-            <button
-              onClick={() => setIsRoomMinimized(false)}
-              className="px-2.5 py-1.5 bg-gradient-to-r from-cyan-400 to-teal-500 text-slate-950 font-black text-xs rounded-xl shadow active:scale-95 flex items-center gap-1"
-              title="রুম বড় করুন"
-            >
-              <Maximize2 size={12} />
-              <span>বড় করুন</span>
-            </button>
-            <button
-              onClick={() => {
-                setActiveRoom(null);
-                setIsRoomMinimized(false);
-                toast('রুম ত্যাগ করেছেন');
-              }}
-              className="w-8 h-8 rounded-xl bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white flex items-center justify-center text-xs font-bold active:scale-95"
-              title="লিভ নিন"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+      {/* The background room stays connected; only this small restore button is interactive. */}
+      {activeRoom && isRoomMinimized && !activePage && !showUserDirectory && (
+        <button className="reference-mini-room room-restore-orb" aria-label={`রুমে ফিরুন: ${activeRoom.name}`} title={activeRoom.name} onClick={()=>setIsRoomMinimized(false)}>
+          <MediaAvatar avatar={activeRoom.photoURL||activeRoom.cv||'🎙️'} size={46}/><span className="room-restore-live"/>
+        </button>
       )}
 
       {/* 6c. Floating Minimized Game Widget (when game is minimized while in room or app) */}

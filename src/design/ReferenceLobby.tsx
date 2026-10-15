@@ -1,3 +1,4 @@
+import {ActivityRooms} from '../components/ActivityRooms';
 import {ProfileLevels} from '../components/ProfileLevels';
 import {activeRankingAward} from '../lib/rankingAwards';
 import {LobbyBannerCarousel} from '../components/LobbyBannerCarousel';
@@ -53,7 +54,7 @@ export function ReferenceLobby({state:s,screen,onScreen,onAction,admin,staff=fal
 
         </div>
       </>}
-      {selectedEvent&&<div className="ref-overlay"><section className="ref-entry"><button className="ref-back" onClick={()=>setSelectedEvent(null)}>‹ ফিরে যান</button><EventCenter initialEventId={selectedEvent}/></section></div>}
+      {selectedEvent&&<div className="ref-overlay"><section className="ref-entry"><button className="ref-back" onClick={()=>setSelectedEvent(null)}>‹ ফিরে যান</button><EventCenter initialEventId={selectedEvent==='all'?undefined:selectedEvent}/></section></div>}
       {rankView&&<LobbyRankings {...rankView} media={media} onUser={uid=>{setRankView(null);onAction('users',uid)}} onClose={()=>setRankView(null)}/>}
       {screen==='mine'&&<><div className="ref-me-banner"><span className="ref-avatar"><MediaAvatar avatar={s.img||s.av} size={60}/></span><div><h1 data-no-translate="true">{s.name}</h1><p>ID: {s.id}</p></div><button className="ref-pill" onClick={()=>onScreen('profile')}>প্রোফাইল ›</button></div><div className="ref-surface"><h2>আমার রুম</h2>{myRoom?<>{roomRow(myRoom)}<p className="ref-muted">একটি নিজের রুম। ছবি ও সিটের অনুমতি রুমের পরিচালনা থেকে বদলাতে পারবেন।</p></>:<div className="ref-card ref-create-teaser"><span>🎙️</span><h2>আপনার নিজের আড্ডার জায়গা</h2><p>ছবি, নাম ও থিম দিয়ে রুম সাজান</p><button className="ref-button wide" onClick={()=>onAction('create-room')}>রুম তৈরি করুন</button></div>}
         {[['সাম্প্রতিক রুম',false],['ফলো করা রুম',true]].map(([title,follow])=><section key={String(title)}><h2>{String(title)}</h2>{roomList(Boolean(follow)).map(roomRow)}{!roomList(Boolean(follow)).length&&<p className="ref-empty">{follow?'রুমের প্রোফাইল থেকে ফলো করলে এখানে থাকবে।':'আপনি যেসব রুমে ঢুকবেন এখানে দেখা যাবে।'}</p>}</section>)}</div></>}
@@ -62,68 +63,16 @@ export function ReferenceLobby({state:s,screen,onScreen,onAction,admin,staff=fal
         <div className="ref-quick-links">{actions.map(([icon,label,page])=><button className="ref-card" key={page} onClick={()=>onAction('page',page)}><span>{icon}</span>{label}</button>)}</div>
         <button className="ref-card ref-profile-wallet" onClick={()=>onScreen('wallet')}><b>ওয়ালেট ›</b><span>🪙 {fmt(s.coins)} &nbsp; 💎 {fmt(diamonds)}</span></button>
         <div className="ref-card ref-link-list">{[['🎙️','আমার রুম',()=>onScreen('mine')],['✨','এন্ট্রি','entries'],['👑','SVIP','svip'],['🎁','ইনভাইট রিওয়ার্ড','invite'],['🧾','লেনদেনের ইতিহাস','hist'],['🪙','কয়েন সেলার তালিকা','coin_sellers'],['🎧','কাস্টমার সার্ভিস','support_chat'],['📜','Privacy Policy','policy_privacy'],['📋','Terms & Conditions','policy_terms'],...(seller?[['🪙','সেলার ওয়ালেট','seller']]:[]),...((admin||staff)?[['🛡️','অ্যাডমিন প্যানেল','admin']]:[])].map(([icon,label,page])=><button key={String(label)} onClick={()=>typeof page==='function'?page():onAction('page',String(page))}><span>{String(icon)} {String(label)}</span>›</button>)}</div><button className="ref-button wide" onClick={()=>onAction('logout')}>লগআউট</button></div></>}
-      {screen==='messages'&&<>
-        <div className="ref-surface" style={{paddingTop:12}}>
-          <DirectMessages/>
-          <h1 className="ref-page-title" style={{padding:'18px 4px 10px',fontSize:18,color:'#2A1A52',fontWeight:800}}>🎙️ অ্যাক্টিভিটি রুম (Activity Rooms)</h1>
-          <div className="ref-activity-3d">
-            {[0,1,2].map(i=>{
-              const r=roomList(true)[i]||roomList(false)[i];
-              return (
-                <button className="ref-card-3d activity-3d-card" key={i} onClick={()=>r?onAction('room',String(r.id)):onScreen('mine')}>
-                  <div className="badge-3d">{r?'🔴 LIVE':'＋ OPEN'}</div>
-                  <span className="icon-3d">{r?'🎙️':'＋'}</span>
-                  <b>{r?.name||'রুম যোগ করুন'}</b>
-                  <small>{r?`${r.n||1} জন মেম্বার`:'নিজের রুম'}</small>
-                </button>
-              );
-            })}
-          </div>
-
-          <h1 className="ref-page-title" style={{padding:'22px 4px 10px',fontSize:18,color:'#2A1A52',fontWeight:800}}>🎧 কাস্টমার সার্ভিস ও সহায়তা (Support & Help)</h1>
-          <div className="ref-service-3d-grid">
-            <button className="ref-card-3d service-3d-support" onClick={()=>onAction('page','support_chat')}>
-              <div className="service-3d-head">
-                <span className="icon-3d">🎧</span>
-                <span className="live-status-pill">🟢 ২৪/৭ সক্রিয়</span>
-              </div>
-              <b>কাস্টমার সার্ভিস</b>
-              <small>লাইভ সাপোর্ট, কয়েন ও টেকনিক্যাল হেল্প</small>
-            </button>
-            <button className="ref-card-3d service-3d-notice" onClick={()=>onAction('page','notices')}>
-              <div className="service-3d-head">
-                <span className="icon-3d">📢</span>
-                <span className="live-status-pill gold">আপডেট</span>
-              </div>
-              <b>অফিশিয়াল নোটিশ</b>
-              <small>ইভেন্ট ও গুরুত্বপূর্ণ নোটিফিকেশন</small>
-            </button>
-            <button className="ref-card-3d service-3d-seller" onClick={()=>onAction('page',seller?'seller':'coin_sellers')}>
-              <div className="service-3d-head">
-                <span className="icon-3d">🪙</span>
-                <span className="live-status-pill cyan">ভেরিফাইড</span>
-              </div>
-              <b>{seller?'সেলার ওয়ালেট':'কয়েন সেলার'}</b>
-              <small>নিরাপদ ও অনুমোদিত কয়েন পয়েন্ট</small>
-            </button>
-          </div>
-
-          <div className="ref-card-3d ref-message-banner-3d my-4">
-            <span className="text-4xl block mb-2">💬</span>
-            <h2 className="text-xl font-black text-white drop-shadow">কথা বলুন, পাশে থাকুন</h2>
-            <p className="text-xs text-purple-100 mb-3">বন্ধুদের খুঁজে একসঙ্গে রুমে প্রবেশ করুন ও আড্ডা দিন</p>
-            <button className="ref-button" onClick={()=>onAction('users')}>🔍 ইউজার খুঁজুন</button>
-          </div>
-
-          <div className="ref-card-3d ref-notice-3d">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl">📢</span>
-              <b className="text-sm text-amber-300">সর্বশেষ ঘোষণা:</b>
-            </div>
-            <p className="text-xs text-purple-100 mt-1" data-no-translate="true">{s.bn?.t||'EarnBD Shakil গেম ও ভয়েস রুমে সবাইকে স্বাগতম!'}</p>
-          </div>
+      {screen==='messages'&&<div className="ref-surface message-home">
+        <header className="message-home-heading"><h1>মেসেজ</h1><button aria-label="মেসেজ করার ইউজার খুঁজুন" onClick={()=>onAction('users')}>⌕</button></header>
+        <ActivityRooms rooms={s.rooms} onJoin={r=>onAction('room',String(r.id))}/>
+        <div className="message-official-links">
+          <button onClick={()=>setSelectedEvent('all')}><span>🏆</span><b>অ্যাক্টিভিটি / ইভেন্ট</b><small>চলতি ইভেন্ট দেখুন ›</small></button>
+          <button onClick={()=>onAction('page','support_chat')}><span>🛡️</span><b>অফিশিয়াল</b><small>অফিশিয়াল সহায়তা ›</small></button>
+          <button onClick={()=>onAction('page','notices')}><span>📢</span><b>অফিশিয়াল নোটিশ</b><small>আপডেট দেখুন ›</small></button>
         </div>
-      </>}
+        <DirectMessages/>
+      </div>}
       {screen==='wallet'&&<><header className="ref-wallet-header"><button className="ref-back" onClick={()=>onScreen('profile')}>‹ ফিরে যান</button><div><button className={walletTab==='recharge'?'selected':''} onClick={()=>setWalletTab('recharge')}>রিচার্জ</button><button className={walletTab==='exchange'?'selected':''} onClick={()=>setWalletTab('exchange')}>এক্সচেঞ্জ</button></div></header><div className="ref-surface"><div className="ref-coin-card"><small>আমার গোল্ড কয়েন</small><b>🪙 {fmt(s.coins)}</b><p>ID {s.id}</p></div><div className="ref-diamond-summary"><span>💎 আপনার ডায়মন্ড</span><b>{fmt(diamonds)}</b></div>{walletTab==='exchange'?<DiamondWallet/>:<><div className="ref-section-title"><h2>রিচার্জ প্যাকেজ</h2><span className="ref-pill">{s.country||'BD'}</span></div><div className="ref-card ref-packages"><p className="ref-muted">প্যাকেজ বেছে অনুমোদিত রিচার্জের অনুরোধ পাঠান।</p>{(s.pk||[]).map((p:any,i:number)=><button key={i} onClick={()=>onAction('recharge',String(i))}><span>🪙 {fmt(p.c)} কয়েন</span><strong>${p.u} ›</strong></button>)}</div><button className="ref-button blue wide" onClick={()=>onAction('page',seller?'seller':'support_chat')}>{seller?'সেলার ওয়ালেট':'রিচার্জের জন্য যোগাযোগ করুন'}</button></>}<button className="ref-button wide seller-list-entry" onClick={()=>onAction('page','coin_sellers')}>Coins seller list · কয়েন সেলার তালিকা</button><WalletRanks/><button className="ref-card ref-room-row wide" onClick={()=>onAction('page','hist')}>🧾 লেনদেনের ইতিহাস ›</button></div></>}
       {screen==='moments'&&<><h1 className="ref-page-title">মোমেন্ট</h1><div className="ref-surface"><div className="ref-card ref-post-form"><textarea maxLength={2000} placeholder="আপনার মনে কী চলছে?" value={post} onChange={e=>setPost(e.target.value)}/><button className="ref-button" disabled={busy||!post.trim()} onClick={()=>void publishPost()}>{busy?'সেভ হচ্ছে…':'পোস্ট করুন'}</button></div>{posts.map(p=><article className="ref-card ref-post" key={p.id}><header><MediaAvatar avatar={p.avatar} size={36}/><div><b data-no-translate="true">{p.name}</b><small>{p.createdAt?.toDate?.().toLocaleString('bn-BD')||'সেভ হচ্ছে…'}</small></div></header><p data-no-translate="true">{p.text}</p></article>)}{!posts.length&&<p className="ref-empty">এখনো কোনো পোস্ট নেই।</p>}</div></>}
       {status&&<p className="ref-status" role="status">{status}</p>}
