@@ -309,3 +309,5 @@ body:has(.admin-portal) #root{max-width:1200px}#app.admin-portal{overflow-y:auto
 .reference-room .sg3.seats-20 .nm3 {
   font-size: 9px;
 }
+
+.room-game-sheet{left:0;right:0;bottom:0;height:76dvh;max-height:calc(100dvh - 120px);border-radius:22px 22px 0 0;overflow:hidden;box-shadow:0 -12px 55px #0009;border-top:2px solid #ffe39e}.room-game-sheet .game-quality-header{padding:5px 10px}.room-game-sheet .game-quality-header strong{font-size:12px}.room-game-sheet .game-quality-header small{font-size:9px}.room-game-sheet .game-phase-strip{padding:3px 10px}.room-game-sheet .game-quality-header>button:first-child{height:30px;width:30px}.room-game-sheet>.bg-\[\#0c0824\]\/95{padding-top:4px;padding-bottom:4px}

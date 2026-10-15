@@ -14,10 +14,11 @@ export function useSharedGame(game:string){
  const anchor=useRef<{server:number;local:number;uncertainty:number}|null>(null),lastSync=useRef(0),roundRef=useRef(round),pending=useRef<any>(null),busyRef=useRef(false),active=useRef(true),epoch=useRef(0);
  const tapQueue=useRef<any[]>([]),drain=useRef<()=>void>(()=>{}),tapTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
  roundRef.current=round;
+ const balanceVersion=useRef(0);
  const syncing=useRef(false),reconcilePending=useRef<()=>void>(()=>{});
- const sync=useCallback(async()=>{if(!serverConfigReady||syncing.current)return;if(!auth.currentUser){setError('লাইভ গেমের জন্য Google লগইন করুন।');return;}syncing.current=true;const sent=performance.now(),generation=epoch.current;try{const result=await callSharedGame<SharedRound>(serverUrl,'sync',{game});if(!active.current||generation!==epoch.current||anchor.current&&result.data.serverNow<anchor.current.server)return;const received=performance.now();const matched=clockAnchor(result.data,result.timing?.sent??sent,result.timing?.received??received);if(matched.uncertainty>5000){setError('সার্ভারের সময় মিলছে—কিছুক্ষণ অপেক্ষা করুন।');return;}anchor.current=matched;lastSync.current=received;setNow(serverTime(anchor.current,received));setRound(result.data);setError('');if(!busyRef.current&&!pending.current&&!tapQueue.current.length)setStatus('লাইভ • সার্ভারের সময়');reconcilePending.current();}catch(e:any){if(!active.current||generation!==epoch.current)return;const messages:Record<string,string>={'inactive-user':'অ্যাকাউন্টের প্রোফাইল পাওয়া যায়নি অথবা অ্যাকাউন্ট বন্ধ আছে।','unauthenticated':'লগইনের মেয়াদ শেষ। আবার Google লগইন করুন।','invalid-server-url':'অ্যাডমিন প্যানেলে Render সার্ভারের ঠিকানা ঠিক করুন।','database-quota-exceeded':'Firebase database quota is exhausted. Contact the owner.','server-database-permission-denied':'The server cannot access the database. Check the Render service account permissions.','database-connection-failed':'The game database could not be reached. Please retry.'};setError(messages[e.message]||`গেম সার্ভারে সংযোগ হয়নি (${e.message||'network-error'})। আবার চেষ্টা করুন।`);}finally{if(generation===epoch.current)syncing.current=false;}},[game,serverUrl,serverConfigReady]);
+ const sync=useCallback(async()=>{if(!serverConfigReady||syncing.current)return;if(!auth.currentUser){setError('লাইভ গেমের জন্য Google লগইন করুন।');return;}syncing.current=true;const sent=performance.now(),generation=epoch.current,balanceAtStart=balanceVersion.current;try{const result=await callSharedGame<SharedRound>(serverUrl,'sync',{game});if(!active.current||generation!==epoch.current||anchor.current&&result.data.serverNow<anchor.current.server)return;const received=performance.now();const matched=clockAnchor(result.data,result.timing?.sent??sent,result.timing?.received??received);if(matched.uncertainty>1500){setError('সার্ভারের সময় মিলছে—কিছুক্ষণ অপেক্ষা করুন।');return;}anchor.current=matched;lastSync.current=received;setNow(serverTime(anchor.current,received));setRound(result.data);if(balanceAtStart===balanceVersion.current&&!busyRef.current&&!pending.current&&!tapQueue.current.length&&Number.isSafeInteger(result.data.balance)&&result.data.balance>=0){balanceVersion.current++;setBalance(result.data.balance)}setError('');if(!busyRef.current&&!pending.current&&!tapQueue.current.length)setStatus('লাইভ • সার্ভারের সময়');reconcilePending.current();}catch(e:any){if(!active.current||generation!==epoch.current)return;const messages:Record<string,string>={'inactive-user':'অ্যাকাউন্টের প্রোফাইল পাওয়া যায়নি অথবা অ্যাকাউন্ট বন্ধ আছে।','unauthenticated':'লগইনের মেয়াদ শেষ। আবার Google লগইন করুন।','invalid-server-url':'অ্যাডমিন প্যানেলে Render সার্ভারের ঠিকানা ঠিক করুন।','database-quota-exceeded':'Firebase database quota is exhausted. Contact the owner.','server-database-permission-denied':'The server cannot access the database. Check the Render service account permissions.','database-connection-failed':'The game database could not be reached. Please retry.'};setError(messages[e.message]||`গেম সার্ভারে সংযোগ হয়নি (${e.message||'network-error'})। আবার চেষ্টা করুন।`);}finally{if(generation===epoch.current)syncing.current=false;}},[game,serverUrl,serverConfigReady]);
  useEffect(()=>{epoch.current++;active.current=true;syncing.current=false;busyRef.current=false;setBusy(false);anchor.current=null;lastSync.current=0;tapQueue.current=[];pending.current=auth.currentUser?restorePendingBet(localStorage,auth.currentUser.uid,game):null;if(tapTimer.current)clearTimeout(tapTimer.current);tapTimer.current=null;setRound(null);setPublicRound(null);setPlayers([]);setRanking([]);setHistory([]);let stopped=false,timer:ReturnType<typeof setTimeout>;const poll=async()=>{await sync();if(!stopped)timer=setTimeout(poll,2000)};void poll();const tick=setInterval(()=>{if(anchor.current)setNow(serverTime(anchor.current,performance.now()))},100);const resume=()=>{if(document.visibilityState==='visible')void sync()};document.addEventListener('visibilitychange',resume);window.addEventListener('online',resume);return()=>{stopped=true;active.current=false;epoch.current++;clearTimeout(timer);clearInterval(tick);document.removeEventListener('visibilitychange',resume);window.removeEventListener('online',resume)}},[sync,game]);
- useEffect(()=>{const uid=auth.currentUser?.uid;if(!uid)return;return onSnapshot(doc(db,'users',uid),{includeMetadataChanges:true},s=>{if(s.exists()&&!s.metadata.fromCache)setBalance(Number(s.data().coins||0))})},[]);
+ useEffect(()=>{const uid=auth.currentUser?.uid;if(!uid)return;return onSnapshot(doc(db,'users',uid),{includeMetadataChanges:true},s=>{if(s.exists()&&!s.metadata.fromCache){balanceVersion.current++;setBalance(Number(s.data().coins||0))}})},[]);
  useEffect(()=>{if(!round)return;setPublicRound(null);setPlayers([]);const base=doc(db,'sharedGames',game,'rounds',round.id);const onError=(e:any)=>setDataError(`Live game data cannot be loaded (${e.code||'connection-error'}). Check the game server connection.`);const off1=onSnapshot(base,{includeMetadataChanges:true},s=>{if(!s.metadata.fromCache){setPublicRound(s.data());setDataError('')}},onError);const off2=onSnapshot(collection(base,'players'),{includeMetadataChanges:true},s=>{if(!s.metadata.fromCache)setPlayers(s.docs.map(d=>({...d.data(),uid:d.id})).sort((a:any,b:any)=>b.total-a.total||a.uid.localeCompare(b.uid)))},onError);return()=>{off1();off2()}},[game,round?.id]);
  useEffect(()=>{if(!round)return;const onError=()=>setDataError('র‍্যাঙ্কিং আপডেট হচ্ছে। বেট চালু আছে।');const off=onSnapshot(query(collection(db,'sharedGames',game,'days',round.day,'ranking'),orderBy('won','desc'),limit(100)),s=>{if(!s.metadata.fromCache)setRanking(s.docs.map(d=>({...d.data(),uid:d.id})).sort((a:any,b:any)=>b.won-a.won||a.uid.localeCompare(b.uid)))},onError);return off},[game,round?.day]);
  useEffect(()=>onSnapshot(query(collection(db,'sharedGames',game,'rounds'),orderBy('startAt','desc'),limit(10)),s=>{if(!s.metadata.fromCache)setHistory(s.docs.map(d=>d.data()).filter(r=>r.result))},()=>{}),[game,round?.id]);
@@ -25,100 +26,11 @@ export function useSharedGame(game:string){
  useEffect(()=>{if(!round?.week)return;return onSnapshot(query(collection(db,'sharedGames',game,'weeks',round.week,'ranking'),orderBy('won','desc'),limit(100)),s=>{if(!s.metadata.fromCache)setWeekly(s.docs.map(d=>({...d.data(),uid:d.id})))},()=>{})},[game,round?.week]);
  useEffect(()=>{const uid=auth.currentUser?.uid;if(!uid)return;return onSnapshot(query(collection(db,'gameReceipts'),where('uid','==',uid),orderBy('createdAt','desc'),limit(100)),s=>setPersonalHistory(s.docs.map(d=>d.data()).filter(r=>r.game===game).sort((a,b)=>b.createdAt-a.createdAt).slice(0,50)),()=>{})},[game]);
  useEffect(()=>{if(game!=='jackpot_fruit')return;return onSnapshot(doc(db,'sharedGames',game),s=>setJackpotPool(Number(s.data()?.pool||0)),()=>{})},[game]);
- const [optimisticBets,setOptimisticBets]=useState<Record<number,number>>({});
- useEffect(()=>{setOptimisticBets({})},[round?.id]);
- const phase=round?sharedPhase(round,now):'ended',connected=!!anchor.current&&performance.now()-lastSync.current<15000&&!error;
- const rawMe=players.find(p=>p.uid===auth.currentUser?.uid);
- const me=rawMe?{
-   ...rawMe,
-   bets:(rawMe.bets||Array(10).fill(0)).map((b:number,i:number)=>b+(optimisticBets[i]||0)),
-   total:Number(rawMe.total||0)+Object.values(optimisticBets).reduce((sum,v)=>sum+v,0)
- }:(Object.keys(optimisticBets).length?{
-   uid:auth.currentUser?.uid,
-   name:'User',
-   bets:Array(10).fill(0).map((_,i)=>optimisticBets[i]||0),
-   total:Object.values(optimisticBets).reduce((sum,v)=>sum+v,0),
-   settled:false,
-   payout:0
- }:null);
- const submit=async(request:any)=>{
-   if(busyRef.current)return;
-   busyRef.current=true;
-   setBusy(true);
-   const generation=epoch.current,key=pendingBetKey(auth.currentUser?.uid||'',request.game);
-   try{
-     const result=await callSharedGame<any>(serverUrl,'bet',request);
-     clearPendingBet(localStorage,key,request.requestId);
-     if(!active.current||generation!==epoch.current)return;
-     pending.current=null;
-     setBalance(result.data.balance);
-     setOptimisticBets(prev=>{
-       const copy={...prev};
-       const placed=request.amount*request.taps;
-       if(copy[request.index]){
-         copy[request.index]=Math.max(0,copy[request.index]-placed);
-         if(!copy[request.index])delete copy[request.index];
-       }
-       return copy;
-     });
-     setStatus(`বেট সফল: ${result.data.amount.toLocaleString()} কয়েন`);
-     setError('');
-     void sync();
-   }catch(e:any){
-     if(!active.current||generation!==epoch.current)return;
-     const definite=['functions/invalid-argument','functions/failed-precondition','functions/unauthenticated','functions/permission-denied'].includes(e.code);
-     if(definite){
-       clearPendingBet(localStorage,key,request.requestId);
-       pending.current=null;
-       tapQueue.current=[];
-       const messages:any={'bet-closed':'সময় শেষ—এই রাউন্ডে বেট নেওয়া হয়নি।','insufficient-coins':'কয়েন যথেষ্ট নয়।','inactive-user':'এই অ্যাকাউন্টে বেট করার অনুমতি নেই।','bet-limit':'এই রাউন্ডের বেট সীমা পূর্ণ।'};
-       setStatus(messages[e.message]||'বেট নেওয়া হয়নি।');
-     }else setStatus('বেটের উত্তর পাওয়া যায়নি। একই বেট যাচাই করতে আবার চেষ্টা করুন।');
-   }finally{
-     if(generation===epoch.current){busyRef.current=false;}
-     if(active.current&&generation===epoch.current){
-       setBusy(false);
-       if(!pending.current)tapTimer.current=setTimeout(()=>drain.current(),15);
-     }
-   }
- };
- drain.current=()=>{
-   tapTimer.current=null;
-   if(busyRef.current||pending.current||!active.current)return;
-   const q=tapQueue.current;
-   if(!q.length)return;
-   const first=q.shift();
-   if(first.roundId!==roundRef.current?.id||sharedPhase(roundRef.current!,serverTime(anchor.current!,performance.now()))!=='bet'){
-     tapQueue.current=[];
-     setStatus('সময় শেষ—সারিতে থাকা বেট নেওয়া হয়নি।');
-     return;
-   }
-   let taps=1;
-   const cap=Math.min(100,Math.max(20,Number((roundRef.current as any)?.maxTapBatch||50)));
-   while(q.length&&taps<cap&&q[0].roundId===first.roundId&&q[0].index===first.index&&q[0].amount===first.amount){
-     q.shift();
-     taps++;
-   }
-   const request={...first,taps,requestId:crypto.randomUUID()};
-   pending.current=request;
-   try{localStorage.setItem(pendingBetKey(auth.currentUser?.uid||'',game),JSON.stringify(request))}catch{}
-   void submit(request);
- };
+ const phase=round?sharedPhase(round,now):'ended',connected=!!anchor.current&&performance.now()-lastSync.current<15000&&!error,me=players.find(p=>p.uid===auth.currentUser?.uid);
+ const submit=async(request:any)=>{if(busyRef.current)return;busyRef.current=true;setBusy(true);const generation=epoch.current,key=pendingBetKey(auth.currentUser?.uid||'',request.game);try{const result=await callSharedGame<any>(serverUrl,'bet',request);clearPendingBet(localStorage,key,request.requestId);if(!active.current||generation!==epoch.current)return;pending.current=null;balanceVersion.current++;setBalance(result.data.balance);setStatus(`বেট সফল: ${result.data.amount.toLocaleString()} কয়েন`);setError('');void sync();}catch(e:any){if(!active.current||generation!==epoch.current)return;const definite=['functions/invalid-argument','functions/failed-precondition','functions/unauthenticated','functions/permission-denied'].includes(e.code);if(definite){clearPendingBet(localStorage,key,request.requestId);pending.current=null;tapQueue.current=[];const messages:any={'bet-closed':'সময় শেষ—এই রাউন্ডে বেট নেওয়া হয়নি।','insufficient-coins':'কয়েন যথেষ্ট নয়।','inactive-user':'এই অ্যাকাউন্টে বেট করার অনুমতি নেই।','bet-limit':'এই রাউন্ডের বেট সীমা পূর্ণ।'};setStatus(messages[e.message]||'বেট নেওয়া হয়নি।');}else setStatus('বেটের উত্তর পাওয়া যায়নি। একই বেট যাচাই করতে আবার চেষ্টা করুন।');}finally{if(generation===epoch.current){busyRef.current=false;}if(active.current&&generation===epoch.current){setBusy(false);if(!pending.current)tapTimer.current=setTimeout(()=>drain.current(),80)}}};
+ drain.current=()=>{tapTimer.current=null;if(busyRef.current||pending.current||!active.current)return;const q=tapQueue.current;if(!q.length)return;const first=q.shift();if(first.roundId!==roundRef.current?.id||sharedPhase(roundRef.current!,serverTime(anchor.current!,performance.now()))!=='bet'){tapQueue.current=[];setStatus('সময় শেষ—সারিতে থাকা বেট নেওয়া হয়নি।');return;}let taps=1;const cap=Math.min(100,Number((roundRef.current as any)?.maxTapBatch||1));while(q.length&&taps<cap&&q[0].roundId===first.roundId&&q[0].index===first.index&&q[0].amount===first.amount){q.shift();taps++;}const request={...first,taps,requestId:crypto.randomUUID()};pending.current=request;try{localStorage.setItem(pendingBetKey(auth.currentUser?.uid||'',game),JSON.stringify(request))}catch{}void submit(request)};
  reconcilePending.current=()=>{if(pending.current&&!busyRef.current)void submit(pending.current)};
- const bet=(index:number,amount:number)=>{
-   if(pending.current&&!busyRef.current)return submit(pending.current);
-   if(!roundRef.current||!connected){setStatus('সার্ভারের সাথে সময় মেলেনি—সংযোগ যাচাই হচ্ছে।');void sync();return;}
-   if(phase!=='bet'){setStatus('এই রাউন্ডের বেটের সময় শেষ।');return;}
-   if(!BET_CHIPS.includes(amount))return;
-   if(tapQueue.current.length>=250){setStatus('সারিতে থাকা বেট সেভ হচ্ছে—একটু অপেক্ষা করুন।');return;}
-   setOptimisticBets(prev=>({...prev,[index]:(prev[index]||0)+amount}));
-   setBalance(b=>Math.max(0,b-amount));
-   tapQueue.current.push({game,roundId:roundRef.current.id,index,amount});
-   setStatus(`বেট সারিতে আছে: ${tapQueue.current.length}টি ট্যাপ`);
-   if(!busyRef.current&&!pending.current&&!tapTimer.current){
-     tapTimer.current=setTimeout(()=>drain.current(),15);
-   }
- };
+ const bet=(index:number,amount:number)=>{if(pending.current&&!busyRef.current)return submit(pending.current);if(!roundRef.current||!connected){setStatus('সার্ভারের সাথে সময় মেলেনি—সংযোগ যাচাই হচ্ছে।');void sync();return;}if(phase!=='bet'){setStatus('এই রাউন্ডের বেটের সময় শেষ।');return;}if(!BET_CHIPS.includes(amount))return;if(tapQueue.current.length>=250){setStatus('সারিতে থাকা বেট সেভ হচ্ছে—একটু অপেক্ষা করুন।');return;}tapQueue.current.push({game,roundId:roundRef.current.id,index,amount});setStatus(`বেট সারিতে আছে: ${tapQueue.current.length}টি ট্যাপ`);if(!busyRef.current&&!pending.current&&!tapTimer.current){tapTimer.current=setTimeout(()=>drain.current(),80)}};
 
  return {round,publicRound,players,ranking,weekly,jackpotPool,personalHistory,history,error:error||dataError,balance,busy,now,status,phase,connected,me,bet,sync,pending:pending.current,uncertainty:anchor.current?.uncertainty||0};
 }

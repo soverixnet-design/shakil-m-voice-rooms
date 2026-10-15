@@ -2378,7 +2378,7 @@ export default function App() {
 
       {/* 7. Native Embedded Games (User Requested Games) with In-Room Header */}
       {activeGame && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-[#0c0824]" style={{display:isGameMinimized?'none':undefined}}>
+        <div className={"fixed z-50 flex flex-col bg-[#0c0824] "+(activeRoom&&!isRoomMinimized?"room-game-sheet":"inset-0")} style={{display:isGameMinimized?'none':undefined}}>
           {/* In-Room Status Bar: Keeps user in voice room while playing! */}
           {activeRoom && (
             <div className="bg-[#0c0824]/95 border-b-2 border-cyan-400 px-3 py-2 flex items-center justify-between text-white backdrop-blur-md shadow-2xl z-[60] shrink-0">
@@ -2423,7 +2423,7 @@ export default function App() {
           )}
 
           <div className="flex-1 relative overflow-hidden">
-            {['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'].includes(activeGame) && <UploadedSharedGame key={activeGame} game={activeGame} userName={S.name} onClose={()=>setActiveGame(null)} onWallet={()=>{setActiveGame(null);setTab('wallet');setIsRoomMinimized(Boolean(activeRoom))}}/>}
+            {['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'].includes(activeGame) && <UploadedSharedGame key={activeGame} game={activeGame} userName={S.name} publicId={String(S.id||'')} avatar={S.img||S.av} inRoom={Boolean(activeRoom&&!isRoomMinimized)} onClose={()=>setActiveGame(null)} onWallet={()=>{setActiveGame(null);setTab('wallet');setIsRoomMinimized(Boolean(activeRoom))}}/>}
             {activeGame==='slots'&&<SharedRoundGame game="slots" onClose={()=>setActiveGame(null)}/>}
             {activeGame==='chess_3d'&&<div className="w-full h-full flex flex-col bg-[#15191a]"><div className="p-2.5 bg-black/60 border-b border-amber-500/30 flex justify-between items-center text-white px-4 shrink-0"><b>♟️ দাবা ৩ডি (3D Chess)</b><button onClick={()=>setActiveGame(null)} className="px-3 py-1 bg-red-600/80 hover:bg-red-600 rounded-xl text-xs font-bold active:scale-95">✕ গেম বন্ধ</button></div><iframe title="দাবা ৩ডি" src="./games/chess.html" className="w-full flex-1 border-0" /></div>}
             {activeGame==='carrom'&&<div className="w-full h-full flex flex-col bg-[#1b1464]"><div className="p-2.5 bg-black/60 border-b border-emerald-500/30 flex justify-between items-center text-white px-4 shrink-0"><b>🔴 ক্যারাম বোর্ড (Carrom Board)</b><button onClick={()=>setActiveGame(null)} className="px-3 py-1 bg-red-600/80 hover:bg-red-600 rounded-xl text-xs font-bold active:scale-95">✕ গেম বন্ধ</button></div><iframe title="ক্যারাম" src="./games/carrom.html" className="w-full flex-1 border-0" /></div>}
