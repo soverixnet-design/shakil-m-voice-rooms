@@ -1,4 +1,5 @@
 export const liveGames = [
+  {id:'food_wheel',name:'ফুড হুইল',icon:'🍽️',color:'#00bcb0'},
   {id:'greedy_lion',name:'Greedy Lion',icon:'🦁',color:'#F5A31B'},
   {id:'lion_wheel',name:'সিংহ ফুড হুইল',icon:'🎡',color:'#E0381B'},
   {id:'night_wheel',name:'নাইট ফুড হুইল',icon:'🌙',color:'#7A3BFF'},
