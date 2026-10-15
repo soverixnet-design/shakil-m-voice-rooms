@@ -1,3 +1,4 @@
+import {createDeviceService} from './device-service.js';
 import {createSellerDirectoryService} from './seller-directory.js';
 import {createStaffService} from './staff-service.js';
 import {createEventService} from './event-service.js';
@@ -39,7 +40,7 @@ const server=createGameHttpServer({service,verifyToken,origins,ready,voiceRelayC
 if(process.env.SUPABASE_DATABASE_URL){
  let probe;
  try{probe=createSupabaseDatabase();await probe.check();
-  if(ready){const migration=await migrateSocialData(database,probe);Object.assign(service,createWalletService(createSocialWalletStore(probe,database)),createSocialService(probe));socialDatabase=probe;
+  if(ready){const migration=await migrateSocialData(database,probe);Object.assign(service,createWalletService(createSocialWalletStore(probe,database)),createSocialService(probe),createDeviceService(probe));socialDatabase=probe;
   const store=createSocialWalletStore(probe,database);
   Object.assign(service,createSellerDirectoryService(probe),createReferralService(store),createEventService(probe),createStaffService(probe,getAuth(serverApp)));
   const disabledGame=async()=>{throw Object.assign(Error('game-ledger-not-migrated'),{code:'unavailable'});};

@@ -1,3 +1,4 @@
+import {deviceHeaders} from './deviceIdentity';
 import {gameServerUrl} from './gameServerUrl';
 import {withTimeout} from './authTimeout';
 import {requestJson} from './resilientRequest';
@@ -7,7 +8,7 @@ export async function loadAccountProfile({getToken,request,url,onStage=()=>{},pa
  try{token=await withTimeout(getToken(),20000)}catch(e:any){throw Object.assign(Error('Saved session could not be checked. Reconnecting without signing out.'),{code:'login/session-verification-failed'})}
  onStage('Connecting to your profile server… Your sign-in is saved.');
  try{
-  const result=await requestJson(`${gameServerUrl(url)}/api/account`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:'{}'},{request,retryable:true,timeoutMs:75000,pause});
+  const result=await requestJson(`${gameServerUrl(url)}/api/account`,{method:'POST',headers:{...deviceHeaders(),'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:'{}'},{request,retryable:true,timeoutMs:75000,pause});
   if(!result.data?.id||typeof result.data.name!=='string')throw Object.assign(Error('The server returned an incomplete profile.'),{code:'login/invalid-profile'});
   return result.data as {id:string;name:string;photoURL:string;coins:number;role:string};
  }catch(e:any){
