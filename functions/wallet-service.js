@@ -27,6 +27,7 @@ export function createWalletService(db,clock=Date.now){
     typeof data.receiverId!=='string'||!data.receiverId||data.receiverId.includes('/')||
     typeof data.roomId!=='string'||!data.roomId||data.roomId.includes('/')||
     typeof data.itemId!=='string'||!/^[A-Za-z0-9_-]{1,80}$/.test(data.itemId)||
+    !Number.isSafeInteger(data.quotedCost)||data.quotedCost<1||data.quotedCost>1000000||
     !Number.isSafeInteger(data.quantity)||data.quantity<1||data.quantity>777)throw Error('invalid-request');
   const {receiverId,roomId,itemId,quantity,requestId}=data;
   const receipt=db.doc(`walletRequests/${uid}_${requestId}`);
@@ -43,7 +44,7 @@ export function createWalletService(db,clock=Date.now){
    if(previous.exists){
     const old=previous.data();
     if(old.type!=='lucky_gift_sent'||old.receiverId!==receiverId||old.roomId!==roomId||
-      old.itemId!==itemId||old.quantity!==quantity)throw Error('request-conflict');
+      old.itemId!==itemId||old.quantity!==quantity||old.itemCost!==data.quotedCost)throw Error('request-conflict');
     return old;
    }
    const policy=validateLuckySettings(config.data());
@@ -51,7 +52,7 @@ export function createWalletService(db,clock=Date.now){
    const selected=builtin||(custom?.exists&&asset?.kind==='lucky-gift'&&asset.active===true?
     {id:itemId,name:asset.name,emoji:asset.icon||'🎁',image:asset.image||'',cost:asset.price}:null);
    if(!selected||!Number.isSafeInteger(Number(selected.cost))||Number(selected.cost)<1||
-      Number(selected.cost)>1000000)throw Error('invalid-gift');
+      Number(selected.cost)>1000000||Number(selected.cost)!==data.quotedCost)throw Error('invalid-gift');
    const sender=source.data(),recipient=destination.data();
    if(!active(sender)||!active(recipient)||sender.currentRoomId!==roomId||
       recipient.currentRoomId!==roomId)throw Error('inactive-user');
@@ -67,7 +68,7 @@ export function createWalletService(db,clock=Date.now){
    const event={type:'lucky_gift_sent',senderId:uid,userId:uid,receiverId,roomId,itemId,
     senderName:String(sender.name||'User').slice(0,80),receiverName:String(recipient.name||'User').slice(0,80),
     receiverPublicId:recipient.id||receiverId,receiverAvatar:String(recipient.photoURL||recipient.avatar||'👤'),
-    giftName:String(selected.name||'Lucky Gift').slice(0,80),emoji:String(selected.emoji||'🎁').slice(0,24),
+    giftName:String(selected.name||'Lucky Gift').slice(0,80),itemCost:Number(selected.cost),emoji:String(selected.emoji||'🎁').slice(0,24),
     giftImage:String(selected.image||''),quantity,cost,luckyMultiplier:outcome.multiplier,
     luckyReward:outcome.reward,createdAt:FieldValue.serverTimestamp()};
    const debit={coins:balance,giftSentCount:Number(sender.giftSentCount||0)+quantity,
