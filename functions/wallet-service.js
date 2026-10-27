@@ -36,7 +36,7 @@ export function createWalletService(db,clock=Date.now){
       typeof item.name!=='string'||!item.name.trim()||item.name.length>80||
       !Number.isSafeInteger(item.price)||item.price<1||item.price>1000000||
       typeof item.image!=='string'||item.image.length>600000||
-      !/^data:image\\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]*={0,2}$/.test(item.image))throw Error('invalid-request');
+      !/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]*={0,2}$/.test(item.image))throw Error('invalid-request');
     const ref=db.doc('assets/'+item.id);
     return db.runTransaction(async t=>{
      const existing=await t.get(ref);
