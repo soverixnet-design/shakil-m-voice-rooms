@@ -1,5 +1,5 @@
 import {createHmac,randomInt} from 'node:crypto';
-import {DEFAULT_LUCKY_GIFTS,LUCKY_MULTIPLIERS,validateLuckySettings,luckyOutcome} from './lucky-gift-engine.js';
+import {DEFAULT_LUCKY_GIFTS,LUCKY_MULTIPLIERS,validateLuckySettings,luckyBatchOutcome} from './lucky-gift-engine.js';
 import {FieldValue} from 'firebase-admin/firestore';
 const DEFAULT_GIFTS=[['❤️','হার্ট',1],['🌹','গোলাপ',10],['⭐','স্টার',250],['💍','লাভ রিং',750],['💎','ডায়মন্ড',1100],['🚗','VIP কার',2000],['🚀','রকেট',5000],['👑','ক্রাউন',15000]];
 export function createWalletService(db,clock=Date.now){
@@ -83,7 +83,7 @@ export function createWalletService(db,clock=Date.now){
   const settingsRef=db.doc('system/luckyGiftConfig');
   const builtin=DEFAULT_LUCKY_GIFTS.find(g=>g.id===itemId);
   const customRef=builtin?null:db.doc('assets/'+itemId);
-  const randomRoll=randomInt(10000); // Fixed across transaction retries.
+  const randomRolls=Array.from({length:quantity},()=>randomInt(10000)); // Per-gift rolls fixed across transaction retries.
   return db.runTransaction(async t=>{
    const [previous,source,destination,vault,config,custom]=await Promise.all([
     t.get(receipt),t.get(senderRef),uid===receiverId?t.get(senderRef):t.get(receiverRef),
@@ -108,7 +108,7 @@ export function createWalletService(db,clock=Date.now){
    if(!Number.isSafeInteger(cost)||cost>100000000)throw Error('invalid-gift');
    const before=Number(sender.coins||0),diamonds=Number(vault.data()?.balance||0);
    if(!Number.isSafeInteger(before)||before<cost)throw Error('insufficient-coins');
-   const outcome=luckyOutcome(cost,policy,()=>randomRoll);
+   const outcome=luckyBatchOutcome(Number(selected.cost),quantity,policy,(_max,index)=>randomRolls[index]);
    const balance=before-cost+outcome.reward;
    if(!Number.isSafeInteger(balance)||balance<0||!Number.isSafeInteger(diamonds+cost))
     throw Error('invalid-balance');
@@ -117,7 +117,7 @@ export function createWalletService(db,clock=Date.now){
     senderName:String(sender.name||'User').slice(0,80),receiverName:String(recipient.name||'User').slice(0,80),
     receiverPublicId:recipient.id||receiverId,receiverAvatar:String(recipient.photoURL||recipient.avatar||'👤'),
     giftName:String(selected.name||'Lucky Gift').slice(0,80),itemCost:Number(selected.cost),emoji:String(selected.emoji||'🎁').slice(0,24),
-    giftImage:String(selected.image||''),quantity,cost,luckyMultiplier:outcome.multiplier,
+    giftImage:String(selected.image||''),quantity,cost,luckyMultiplier:outcome.multiplier,luckyWins:outcome.wins,
     luckyReward:outcome.reward,createdAt:FieldValue.serverTimestamp()};
    const debit={coins:balance,giftSentCount:Number(sender.giftSentCount||0)+quantity,
     giftSentCoins:Number(sender.giftSentCoins||0)+cost};
