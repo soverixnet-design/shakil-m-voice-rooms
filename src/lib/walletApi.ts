@@ -16,6 +16,6 @@ function resolveServerUrl(){
  if(refreshedAt){void pending;return Promise.resolve(serverUrl)}
  return pending;
 }
-export async function walletApi(action:'sync'|'gift'|'exchange'|'voice-config'|'referral'|'events'|'staff'|'sellers'|'devices',data:any){
+export async function walletApi(action:'sync'|'gift'|'lucky-gift'|'exchange'|'voice-config'|'referral'|'events'|'staff'|'sellers'|'devices',data:any){
  return (await callSharedGame<any>(await resolveServerUrl(),action,data)).data;
 }

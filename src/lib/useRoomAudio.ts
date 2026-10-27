@@ -15,9 +15,9 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
  const error=useRef(''),sdk=useRef<IAgoraRTC|null>(null),intent=useRef(false);
  const local=useRef<ILocalAudioTrack|null>(null),current=useRef<{client?:any;start:()=>Promise<void>;update:(force?:boolean)=>Promise<boolean>;dead:boolean}|null>(null);
  function playback(){for(const user of current.current?.client?.remoteUsers||[]){const off=!flags.current.soundOn||flags.current.controls[String(user.uid)]?.muted||flags.current.controls[String(user.uid)]?.blocked;user.audioTrack?.setVolume(off?0:100);if(!off)user.audioTrack?.play();}}
- function unlock(){try{const result=current.current?.client?.provider==='tencent'?current.current.client.unlock():sdk.current?.resumeAudioContext();void Promise.resolve(result).then(()=>{setAudioBlocked(false);playback()},()=>setAudioBlocked(true));}catch{setAudioBlocked(true);}}
+ function unlock(){try{const result=['tencent','livekit'].includes(current.current?.client?.provider)?current.current?.client?.unlock():sdk.current?.resumeAudioContext();void Promise.resolve(result).then(()=>{setAudioBlocked(false);playback()},()=>setAudioBlocked(true));}catch{setAudioBlocked(true);}}
  async function permission(){
-  if(!enabled||!flags.current.canSpeak){error.current='মাইক চালু করতে আগে সিটে বসুন।';setStatus(error.current);return false;}
+  if(!enabled||!flags.current.canSpeak){error.current='Take a seat before turning on your microphone.';setStatus(error.current);return false;}
   const session=current.current;error.current='';intent.current=true;unlock();
   try{
    if(!session||session.dead)throw Error('voice-not-ready');
@@ -44,16 +44,16 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
   let pendingConfig:any;
   const connection=retryableVoiceConnection(async()=>{
    if(client){client.removeAllListeners();await client.leave().catch(()=>{});published=false;session.client=undefined;}
-   if(alive())setStatus('ভয়েস সার্ভারের অনুমতি যাচাই হচ্ছে…');const config=pendingConfig||await walletApi('voice-config',{roomId});pendingConfig=undefined;joinedConfig=config;activeConfig=config;if(!alive())throw Error('voice-not-ready');
-   if(!['agora','tencent'].includes(config.provider))throw Error('voice-not-configured');
+   if(alive())setStatus('Checking voice server access…');const config=pendingConfig||await walletApi('voice-config',{roomId});pendingConfig=undefined;joinedConfig=config;activeConfig=config;if(!alive())throw Error('voice-not-ready');
+   if(!['agora','tencent','livekit'].includes(config.provider))throw Error('voice-not-configured');
    const {default:AgoraRTC}=await import('agora-rtc-sdk-ng');if(!alive())throw Error('voice-not-ready');sdk.current=AgoraRTC;
-   AgoraRTC.setLogLevel(3);client=config.provider==='tencent'?(await import('./tencentVoiceClient')).createTencentVoiceClient(config):AgoraRTC.createClient({mode:'live',codec:'vp8'});session.client=client;
-   if(config.provider==='tencent'){client.on('voice-error',report);client.on('autoplay-failed',()=>setAudioBlocked(true));}
+   AgoraRTC.setLogLevel(3);client=config.provider==='livekit'?(await import('./livekitVoiceClient')).createLiveKitVoiceClient(config):config.provider==='tencent'?(await import('./tencentVoiceClient')).createTencentVoiceClient(config):AgoraRTC.createClient({mode:'live',codec:'vp8'});session.client=client;
+   if(config.provider==='tencent'||config.provider==='livekit'){client.on('voice-error',report);client.on('autoplay-failed',()=>setAudioBlocked(true));}
    client.on('user-published',async(user:any,type:string)=>{if(type!=='audio'||!alive())return;try{await client!.subscribe(user,type);audible();}catch(e){report(e);}});
    client.on('user-unpublished',audible);client.on('user-left',audible);
    client.on('token-privilege-will-expire',()=>{void session.update();});
    client.on('token-privilege-did-expire',()=>{void session.update();});
-   client.on('connection-state-change',(state:string)=>{if(alive()){setConnectionState(state);if(state==='DISCONNECTED'){connection.reset();setSpeaking(false);}setStatus(state==='CONNECTED'?'ভয়েস সংযোগ হয়েছে।':state==='RECONNECTING'?'ভয়েস আবার সংযোগ হচ্ছে…':'ভয়েস সংযোগ হচ্ছে…');}});
+   client.on('connection-state-change',(state:string)=>{if(alive()){setConnectionState(state);if(state==='DISCONNECTED'){connection.reset();setSpeaking(false);}setStatus(state==='CONNECTED'?'Voice connected.':state==='RECONNECTING'?'Reconnecting voice…':'Connecting voice…');}});
    try{await client.setClientRole('audience');await withTimeout(client.join(config.appId,config.channel,config.token,config.uid),30000);
     if(!alive())throw Error('voice-not-ready');
     for(const user of client.remoteUsers)if(user.hasAudio)await client.subscribe(user,'audio');audible();
@@ -65,7 +65,7 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
     const wants=(force===true||intent.current||flags.current.micOn)&&flags.current.canSpeak;
     if(local.current&&!wants)await local.current.setEnabled(false);
     const config=!force&&joinedConfig?joinedConfig:await walletApi('voice-config',{roomId});joinedConfig=undefined;
-    if(config.provider!==activeConfig.provider||config.epoch!==activeConfig.epoch||config.provider==='tencent'&&(activeConfig.expiresAt-Date.now()<25000||config.canPublish!==activeConfig.canPublish)){
+    if(config.provider!==activeConfig.provider||config.epoch!==activeConfig.epoch||config.provider==='tencent'&&(activeConfig.expiresAt-Date.now()<25000||config.canPublish!==activeConfig.canPublish)||config.provider==='livekit'&&(activeConfig.expiresAt-Date.now()<90000||config.canPublish!==activeConfig.canPublish)){
      local.current?.close();local.current=null;pendingConfig=config;connection.reset();await connection.start();if(!alive()||!client)return false;joinedConfig=undefined;
     }
     client.setConfig?.(config);
@@ -77,7 +77,7 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
     }
     const result=await updateVoicePublication({client,track:local.current,config,wants,allowed,alive,published});published=result.published;
     if(force===true&&!result.speaking)throw Error('seat-permission-required');
-    if(alive()){for(const remote of client.remoteUsers)if(remote.hasAudio&&!remote.audioTrack)await client.subscribe(remote,'audio').catch(()=>{});error.current='';setDiagnostic('');setSpeaking(result.speaking);setStatus(result.speaking?'মাইক চালু হয়েছে।':'ভয়েস সংযোগ হয়েছে। মাইক বন্ধ আছে।');audible();}return force===true?result.speaking:true;
+    if(alive()){for(const remote of client.remoteUsers)if(remote.hasAudio&&!remote.audioTrack)await client.subscribe(remote,'audio').catch(()=>{});error.current='';setDiagnostic('');setSpeaking(result.speaking);setStatus(result.speaking?'Microphone is on.':'Voice connected. Microphone is off.');audible();}return force===true?result.speaking:true;
    }).catch(async e=>{if(alive()){if(client&&published){await client.unpublish().catch(()=>{});published=false;}local.current?.close();local.current=null;intent.current=false;report(e);}return false;});queue=task.then(()=>{});if(!force){refreshPending=task;void task.finally(()=>{if(refreshPending===task)refreshPending=undefined;});}return task;
   }};
   current.current=session;intent.current=false;error.current='';
@@ -91,5 +91,5 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
  useEffect(()=>{if(!enabled)return;intent.current=micOn;if(local.current&&(!micOn||!canSpeak))local.current.getMediaStreamTrack().enabled=false;void current.current?.update();},[micOn,canSpeak,enabled]);
  useEffect(()=>{playback();},[soundOn,controls]);
  useEffect(()=>{(local.current as any)?.setVoiceEffect?.(voiceEffect)},[voiceEffect]);
- return {effectsAvailable,micLevel,remoteAudioCount,connectionState,status,diagnostic,speakers,speaking,audioBlocked,permission,unlock,reconnect:async()=>{const session=current.current;if(!session)return false;return session.update(intent.current||flags.current.micOn)},failureReason:()=>error.current||'মাইক চালু হয়নি। আবার চেষ্টা করুন।'};
+ return {effectsAvailable,micLevel,remoteAudioCount,connectionState,status,diagnostic,speakers,speaking,audioBlocked,permission,unlock,reconnect:async()=>{const session=current.current;if(!session)return false;return session.update(intent.current||flags.current.micOn)},failureReason:()=>error.current||'Microphone did not start. Please retry.'};
 }

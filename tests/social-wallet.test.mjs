@@ -53,3 +53,23 @@ test('animated gifts use a registered asset ID without uploading the animation o
  await assert.rejects(f.service.gift({...request,item:{...request.item,cost:1},requestId:'animated-request-22345678'},'sender'),/invalid-gift/);
  f.put('assets/rose-animation',{kind:'gift',name:'Animated Rose',price:10,image,active:false});await assert.rejects(f.service.gift({...request,requestId:'animated-request-32345678'},'sender'),/invalid-gift/);
 });
+
+test('Supabase-backed Lucky Gifts settle each quantity and persist one idempotent receipt',async()=>{
+ const f=fixture();
+ f.put('system/luckyGiftConfig',{enabled:true,chancesBps:{'5':10000,'10':0,'50':0,'100':0},maxPayout:100000000});
+ f.put('users/sender',{name:'Sender',coins:1000,status:'active',currentRoomId:'room'});
+ const data={action:'send',roomId:'room',receiverId:'receiver',itemId:'kitty',quotedCost:20,quantity:2,requestId:'supabase-lucky-12345678'};
+ const first=await f.service.luckyGift(data,'sender');
+ const second=await f.service.luckyGift(data,'sender');
+ assert.equal(first.balance,1160);
+ assert.equal(first.luckyWins,2);
+ assert.equal(first.luckyReward,200);
+ assert.deepEqual(second,first);
+ assert.equal(decodeFields(f.rows.get('users/sender').fields).coins,1160);
+ assert.equal(decodeFields(f.rows.get('diamondWallets/receiver').fields).balance,240);
+ assert.equal([...f.rows.keys()].filter(path=>path.startsWith('transactions/lucky_')).length,1);
+ assert.equal([...f.rows.keys()].filter(path=>path.startsWith('rooms/room/giftEvents/lucky_')).length,1);
+ assert.equal([...f.rows.keys()].filter(path=>path.startsWith('liveAnnouncements/lucky_')).length,1);
+ await assert.rejects(f.service.luckyGift({...data,quantity:3},'sender'),/request-conflict/);
+ assert.equal(decodeFields(f.rows.get('users/sender').fields).coins,1160);
+});

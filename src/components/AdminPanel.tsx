@@ -94,7 +94,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // Room Creation / Edit State
   const [newRoomName, setNewRoomName] = useState('');
-  const [newRoomHost, setNewRoomHost] = useState(appState.name || 'অ্যাডমিন');
+  const [newRoomHost, setNewRoomHost] = useState(appState.name || 'Admin');
   const [newRoomCategory, setNewRoomCategory] = useState('আড্ডা');
   const [newRoomCover, setNewRoomCover] = useState('🎤');
   const [newRoomTag, setNewRoomTag] = useState('Official');
@@ -128,7 +128,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return onSnapshot(collection(db, 'users'), snapshot => {
       setUserList(snapshot.docs.map(item => ({ ...item.data(), uid: item.id,
         id: item.data().id || item.data().userId || item.id,
-        name: item.data().name || item.data().email || 'ইউজার',
+        name: item.data().name || item.data().email || 'User',
         av: item.data().avatar || '🧑' })));
       setUsersLoading(false); setUsersError('');
     }, () => { setUsersLoading(false); setUsersError('ইউজার তালিকা লোড হয়নি। অনুমতি ও সংযোগ পরীক্ষা করুন।'); });

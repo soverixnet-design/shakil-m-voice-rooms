@@ -14,6 +14,7 @@ import {initializeApp,cert} from 'firebase-admin/app';
 import {getFirestore,FieldValue} from 'firebase-admin/firestore';
 import {getAuth} from 'firebase-admin/auth';
 import {createWalletService} from './wallet-service.js';
+import {withLuckyRoomMirror} from './lucky-gift-mirror.js';
 import {createGameService} from './service.js';
 import {createGameHttpServer} from './http-server.js';
 const PROJECT='gen-lang-client-0043151803',DATABASE='ai-studio-22dd0b7a-14da-47df-9bc8-d4b58ab5ab0b';
@@ -40,8 +41,11 @@ const server=createGameHttpServer({service,verifyToken,origins,ready,voiceRelayC
 if(process.env.SUPABASE_DATABASE_URL){
  let probe;
  try{probe=createSupabaseDatabase();await probe.check();
-  if(ready){const migration=await migrateSocialData(database,probe);Object.assign(service,createWalletService(createSocialWalletStore(probe,database)),createSocialService(probe),createDeviceService(probe));socialDatabase=probe;
+  if(ready){const migration=await migrateSocialData(database,probe);
   const store=createSocialWalletStore(probe,database);
+  const socialWallet=createWalletService(store);
+  socialWallet.luckyGift=withLuckyRoomMirror(socialWallet.luckyGift,database,(message,code)=>console.warn(message,code));
+  Object.assign(service,socialWallet,createSocialService(probe),createDeviceService(probe));socialDatabase=probe;
   Object.assign(service,createSellerDirectoryService(probe),createReferralService(store),createEventService(probe),createStaffService(probe,getAuth(serverApp)));
   const disabledGame=async()=>{throw Object.assign(Error('game-ledger-not-migrated'),{code:'unavailable'});};
   service.bet=disabledGame;service.sync=disabledGame;service.sweep=async()=>{};

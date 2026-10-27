@@ -123,7 +123,7 @@ const COUNTRIES = [
   ['🇹🇷', 'তুরস্ক'], ['🇪🇬', 'মিশর'], ['🌍', 'অন্যান্য'],
 ];
 
-const CT = ['সব', 'চ্যাট', 'গেম', 'নতুন', 'ইভেন্ট', 'পার্টি'];
+const CT = ['All', 'Chat', 'Game', 'New', 'Events', 'Party'];
 const FL = [
   ['🇧🇩', 'বাংলাদেশ'], ['🇸🇦', 'সৌদি'], ['🇮🇳', 'ভারত'],
   ['🇵🇰', 'পাকিস্তান'], ['🇺🇸', 'USA'], ['🇵🇭', 'ফিলিপাইন'],
@@ -188,7 +188,7 @@ const DEFAULT_CUSTOM_GIFTS = [
   { id: 'g2', name: 'গোলাপ', icon: '🌹', price: 10, type: 'romantic' },
   { id: 'g3', name: 'স্টার', icon: '⭐', price: 250, type: 'popular' },
   { id: 'g4', name: 'লাভ রিং', icon: '💍', price: 750, type: 'romantic' },
-  { id: 'g5', name: 'ডায়মন্ড', icon: '💎', price: 1100, type: 'luxury' },
+  { id: 'g5', name: 'diamonds', icon: '💎', price: 1100, type: 'luxury' },
   { id: 'g6', name: 'VIP কার', icon: '🚗', price: 2000, type: 'luxury' },
   { id: 'g7', name: 'রকেট', icon: '🚀', price: 5000, type: 'epic' },
   { id: 'g8', name: 'ক্রাউন', icon: '👑', price: 15000, type: 'royal' },
@@ -219,7 +219,7 @@ export default function App() {
       }
     } catch (_) {}
     return {
-      name: 'ইউজার',
+      name: 'User',
       id: String(100000 + Math.floor(Math.random() * 899999)),
       av: '😎',
       img: '',
@@ -231,7 +231,7 @@ export default function App() {
       bn: { t: 'ভয়েস রুমে আড্ডা দিন, গিফট পাঠান, গেম খেলুন! 🎉', g: 0 },
       rew: [100, 200, 300, 500, 800, 1000, 2000],
       hist: ['+50,000 — ওয়েলকাম কয়েন'],
-      cat: 'সব',
+      cat: 'All',
       country: '🇧🇩 বাংলাদেশ',
       age: 22,
       dob: '2004-01-01',
@@ -279,12 +279,12 @@ export default function App() {
         { u: 100, c: 150000 },
       ],
       rooms: [
-        { id: '30101', name: 'বাংলা আড্ডা রুম', host: 'রাফি', cv: '🎤', c: 'চ্যাট', th: 0, d: 1, n: 128, flag: '🇧🇩', tag: 'আড্ডা', ann: 'স্বাগতম! সবাই মিলে আড্ডা দিই 🎉' },
-        { id: '30102', name: 'গান ও গজল', host: 'নুসরাত', cv: '🎶', c: 'পার্টি', th: 1, d: 1, n: 76, flag: '🇧🇩', tag: 'Enjoy Music', ann: 'আজকের গান: পুরোনো দিনের গান 🎶' },
-        { id: '30103', name: 'গেম জোন', host: 'সাব্বির', cv: '🎮', c: 'গেম', th: 2, d: 1, n: 54, flag: '🇸🇦', tag: 'Games', ann: 'গেম খেলুন, কয়েন জিতুন!' },
-        { id: '30104', name: 'নতুনদের আড্ডা', host: 'মিম', cv: '💬', c: 'নতুন', th: 3, d: 1, n: 31, flag: '🇮🇳', tag: 'Newcomers', ann: 'নতুনদের স্বাগতম!' },
-        { id: '30105', name: 'ঈদের উৎসব', host: 'তানভীর', cv: '🌙', c: 'ইভেন্ট', th: 4, d: 1, n: 92, flag: '🇧🇩', tag: 'Event', ann: 'উৎসবের আমেজে আসুন 🌙' },
-        { id: '30106', name: 'লাভ ফরএভার', host: 'সাদিয়া', cv: '💞', c: 'পার্টি', th: 5, d: 1, n: 106, flag: '🇵🇰', tag: 'Love', ann: 'ভালোবাসার গান ও গল্প 💞' },
+        { id: '30101', name: 'বাংলা আড্ডা রুম', host: 'রাফি', cv: '🎤', c: 'Chat', th: 0, d: 1, n: 128, flag: '🇧🇩', tag: 'আড্ডা', ann: 'Welcome! Let’s hang out together 🎉' },
+        { id: '30102', name: 'গান ও গজল', host: 'নুসরাত', cv: '🎶', c: 'Party', th: 1, d: 1, n: 76, flag: '🇧🇩', tag: 'Enjoy Music', ann: 'আজকের গান: পুরোনো দিনের গান 🎶' },
+        { id: '30103', name: 'গেম জোন', host: 'সাব্বির', cv: '🎮', c: 'Game', th: 2, d: 1, n: 54, flag: '🇸🇦', tag: 'Games', ann: 'গেম খেলুন, কয়েন জিতুন!' },
+        { id: '30104', name: 'নতুনদের আড্ডা', host: 'মিম', cv: '💬', c: 'New', th: 3, d: 1, n: 31, flag: '🇮🇳', tag: 'Newcomers', ann: 'নতুনদের স্বাগতম!' },
+        { id: '30105', name: 'ঈদের উৎসব', host: 'তানভীর', cv: '🌙', c: 'Events', th: 4, d: 1, n: 92, flag: '🇧🇩', tag: 'Event', ann: 'উৎসবের আমেজে আসুন 🌙' },
+        { id: '30106', name: 'লাভ ফরএভার', host: 'সাদিয়া', cv: '💞', c: 'Party', th: 5, d: 1, n: 106, flag: '🇵🇰', tag: 'Love', ann: 'ভালোবাসার গান ও গল্প 💞' },
       ],
     };
   });
@@ -370,7 +370,7 @@ export default function App() {
   const [roomLibrary,setRoomLibrary]=useState<any[]>([]);
   useEffect(()=>{if(!fbUser?.uid){setRoomLibrary([]);return;}return onSnapshot(collection(db,'users',fbUser.uid,'roomLibrary'),snap=>setRoomLibrary(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a:any,b:any)=>(b.visitedAt?.toMillis?.()||0)-(a.visitedAt?.toMillis?.()||0))));},[fbUser?.uid]);
   useEffect(()=>{if(!activeRoom||!fbUser?.uid)return;void setDoc(doc(db,'users',fbUser.uid,'roomLibrary',String(activeRoom.id)),{visitedAt:serverTimestamp()},{merge:true}).catch(()=>toast('রুমের হিস্ট্রি সেভ হয়নি। নতুন Rules প্রকাশ করুন।'));},[activeRoom?.id,fbUser?.uid]);
-  const [newRoomCategory, setNewRoomCategory] = useState('চ্যাট');
+  const [newRoomCategory, setNewRoomCategory] = useState('Chat');
   const [newRoomTag, setNewRoomTag] = useState('আড্ডা');
   const [newRoomIcon, setNewRoomIcon] = useState('🎤');
   const [newRoomAnn, setNewRoomAnn] = useState('');
@@ -501,7 +501,7 @@ export default function App() {
   useEffect(() => {
     if (!fbUser?.uid) return;
     const ref = doc(db, 'users', fbUser.uid);
-    const room = activeRoom ? {id:activeRoom.id,name:activeRoom.name,host:activeRoom.host||'',hostId:activeRoom.hostId||'',cv:activeRoom.cv||'🎙️',c:activeRoom.c||'চ্যাট',th:activeRoom.th||0,sc:activeRoom.sc||8,d:activeRoom.d||false,ann:activeRoom.ann||''} : null;
+    const room = activeRoom ? {id:activeRoom.id,name:activeRoom.name,host:activeRoom.host||'',hostId:activeRoom.hostId||'',cv:activeRoom.cv||'🎙️',c:activeRoom.c||'Chat',th:activeRoom.th||0,sc:activeRoom.sc||8,d:activeRoom.d||false,ann:activeRoom.ann||''} : null;
     const beat = () => updateDoc(ref, {online:Boolean(room)||document.visibilityState==='visible',lastSeen:serverTimestamp()}).catch(()=>{});
     beat(); const timer = setInterval(beat,30000);
     document.addEventListener('visibilitychange',beat);
@@ -532,8 +532,8 @@ export default function App() {
     if(!fbUser?.uid)return;
     return onSnapshot(doc(db,'system','config'),snapshot=>{
       if(snapshot.exists())setS((prev:any)=>({...prev,...safeSiteSettings(snapshot.data())}));
-      setToastText(old=>old==='সাইটের সেটিংস লোড হয়নি। সংযোগ পরীক্ষা করুন।'?null:old);
-    },()=>setToastText('সাইটের সেটিংস লোড হয়নি। সংযোগ পরীক্ষা করুন।'));
+      setToastText(old=>old==='Settings could not load. Check your connection.'?null:old);
+    },()=>setToastText('Settings could not load. Check your connection.'));
   },[fbUser?.uid]);
 
   const toast = (text: string) => {
@@ -634,13 +634,13 @@ export default function App() {
   const invText = () => `🎙️ EarnBD Voice Rooms-এ আমার সাথে যোগ দিন! সাইন-আপের সময় আমার ইনভাইট কোড দিন: SM${S.id}\n${inviteLink()}`;
 
   const roomActionBusy=useRef(false);
-  async function leaveActiveRoom(){const roomId=activeRoom?.id,uid=fbUser?.uid;if(!roomId||!uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুম ছাড়ার অনুরোধ চলছে…');try{await runTransaction(db,async tx=>{const ref=doc(db,'users',uid),snap=await tx.get(ref);if(snap.data()?.currentRoomId===roomId)tx.update(ref,{currentRoomId:null,roomSeat:null,activeRoom:null,lastSeen:serverTimestamp()})});setActiveRoom(null);setIsRoomMinimized(false);toast('রুম ত্যাগ করেছেন')}catch{toast('রুম ছাড়ার তথ্য সেভ হয়নি। আবার চেষ্টা করুন।')}finally{roomActionBusy.current=false}}
+  async function leaveActiveRoom(){const roomId=activeRoom?.id,uid=fbUser?.uid;if(!roomId||!uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুম ছাড়ার অনুরোধ চলছে…');try{await runTransaction(db,async tx=>{const ref=doc(db,'users',uid),snap=await tx.get(ref);if(snap.data()?.currentRoomId===roomId)tx.update(ref,{currentRoomId:null,roomSeat:null,activeRoom:null,lastSeen:serverTimestamp()})});setActiveRoom(null);setIsRoomMinimized(false);toast('You left the room')}catch{toast('Could not leave the room. Please try again.')}finally{roomActionBusy.current=false}}
   async function enterRoom(candidate:any){if(!fbUser?.uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুমে ঢুকছি…');try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await runTransaction(db,async tx=>{const ref=doc(db,'users',fbUser.uid),snap=await tx.get(ref),profile=snap.data();tx.update(ref,{currentRoomId:room.id,roomSeat:profile?.currentRoomId===room.id?(profile?.roomSeat??null):null,online:true,lastSeen:serverTimestamp(),activeRoom:{id:room.id,name:room.name,host:room.host||'',hostId:room.hostId||'',cv:room.cv||'🎙️',sc:room.sc||8}})});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='resource-exhausted'?'Firebase daily write quota is exhausted. Rooms, games and voice updates cannot be saved until the quota resets or the database is moved.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}finally{roomActionBusy.current=false}}
   if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} stage={authStage} onRetry={()=>setAuthRetry(n=>n+1)}/>;
 
   return (
     <div id="app">
-      {(offline||authError)&&<div className="app-connection-banner" role="status">{offline?'নেটওয়ার্ক নেই। আপনার লগইন সেভ আছে। সংযোগ ফিরলে আবার চালু হবে।':'সার্ভারে আবার সংযোগ হচ্ছে। আপনার লগইন সেভ আছে।'}{!offline&&<button onClick={()=>setAuthRetry(n=>n+1)}>আবার চেষ্টা করুন</button>}</div>}
+      {(offline||authError)&&<div className="app-connection-banner" role="status">{offline?'You are offline. Your login is saved. Reconnect to continue.':'Reconnecting to the server. Your login is saved.'}{!offline&&<button onClick={()=>setAuthRetry(n=>n+1)}>আবার চেষ্টা করুন</button>}</div>}
       {fbUser&&<GameWinFeed/>}
       {activePage==='game_rank'&&<GlobalGameRanks onClose={()=>setActivePage(null)}/>}
       {activePage==='coin_sellers'&&<CoinSellers onClose={()=>setActivePage(null)} onSeller={()=>setActivePage('seller')}/>}
@@ -718,7 +718,7 @@ export default function App() {
                 onClick={() => {
                   setActivePage('admin');
                 }}
-                title="সুপার অ্যাডমিন প্যানেল"
+                title="Super admin panel"
               >
                 👑 <span>অ্যাডমিন</span>
               </button>
@@ -902,7 +902,7 @@ export default function App() {
             {/* Rooms List */}
             <div className="rg">
               {S.rooms
-                .filter((r: any) => S.cat === 'সব' || r.c === S.cat)
+                .filter((r: any) => S.cat === 'All' || r.c === S.cat)
                 .map((r: any) => (
                   <div
                     key={r.id}
@@ -1195,7 +1195,7 @@ export default function App() {
               <textarea
                 className="in"
                 rows={2}
-                placeholder="আপনার মনে কী চলছে?"
+                placeholder="What’s on your mind?"
                 value={postText}
                 onChange={e => setPostText(e.target.value)}
                 style={{ width: '100%', borderRadius: '16px' }}
@@ -1282,11 +1282,11 @@ export default function App() {
       {/* 4. Bottom Nav Bar */}
       <div id="nav">
         {[
-          ['home', '🏠', 'রুম'],
+          ['home', '🏠', 'Room'],
           ['explore', '🧭', 'এক্সপ্লোর'],
-          ['wallet', '👛', 'ওয়ালেট'],
-          ['moments', '📸', 'মোমেন্টস'],
-          ['msg', '✉️', 'মেসেজ'],
+          ['wallet', '👛', 'Wallet'],
+          ['moments', '📸', 'Moments'],
+          ['msg', '✉️', 'Messages'],
         ].map(([t, e, n]) => (
           <button
             key={t}
@@ -1307,7 +1307,7 @@ export default function App() {
       {activePage && (
         <div id="pg" data-no-translate={activePage==='level'?true:undefined} className={activePage==='admin'?'on':`on reference-subpage ${activePage==='edit_profile'?'profile-edit-page':''}`}>
           <div className="row" style={{ padding: '12px 14px' }}>
-            <button className="ib" aria-label={t("Back","ফিরে যান")} onClick={() => setActivePage(null)}>
+            <button className="ib" aria-label={t("Back","Back")} onClick={() => setActivePage(null)}>
               ‹
             </button>
             <b className="sp">
@@ -1386,7 +1386,7 @@ export default function App() {
                     <div className="sm">{fbUser ? fbUser.email : 'সংযুক্ত নয়'}</div>
                   </div>
                   {fbUser ? (
-                    <button className="b r" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => signOut(auth).then(() => toast('লগআউট'))}>
+                    <button className="b r" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => signOut(auth).then(() => toast('Sign out'))}>
                       লগআউট
                     </button>
                   ) : (
@@ -1462,10 +1462,10 @@ export default function App() {
                 <h3 style={{ marginTop: '16px', marginBottom: '6px' }}>📜 নীতিমালা ও নিয়মাবলী (Policies & Legal)</h3>
                 <div className="gl" style={{ padding: '0 4px' }}>
                   {[
-                    ['📜', 'গোপনীয়তা নীতি (Privacy Policy)', 'policy_privacy'],
-                    ['📋', 'ব্যবহারের শর্তাবলী (Terms of Service)', 'policy_terms'],
-                    ['🛡️', 'কমিউনিটি গাইডলাইন (Community Rules)', 'policy_community'],
-                    ['🤝', 'ব্যবহারকারী চুক্তি (User Agreement)', 'policy_user_agreement'],
+                    ['📜', 'Privacy Policy', 'policy_privacy'],
+                    ['📋', 'Terms of Service', 'policy_terms'],
+                    ['🛡️', 'Community Rules', 'policy_community'],
+                    ['🤝', 'User Agreement', 'policy_user_agreement'],
                     ['🪙', 'রিচার্জ ও রিফান্ড নীতি (Coin & Refund Policy)', 'policy_coins_refund'],
                     ['⚖️', 'ফেয়ার প্লে ও অ্যান্টি-চিটিং নীতি (Fair Play)', 'policy_fairplay'],
                   ].map(r => (
@@ -1509,7 +1509,7 @@ export default function App() {
 
             {/* SUBPAGE: EDIT PROFILE */}
             {activePage === 'edit_profile' && (
-              <section className="profile-edit-form" aria-label="প্রোফাইল এডিট">
+              <section className="profile-edit-form" aria-label="Edit profile">
                 <ProfilePhotoEditor onSaved={image=>setS((prev:any)=>({...prev,img:image}))}/>
                 <div style={{ textAlign: 'center', margin: '10px 0' }}>
                   <div
@@ -1559,7 +1559,7 @@ export default function App() {
                   id="profile-edit-bio" className="in"
                   value={editBio}
                   onChange={e => setEditBio(e.target.value)}
-                  placeholder="নিজের সম্পর্কে লিখুন"
+                  placeholder="Tell us about yourself"
                   style={{ width: '100%' }}
                 />
 
@@ -1936,7 +1936,7 @@ export default function App() {
               <section className="gl p-5 space-y-4">
                 <h2>{t('Sending & receiving levels','পাঠানো ও পাওয়ার লেভেল')}</h2><ProfileLevels user={S}/>
                 <p>{t('Start at level 1. Reach level 2 with 1,000 gift points. Each following step needs 50% more points.','লেভেল ১ থেকে শুরু। ১,০০০ গিফট পয়েন্টে লেভেল ২। পরের প্রতিটি ধাপে ৫০% বেশি পয়েন্ট প্রয়োজন।')}</p>
-                {[['sending',S.giftSentCoins],['receiving',S.giftReceivedCoins]].map(([kind,coins])=>{const progress=giftLevel(coins),label=kind==='sending'?t('Sending','পাঠানো'):t('Receiving','পাওয়া');return <div key={String(kind)} className="profile-level-progress"><b>{label} {t('Lv.','লেভেল ')}{progress.level.toLocaleString(language==='bn'?'bn-BD':'en-US')}</b><div className="pb" role="progressbar" aria-label={label} aria-valuenow={progress.progress} aria-valuemin={0} aria-valuemax={progress.required}><i style={{width:`${progress.percent}%`}}/></div><small>{t(`${progress.remaining.toLocaleString('en-US')} more points to the next level.`,`পরের লেভেলের জন্য আরও ${progress.remaining.toLocaleString('bn-BD')} পয়েন্ট প্রয়োজন।`)}</small></div>;})}
+                {[['sending',S.giftSentCoins],['receiving',S.giftReceivedCoins]].map(([kind,coins])=>{const progress=giftLevel(coins),label=kind==='sending'?t('Sending','Sending'):t('Receiving','Receiving');return <div key={String(kind)} className="profile-level-progress"><b>{label} {t('Lv.','লেভেল ')}{progress.level.toLocaleString(language==='bn'?'bn-BD':'en-US')}</b><div className="pb" role="progressbar" aria-label={label} aria-valuenow={progress.progress} aria-valuemin={0} aria-valuemax={progress.required}><i style={{width:`${progress.percent}%`}}/></div><small>{t(`${progress.remaining.toLocaleString('en-US')} more points to the next level.`,`পরের লেভেলের জন্য আরও ${progress.remaining.toLocaleString('bn-BD')} পয়েন্ট প্রয়োজন।`)}</small></div>;})}
                 <p className="sm">{t('Sending grows when you send gifts. Receiving grows when you receive gifts. Failed or repeated requests do not add extra points.','গিফট পাঠালে পাঠানোর লেভেল, পেলে পাওয়ার লেভেল বাড়ে। ব্যর্থ বা একই অনুরোধ পুনরায় পাঠালে বাড়তি পয়েন্ট যোগ হয় না।')}</p>
               </section>
             )}
@@ -2192,7 +2192,7 @@ export default function App() {
 
                 <div className="gl" style={{ padding: '14px' }}>
                   <b style={{ color: 'var(--g)', display: 'block', marginBottom: '6px' }}>💬 সরাসরি ইন-অ্যাপ চ্যাট</b>
-                  <p>নিচের <b>Message</b> ট্যাবে গিয়ে "কাস্টমার সার্ভিস" বাটনে চাপ দিয়ে ২৪/৭ সাপোর্ট এজেন্টের সাথে কথা বলতে পারবেন।</p>
+                  <p>নিচের <b>Message</b> ট্যাবে গিয়ে "Customer service" বাটনে চাপ দিয়ে ২৪/৭ সাপোর্ট এজেন্টের সাথে কথা বলতে পারবেন।</p>
                 </div>
 
                 <div className="gl" style={{ padding: '14px' }}>
@@ -2313,10 +2313,10 @@ export default function App() {
           </span>
           <div className="text-left pr-1">
             <b className="text-[11px] block font-black leading-tight text-white drop-shadow">
-              {activeGame === 'food_wheel' ? 'ফুড হুইল' : activeGame === 'greedy_lion' ? 'Greedy Lion' : activeGame === 'jackpot_fruit' ? 'জ্যাকপট ফ্রুট' :
+              {activeGame === 'food_wheel' ? 'ফুড হুইল' : activeGame === 'greedy_lion' ? 'Greedy Lion' : activeGame === 'jackpot_fruit' ? 'Jackpot Fruit' :
                activeGame === 'lion_wheel' ? 'ফুড হুইল' :
                activeGame === 'night_wheel' ? 'নাইট হুইল' :
-               activeGame === 'slots' ? 'স্লটস' :
+               activeGame === 'slots' ? 'Slots' :
                activeGame === 'carrom' ? 'ক্যারাম বোর্ড' : 'দাবা ৩ডি'}
             </b>
             <span className="text-[9px] text-yellow-200 block font-bold">▶ খেলুন (ট্যাপ করুন)</span>
@@ -2421,7 +2421,7 @@ export default function App() {
             </div>
 
             <div className="space-y-3.5 text-xs">
-              <label className="block rounded-2xl border border-cyan-400/30 bg-indigo-500/10 p-4 text-center cursor-pointer">{newRoomPhoto?<img src={newRoomPhoto} alt="রুমের ছবি" className="w-20 h-20 rounded-2xl object-cover mx-auto mb-2"/>:<span className="block text-4xl mb-2">📷</span>}গ্যালারি থেকে রুমের ছবি দিন<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={async e=>{const file=e.target.files?.[0];if(file)try{setNewRoomPhoto(await galleryPhoto(file))}catch(err){toast(err instanceof Error?err.message:'ছবি যোগ হয়নি')}}}/></label>
+              <label className="block rounded-2xl border border-cyan-400/30 bg-indigo-500/10 p-4 text-center cursor-pointer">{newRoomPhoto?<img src={newRoomPhoto} alt="রুমের ছবি" className="w-20 h-20 rounded-2xl object-cover mx-auto mb-2"/>:<span className="block text-4xl mb-2">📷</span>}গ্যালারি থেকে রুমের ছবি দিন<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={async e=>{const file=e.target.files?.[0];if(file)try{setNewRoomPhoto(await galleryPhoto(file))}catch(err){toast(err instanceof Error?err.message:'Photo could not be added')}}}/></label>
               <div>
                 <label className="block text-gray-300 font-semibold mb-1">রুমের নাম *</label>
                 <input 
@@ -2429,7 +2429,7 @@ export default function App() {
                   maxLength={80}
                   value={newRoomName}
                   onChange={e => setNewRoomName(e.target.value)}
-                  placeholder="যেমন: বাংলা গান ও আড্ডা"
+                  placeholder="Example: Music and friends"
                   className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
                 />
               </div>
@@ -2442,7 +2442,7 @@ export default function App() {
                     onChange={e => setNewRoomCategory(e.target.value)}
                     className="w-full bg-[#1e133e] border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400"
                   >
-                    {['চ্যাট', 'পার্টি', 'গেম', 'নতুন', 'ইভেন্ট'].map(c => (
+                    {['Chat', 'Party', 'Game', 'New', 'Events'].map(c => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
@@ -2536,7 +2536,7 @@ export default function App() {
                     n: 1,
                     flag: String(S.country||'').match(/\p{Regional_Indicator}{2}/u)?.[0]||'🌐',
                     tag: newRoomTag.trim() || 'আড্ডা',
-                    ann: newRoomAnn.trim() || 'স্বাগতম! সবাই মিলে আড্ডা দিই 🎉',
+                    ann: newRoomAnn.trim() || 'Welcome! Let’s hang out together 🎉',
                     sc: newRoomSeatCount,
                     oc: [{ s: 0, n: S.name, av: S.img ? '👤' : (S.av || '🎤'), sc: 0 }]
                   };

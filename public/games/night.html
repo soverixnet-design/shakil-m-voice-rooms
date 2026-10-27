@@ -47,7 +47,7 @@ const its=[...document.querySelectorAll('.it')];
 $('#chips').innerHTML=C.chips.map((c,i)=>`<button class="${i?'':'on'}" data-c="${c}">${fmt(c)}</button>`).join('');
 document.querySelectorAll('#chips button').forEach(b=>b.onclick=()=>{chip=+b.dataset.c;document.querySelectorAll('#chips button').forEach(x=>x.classList.toggle('on',x==b))});
 document.querySelectorAll('.g').forEach(b=>b.onclick=()=>bet(+b.dataset.g));$('#snd').onclick=()=>{on=!on;$('#snd').textContent=on?'🔊':'🔇'};$('#auto').onclick=()=>{auto=!auto;$('#auto').classList.toggle('off',!auto);$('#auto').textContent=auto?'⏸ অটো চালু':'▶ অটো প্লে';if(auto&&phase=='bet'&&!bets.some(x=>x))rebet()};
-let av='',nm='আপনি';const avH=()=>av?`<img src="${av}">`:'👤';
+let av='',nm='You';const avH=()=>av?`<img src="${av}">`:'👤';
 function setAv(s){av=s;$('#av span').innerHTML=avH()}
 $('#av input').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>setAv(r.result);r.readAsDataURL(f)};
 function showWin(g){const w=$('#win');w.innerHTML=`<div class="wa">${avH()}</div><div>${nm}</div><div>🎉 জিতেছেন</div><div class="wm">🪙 ${g.toLocaleString()}</div>`;w.classList.add('show');setTimeout(()=>w.classList.remove('show'),3000)}

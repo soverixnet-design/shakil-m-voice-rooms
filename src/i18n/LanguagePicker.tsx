@@ -1,4 +1,7 @@
-import React,{useEffect,useState} from 'react';
+import React from 'react';
+
+// English-only release: no Bangla toggle and no mixed-language labels.
+// Keep the helper's original signature for all callers of useLanguage().
 declare global{interface Window{EarnBDLanguage?:{get:()=>string;set:(language:string)=>void;translate:(text:string,language?:string)=>string}}}
-export function LanguagePicker(){const [language,setLanguage]=useState(()=>(typeof window!=='undefined'?window.EarnBDLanguage?.get():undefined)||'en');useEffect(()=>{const update=()=>setLanguage((typeof window!=='undefined'?window.EarnBDLanguage?.get():undefined)||'en');window.addEventListener('earnbd-language',update);return()=>window.removeEventListener('earnbd-language',update)},[]);return <label className="language-picker" data-no-translate="true"><span>🌐</span><select aria-label="Language / ভাষা" value={language} onChange={e=>{window.EarnBDLanguage?.set(e.target.value);setLanguage(e.target.value)}}><option value="en">English</option><option value="bn">বাংলা</option></select></label>}
-export function useLanguage(){const [language,setLanguage]=useState(()=>(typeof window!=='undefined'?window.EarnBDLanguage?.get():undefined)||'en');useEffect(()=>{const update=()=>setLanguage((typeof window!=='undefined'?window.EarnBDLanguage?.get():undefined)||'en');window.addEventListener('earnbd-language',update);return()=>window.removeEventListener('earnbd-language',update)},[]);return {language,t:(en:string,bn:string)=>language==='bn'?bn:en}}
+export function LanguagePicker(){return <span className="language-picker" aria-label="Application language: English" data-no-translate="true">🌐 English</span>}
+export function useLanguage(){return {language:'en',t:(english:string,_bangla:string)=>english}}
