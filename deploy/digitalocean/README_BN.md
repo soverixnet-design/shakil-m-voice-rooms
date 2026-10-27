@@ -38,3 +38,32 @@ docker compose -f deploy/digitalocean/docker-compose.test.yml stop
 ```
 
 এতে Akira ও Render চলতেই থাকবে।
+
+## নতুন সাবডোমেইন — `shakilm-api.soverixnet.online`
+
+ব্যবহারকারী DigitalOcean API-র জন্য এই নির্দিষ্ট নামটি অনুমোদন করেছেন। অ্যাপের URL validation-এ নামটি যুক্ত, **কিন্তু `game-server-config.json`-এ `backupUrl` এখনো খালি**। ফলে লাইভ ট্র্যাফিক DigitalOcean-এ যাবে না।
+
+DNS যেখান থেকে `soverixnet.online` পরিচালিত হয়, সেখানে কেবল **নতুন** রেকর্ড যোগ করতে হবে:
+
+- Type: `A`
+- Name/Host: `shakilm-api`
+- IPv4 value: `139.59.73.98` (2 GB Akira droplet; চালুর আগে আবার IP যাচাই করুন)
+- TTL: `300` বা DNS প্রদানকারীর ডিফল্ট
+
+`voice.soverixnet.online`, অন্য DNS রেকর্ড বা Akira-এর Nginx virtual host পরিবর্তন করবেন না। আগে এই নামের কোনো A/AAAA/CNAME রেকর্ড থাকলে ওভাররাইট না করে থামুন।
+
+DNS resolve হয়ে সঠিক IP দেখালে, **শুধু টেস্টের জন্য**, repo-তে থাকা `nginx-shakilm-api-staging.conf` আলাদা Nginx server block হিসেবে ইনস্টল করা যায়। এটি কেবল `GET /ping` ও `GET /health` রুটকে লোকাল read-only port `4315`-এ পাঠায় এবং অন্য সব রুটে 404 ফেরায়। `nginx -t` সফল না হলে Nginx reload করবেন না। লাইভ Akira host-এর কনফিগারেশন না বদলিয়ে নতুন virtual host ব্যবহার করবেন।
+
+তারপর DNS ও HTTP-01 যাচাই করে এই নামের trusted TLS certificate ইস্যু করতে হবে (বর্তমান Nginx/Certbot সেটআপ দেখে)। SSL ছাড়া অ্যাপে ব্যাকআপ URL সক্রিয় করবেন না। HTTPS পর্যায়ের প্রত্যাশিত টেস্ট:
+
+```bash
+curl -fsS https://shakilm-api.soverixnet.online/ping
+```
+
+এতে `{\"status\":\"ok\",\"mode\":\"read-only-staging\"}` আসার কথা। `/health`-এ DB credential না থাকলে 503 স্বাভাবিক। এটি আসল গেম API নয়। Render ও DigitalOcean উভয়ে একই safe settlement lease backend না চালানো পর্যন্ত `backupUrl` পরিবর্তন করা নিষিদ্ধ।
+
+### কেন এখনই live হবে না?
+
+- Safe production rollout-এ Render-এর backend আপডেট, সুরক্ষিত Firebase credential ও Supabase connection, এবং load test দরকার।
+- 2 GB সার্ভারে Akira-এর CPU/RAM সীমার মধ্যে নতুন API-র resource cap পরীক্ষা করতে হবে।
+- পরিবর্তনগুলো এখনও draft PR-এ রয়েছে, `main`-এ মিশানো হয়নি।
