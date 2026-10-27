@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {DEFAULT_LUCKY_GIFTS,validateLuckySettings,luckyOutcome} from '../functions/lucky-gift-engine.js';
+import {DEFAULT_LUCKY_GIFTS,validateLuckySettings,luckyOutcome,luckyBatchOutcome} from '../functions/lucky-gift-engine.js';
 import {createWalletService} from '../functions/wallet-service.js';
 
 const enabled={enabled:true,chancesBps:{'5':10000,'10':0,'50':0,'100':0},maxPayout:100000000};
@@ -39,6 +39,17 @@ test('Lucky Gift catalog has positive server prices and recognized multipliers',
  assert.deepEqual([0,500,700,750,760,9999].map(roll=>luckyOutcome(100,config,()=>roll).multiplier),[5,10,50,100,0,0]);
 });
 
+test('quantity draws separately and aggregates exact per-gift payouts',()=>{
+ const config=validateLuckySettings(normal);
+ const rolls=[0,500,700,750,760];
+ const outcome=luckyBatchOutcome(20,rolls.length,config,(_max,index)=>rolls[index]);
+ assert.deepEqual(outcome,{reward:3300,wins:4,multiplier:100});
+ assert.deepEqual(luckyBatchOutcome(20,3,validateLuckySettings(enabled),()=>0),
+  {reward:300,wins:3,multiplier:5});
+ assert.throws(()=>luckyBatchOutcome(20,778,config,()=>0),/invalid-lucky-cost/);
+ assert.throws(()=>luckyBatchOutcome(20,2,validateLuckySettings({...normal,maxPayout:100}),()=>700),/lucky-payout-limit/);
+});
+
 test('invalid or disabled odds fail closed without a random payout',()=>{
  assert.throws(()=>validateLuckySettings({...normal,enabled:false}),/lucky-gifts-disabled/);
  assert.throws(()=>validateLuckySettings({...normal,chancesBps:{'5':10000,'10':1,'50':0,'100':0}}),/lucky-config-invalid/);
@@ -53,6 +64,7 @@ test('one Lucky Gift send transfers real coins and recipient diamonds atomically
  assert.equal(result.cost,40);
  assert.equal(result.luckyMultiplier,5);
  assert.equal(result.luckyReward,200);
+ assert.equal(result.luckyWins,2);
  assert.equal(result.balance,660);
  assert.equal(docs.get('users/sender').coins,660);
  assert.equal(docs.get('users/receiver').giftReceivedCoins,40);
