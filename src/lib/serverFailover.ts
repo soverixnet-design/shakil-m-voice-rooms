@@ -63,5 +63,5 @@ export const markGameServerFailed = defaultSelector.fail;
 export function isBackendUnavailable(error: any) {
   return error?.name === 'TypeError' ||
     error?.name === 'AbortError' ||
-    ['functions/unavailable', 'functions/deadline-exceeded'].includes(String(error?.code || ''));
+    ['functions/unavailable', 'functions/deadline-exceeded', 'unavailable', 'server-unavailable', 'database-connection-failed'].includes(String(error?.code || ''));
 }
