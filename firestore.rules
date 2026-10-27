@@ -154,7 +154,7 @@ service cloud.firestore {
     }
     match /assets/{id} {
       allow read: if true;
-      allow create, update: if staff('content') && request.resource.data.kind in ['frame','entry','banner','gift','lucky-gift','room_background','room_event_banner'] && (!(request.resource.data.kind in ['gift','lucky-gift']) || (request.resource.data.price is int && request.resource.data.price > 0 && request.resource.data.price <= 1000000)) && request.resource.data.name is string && request.resource.data.name.size() <= 80 && request.resource.data.image is string && request.resource.data.image.size() <= 600000 && request.resource.data.image.matches('data:image/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]*={0,2}');
+      allow create, update: if staff('content') && request.resource.data.kind in ['frame','entry','banner','gift','lucky-gift','room_background','room_event_banner'] && (request.resource.data.kind != 'gift' || (request.resource.data.price is int && request.resource.data.price > 0)) && (request.resource.data.kind != 'lucky-gift' || (request.resource.data.price is int && request.resource.data.price > 0 && request.resource.data.price <= 1000000)) && request.resource.data.name is string && request.resource.data.name.size() <= 80 && request.resource.data.image is string && request.resource.data.image.size() <= 600000 && request.resource.data.image.matches('data:image/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]*={0,2}');
       allow delete: if staff('content');
     }
     match /supportTickets/{uid} {
