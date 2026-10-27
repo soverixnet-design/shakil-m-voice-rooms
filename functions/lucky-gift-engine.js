@@ -47,3 +47,18 @@ export function luckyOutcome(totalCost,validatedSettings,draw=randomInt){
  if(!Number.isSafeInteger(reward)||reward>maxPayout)throw invalid('lucky-payout-limit');
  return {roll,multiplier,reward};
 }
+
+export function luckyBatchOutcome(unitCost,quantity,settings,draw=randomInt){
+ if(!Number.isSafeInteger(unitCost)||unitCost<1||unitCost>1000000||
+    !Number.isSafeInteger(quantity)||quantity<1||quantity>777)throw invalid('invalid-lucky-cost');
+ const totalCost=unitCost*quantity;
+ if(!Number.isSafeInteger(totalCost)||totalCost>100000000)throw invalid('invalid-lucky-cost');
+ let reward=0,wins=0,highestMultiplier=0;
+ for(let i=0;i<quantity;i++){
+  const result=luckyOutcome(unitCost,settings,()=>draw(10000,i));
+  reward+=result.reward;
+  if(result.multiplier){wins++;highestMultiplier=Math.max(highestMultiplier,result.multiplier)}
+  if(!Number.isSafeInteger(reward)||reward>settings.maxPayout)throw invalid('lucky-payout-limit');
+ }
+ return {reward,wins,multiplier:highestMultiplier};
+}
