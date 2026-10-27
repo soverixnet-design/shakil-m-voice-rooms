@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEFAULT_LUCKY_GIFTS,validateLuckySettings,luckyOutcome,luckyBatchOutcome} from '../functions/lucky-gift-engine.js';
 import {createWalletService} from '../functions/wallet-service.js';
+import {withLuckyRoomMirror} from '../functions/lucky-gift-mirror.js';
 
 const enabled={enabled:true,chancesBps:{'5':10000,'10':0,'50':0,'100':0},maxPayout:100000000};
 const normal={enabled:true,chancesBps:{'5':500,'10':200,'50':50,'100':10},maxPayout:100000000};
@@ -107,6 +108,24 @@ test('catalog is read-only and empty configurations disable sending',async()=>{
  assert.equal(catalog.enabled,true);assert.equal(catalog.items.length,8);
  assert.deepEqual(catalog.multipliers,[5,10,50,100]);
  assert.equal(docs.has('walletRequests/sender_abcdefghijklmnop'),false);
+});
+
+test('visual mirror is deterministic and a failed Firestore write never repeats wallet debits',async()=>{
+ const receipt={type:'lucky_gift_sent',roomId:'room1',id:'lucky_sender_abcdefghijklmnop',cost:20,createdAt:1234};
+ const events=[];let walletCalls=0;
+ const send=withLuckyRoomMirror(async()=>{walletCalls++;return receipt},
+  {doc:path=>({set:async event=>{events.push({path,event})}})});
+ assert.equal(await send(),receipt);
+ assert.equal(events.length,1);
+ assert.equal(events[0].path,'rooms/room1/giftEvents/lucky_sender_abcdefghijklmnop');
+ assert.equal(events[0].event.type,'lucky_gift_sent');
+ const failures=[];
+ const sender=withLuckyRoomMirror(async()=>receipt,
+  {doc:()=>({set:async()=>{throw Object.assign(Error('offline'),{code:'unavailable'})}})},
+  (...args)=>failures.push(args));
+ assert.equal(await sender(),receipt);
+ assert.deepEqual(failures,[['lucky-gift-visual-mirror-failed','unavailable']]);
+ assert.equal(walletCalls,1);
 });
 
 test('only verified app owner can publish odds or manage Lucky Gift images',async()=>{
