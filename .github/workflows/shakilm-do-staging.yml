@@ -1,0 +1,28 @@
+name: Shakil M DigitalOcean staging smoke
+
+on:
+  push:
+    branches:
+      - deploy/shakilm-do-readonly-test-20261027
+  workflow_dispatch:
+
+jobs:
+  safe-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Node syntax
+        run: node --check functions/staging-health-server.js
+      - name: Validate Compose configuration
+        run: docker compose -f deploy/digitalocean/docker-compose.test.yml config --quiet
+      - name: Build isolated diagnostic container
+        run: docker compose -f deploy/digitalocean/docker-compose.test.yml build
+      - name: Start without production secrets
+        run: docker compose -f deploy/digitalocean/docker-compose.test.yml up -d
+      - name: Verify read-only diagnostics
+        run: |
+          curl --fail --silent --show-error --retry 8 --retry-delay 2 --retry-connrefused http://127.0.0.1:4315/ping
+          node -e "fetch('http://127.0.0.1:4315/health').then(async r => { const j=await r.json(); if(r.status!==503||j.status!=='configuration-required') process.exit(1) })"
+      - name: Remove test container
+        if: always()
+        run: docker compose -f deploy/digitalocean/docker-compose.test.yml down
