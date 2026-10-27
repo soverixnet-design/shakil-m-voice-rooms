@@ -23,3 +23,6 @@ jobs:
         run: npm run test:games
       - name: Verify original room web design still builds
         run: npm run build
+
+      - name: Typecheck Lucky Gift and existing application
+        run: npm run lint
