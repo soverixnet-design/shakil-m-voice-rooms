@@ -10,5 +10,5 @@ export async function callSharedGame<T>(url:string,action:'sync'|'bet'|'gift'|'l
  if(!url)return await httpsCallable<any,T>(functions,action==='sync'?'syncSharedGame':'placeSharedBet',{timeout:30000})(data);
  const user=auth.currentUser;if(!user)throw Object.assign(Error('unauthenticated'),{code:'functions/unauthenticated'});
  const base=gameServerUrl(url),token=await withTimeout(user.getIdToken(),8000);
- return timedGameRequest(base+'/api/'+action,{method:'POST',headers:{...deviceHeaders(),'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(data)},{timeoutMs:action==='bet'?10000:action==='sync'?15000:75000,retryable:['sync','voice-config'].includes(action)||['bet','gift','exchange'].includes(action)&&!!data.requestId});
+ return timedGameRequest(base+'/api/'+action,{method:'POST',headers:{...deviceHeaders(),'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(data)},{timeoutMs:action==='bet'?10000:action==='sync'?15000:75000,retryable:['sync','voice-config'].includes(action)||action==='lucky-gift'&&data?.action==='catalog'||['bet','gift','lucky-gift','exchange'].includes(action)&&!!data?.requestId});
 }
