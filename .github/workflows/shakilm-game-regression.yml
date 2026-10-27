@@ -1,0 +1,24 @@
+name: Shakil M Games Regression Tests
+
+on:
+  push:
+    branches:
+      - deploy/shakilm-do-readonly-test-20261027
+  workflow_dispatch:
+
+jobs:
+  game-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Test game, wallet, voice and recovery services
+        run: npm run test:games
+      - name: Confirm original web app still builds
+        run: npm run build
