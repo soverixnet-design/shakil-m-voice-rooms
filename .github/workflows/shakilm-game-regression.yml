@@ -15,9 +15,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-      - name: Install locked dependencies
-        run: npm ci
+      - name: Install dependencies for diagnostics
+        # Main branch's root npm lockfile currently disagrees with package.json.
+        # Ignore it for this diagnostic run; do not rewrite tracked app files.
+        run: npm install --no-save --package-lock=false --no-audit
       - name: Test game, wallet, voice and recovery services
         run: npm run test:games
       - name: Confirm original web app still builds
