@@ -15,7 +15,12 @@ export function createWalletService(db,clock=Date.now){
  async function luckyGift(data,uid){
   if(data?.action==='catalog'){
    const settings=(await db.doc('system/luckyGiftConfig').get()).data()||{};
-   return {enabled:settings.enabled===true,items:DEFAULT_LUCKY_GIFTS,
+   const assets=await db.collection('assets').where('kind','==','lucky-gift').get();
+   const custom=assets.docs.filter(d=>d.data().active===true).map(d=>({id:d.id,
+    name:String(d.data().name||'Lucky Gift').slice(0,80),emoji:String(d.data().icon||'🎁').slice(0,24),
+    image:String(d.data().image||''),cost:Number(d.data().price||0)}))
+    .filter(g=>Number.isSafeInteger(g.cost)&&g.cost>0&&g.cost<=1000000);
+   return {enabled:settings.enabled===true,items:[...DEFAULT_LUCKY_GIFTS,...custom],
     multipliers:LUCKY_MULTIPLIERS,chancesBps:settings.enabled===true?settings.chancesBps:null};
   }
   if(!data||data.action!=='send'||!validId(data.requestId)||
