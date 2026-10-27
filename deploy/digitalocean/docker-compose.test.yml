@@ -1,0 +1,23 @@
+# Safe initial test: no Firebase credentials, no game routes, no writes.
+# Bind only on the DigitalOcean host loopback. Akira's published ports stay untouched.
+services:
+  shakilm-readonly-test:
+    build:
+      context: ../../functions
+      dockerfile: Dockerfile.staging
+    container_name: shakilm-readonly-test
+    restart: unless-stopped
+    environment:
+      STAGING_READONLY: "1"
+      PORT: "10000"
+      SUPABASE_DATABASE_URL: ${SUPABASE_DATABASE_URL:-}
+    ports:
+      - "127.0.0.1:4315:10000"
+    mem_limit: 256m
+    cpus: 0.40
+    pids_limit: 80
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
