@@ -21,8 +21,14 @@ jobs:
         run: docker compose -f deploy/digitalocean/docker-compose.test.yml up -d
       - name: Verify read-only diagnostics
         run: |
-          curl --fail --silent --show-error --retry 8 --retry-delay 2 --retry-connrefused http://127.0.0.1:4315/ping
+          sleep 3
+          curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 2 http://127.0.0.1:4315/ping
           node -e "fetch('http://127.0.0.1:4315/health').then(async r => { const j=await r.json(); if(r.status!==503||j.status!=='configuration-required') process.exit(1) })"
+      - name: Show container status and logs
+        if: always()
+        run: |
+          docker compose -f deploy/digitalocean/docker-compose.test.yml ps -a
+          docker compose -f deploy/digitalocean/docker-compose.test.yml logs --tail=40
       - name: Remove test container
         if: always()
         run: docker compose -f deploy/digitalocean/docker-compose.test.yml down
