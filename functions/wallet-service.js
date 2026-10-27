@@ -12,7 +12,55 @@ export function createWalletService(db,clock=Date.now){
 
  // One authenticated request, one atomic debit/credit, one durable receipt.
  // This is deliberately disabled until an owner publishes valid odds and caps.
- async function luckyGift(data,uid){
+ async function luckyGift(data,uid,identity){
+  if(typeof data?.action==='string'&&data.action.startsWith('admin-')){
+   const ownerEmail=process.env.LUCKY_GIFT_OWNER_EMAIL||'yfastvpn@gmail.com';
+   if(identity?.email_verified!==true||identity?.email!==ownerEmail)
+    throw Object.assign(Error('permission-denied'),{code:'permission-denied'});
+   if(data.action==='admin-settings'){
+    const settings=(await db.doc('system/luckyGiftConfig').get()).data()||{};
+    const snapshot=await db.collection('assets').where('kind','==','lucky-gift').get();
+    return {settings,items:snapshot.docs.map(a=>({id:a.id,...a.data()}))};
+   }
+   if(data.action==='admin-save'){
+    const next=data.settings;
+    if(!next||typeof next.enabled!=='boolean')throw Error('invalid-request');
+    const verified=validateLuckySettings({...next,enabled:true});
+    const settings={enabled:next.enabled,chancesBps:Object.fromEntries(LUCKY_MULTIPLIERS.map(m=>[String(m),verified.chancesBps[String(m)]])),maxPayout:verified.maxPayout};
+    await db.doc('system/luckyGiftConfig').set(settings);
+    return {settings};
+   }
+   if(data.action==='admin-add-item'){
+    const item=data.item;
+    if(!item||typeof item.id!=='string'||!/^[A-Za-z0-9_-]{16,80}$/.test(item.id)||
+      typeof item.name!=='string'||!item.name.trim()||item.name.length>80||
+      !Number.isSafeInteger(item.price)||item.price<1||item.price>1000000||
+      typeof item.image!=='string'||item.image.length>600000||
+      !/^data:image\\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]*={0,2}$/.test(item.image))throw Error('invalid-request');
+    const ref=db.doc('assets/'+item.id);
+    return db.runTransaction(async t=>{
+     const existing=await t.get(ref);
+     if(existing.exists){const prior=existing.data();
+      if(prior.kind!=='lucky-gift'||prior.name!==item.name||prior.price!==item.price||prior.image!==item.image)
+       throw Error('request-conflict');
+      return {id:item.id,...prior};
+     }
+     const record={kind:'lucky-gift',name:item.name.trim(),price:item.price,image:item.image,active:true};
+     t.set(ref,record);return {id:item.id,...record};
+    });
+   }
+   if(data.action==='admin-disable-item'){
+    const id=data.itemId;
+    if(typeof id!=='string'||!/^[A-Za-z0-9_-]{16,80}$/.test(id))throw Error('invalid-request');
+    const ref=db.doc('assets/'+id);
+    return db.runTransaction(async t=>{
+     const current=await t.get(ref);
+     if(!current.exists||current.data()?.kind!=='lucky-gift')throw Error('invalid-gift');
+     t.update(ref,{active:false});return {id,active:false};
+    });
+   }
+   throw Error('invalid-request');
+  }
   if(data?.action==='catalog'){
    const settings=(await db.doc('system/luckyGiftConfig').get()).data()||{};
    const assets=await db.collection('assets').where('kind','==','lucky-gift').get();
