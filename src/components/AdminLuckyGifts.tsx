@@ -64,7 +64,7 @@ export function AdminLuckyGifts({onToast}:{onToast:(message:string)=>void}){
   <hr/>
   <h3>গ্যালারি থেকে Lucky Gift ছবি/অ্যানিমেশন</h3>
   <form onSubmit={e=>{e.preventDefault();void add()}}>
-   <label>নাম<input maxLength={80} required value={name} onChange={e=>setName(e.target.value);pendingItemId.current=null}/></label>
+   <label>নাম<input maxLength={80} required value={name} onChange={e=>{setName(e.target.value);pendingItemId.current=null}}/></label>
    <label>দাম (কয়েন)<input type="number" min="1" max="1000000" required value={price} onChange={e=>{setPrice(e.target.value);pendingItemId.current=null}}/></label>
    <label>গ্যালারি GIF/PNG/WebP<input disabled={busy} type="file" accept="image/gif,image/png,image/jpeg,image/webp" onChange={e=>{void upload(e.target.files?.[0]);pendingItemId.current=null;e.target.value=''}}/></label>
    <button disabled={busy||!image}>Lucky Gift যোগ করুন</button>
