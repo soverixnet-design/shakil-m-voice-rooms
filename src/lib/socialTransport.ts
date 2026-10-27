@@ -1,9 +1,11 @@
 import {deviceHeaders} from './deviceIdentity';
-import {gameServerUrl} from './gameServerUrl';
+import serverConfig from '../../game-server-config.json';
+import {createGameServerSelector,isBackendUnavailable} from './serverFailover';
 import {withTimeout} from './authTimeout';
 const socialRoots=new Set(['users','rooms','roomOwners','follows','moments','diamondWallets','transactions','admins','assets','system','supportTickets','sellerWallets','sellerTransfers','sharedGames','gameRanks','gameReceipts','gameWins','liveAnnouncements','directMessages','roomApplications','pushDevices']);
 export function socialPath(path:string){return socialRoots.has(path.split('/')[0]);}
 export function createSocialTransport(url:string,nameRoot:string,request:typeof fetch=fetch){
+ const selector=createGameServerSelector({request});
  return async(suffix:string,options:any,token:string)=>{
   let data:any;
   if(suffix===':commit'){
@@ -22,13 +24,15 @@ export function createSocialTransport(url:string,nameRoot:string,request:typeof 
    data={action:'get',path};
   }
   const controller=new AbortController();
+  let selected='';
   try{
    return await withTimeout((async()=>{
-    const response=await request(gameServerUrl(url)+'/api/social',{method:'POST',headers:{...deviceHeaders(),'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(data),signal:controller.signal});
+    selected=await selector.choose(url,serverConfig.backupUrl);
+    const response=await request(selected+'/api/social',{method:'POST',headers:{...deviceHeaders(),'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(data),signal:controller.signal});
     const result=await response.json();
     if(!response.ok||result.error)throw Object.assign(Error(result.error?.message||'Social database unavailable.'),{code:result.error?.code||'unavailable'});
     return {handled:true,body:result.data};
    })(),75000);
-  }finally{controller.abort();}
+  }catch(error){if(selected&&isBackendUnavailable(error))selector.fail(selected);throw error}finally{controller.abort();}
  };
 }
