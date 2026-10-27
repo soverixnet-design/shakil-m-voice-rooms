@@ -8,8 +8,10 @@ const normal={enabled:true,chancesBps:{'5':500,'10':200,'50':50,'100':10},maxPay
 function memoryDb(initial={}){
  const docs=new Map(Object.entries(initial));
  const snap=(ref)=>({id:ref.id,ref,exists:docs.has(ref.path),data:()=>docs.get(ref.path)});
- const doc=path=>({path,id:path.split('/').at(-1),get:async()=>snap(doc(path))});
- const db={doc,collection:path=>({where:()=>({get:async()=>({docs:[]})})}),
+ const doc=path=>({path,id:path.split('/').at(-1),get:async()=>snap(doc(path)),set:async value=>{docs.set(path,value)}});
+ const db={doc,collection:path=>({where:(field,op,value)=>({get:async()=>({docs:[...docs]
+  .filter(([key,item])=>key.startsWith(path+'/')&&key.split('/').length===2&&item[field]===value)
+  .map(([key])=>snap(doc(key)))})})}),
   runTransaction:async callback=>{
    const changes=[];
    const tx={get:async ref=>snap(ref),set:(ref,value,options)=>changes.push(['set',ref.path,value,options]),
@@ -93,4 +95,27 @@ test('catalog is read-only and empty configurations disable sending',async()=>{
  assert.equal(catalog.enabled,true);assert.equal(catalog.items.length,8);
  assert.deepEqual(catalog.multipliers,[5,10,50,100]);
  assert.equal(docs.has('walletRequests/sender_abcdefghijklmnop'),false);
+});
+
+test('only verified app owner can publish odds or manage Lucky Gift images',async()=>{
+ const {db,docs}=memoryDb(seed()),service=createWalletService(db);
+ const outsider={email:'attacker@example.com',email_verified:true};
+ const owner={email:'yfastvpn@gmail.com',email_verified:true};
+ const settings={enabled:false,chancesBps:normal.chancesBps,maxPayout:normal.maxPayout};
+ await assert.rejects(service.luckyGift({action:'admin-save',settings},'sender',outsider),/permission-denied/);
+ assert.equal(docs.get('system/luckyGiftConfig').enabled,true);
+ await service.luckyGift({action:'admin-save',settings},'sender',owner);
+ assert.equal(docs.get('system/luckyGiftConfig').enabled,false);
+ await assert.rejects(service.luckyGift(request,'sender'),/lucky-gifts-disabled/);
+ const item={id:'lucky-custom-0001',name:'Golden Kitty',price:60,image:'data:image/png;base64,AAAA'};
+ await assert.rejects(service.luckyGift({action:'admin-add-item',item},'sender',{email:'yfastvpn@gmail.com',email_verified:false}),/permission-denied/);
+ const added=await service.luckyGift({action:'admin-add-item',item},'sender',owner);
+ assert.equal(added.price,60);
+ const replay=await service.luckyGift({action:'admin-add-item',item},'sender',owner);
+ assert.deepEqual(replay,added);
+ const catalog=await service.luckyGift({action:'catalog'},'sender');
+ assert.equal(catalog.items.some(g=>g.id===item.id),true);
+ await service.luckyGift({action:'admin-disable-item',itemId:item.id},'sender',owner);
+ const after=await service.luckyGift({action:'catalog'},'sender');
+ assert.equal(after.items.some(g=>g.id===item.id),false);
 });
