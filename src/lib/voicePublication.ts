@@ -28,6 +28,6 @@ export function voiceFailure(error:any){
  if(error?.message==='voice-quota-exhausted')return 'The configured voice minute budget is exhausted. Ask an admin to enable another provider.';
  if(error?.message==='voice-not-configured')return 'Voice provider settings are not configured on the server.';
  if(error?.message==='agora-not-configured')return 'The Agora App ID or Certificate is missing or invalid on the server.';
- if(['INVALID_TOKEN','CAN_NOT_GET_GATEWAY_SERVER','TOKEN_EXPIRED'].includes(code))return 'The voice token was rejected. Check the provider configuration.';
+ if(['INVALID_TOKEN','CAN_NOT_GET_GATEWAY_SERVER','TOKEN_EXPIRED'].includes(code))return 'The voice token was rejected. Check the provider API key, App ID and Certificate.';
  return 'Voice is not ready or the network is unavailable. Wait a few seconds and tap Mic again.';
 }
