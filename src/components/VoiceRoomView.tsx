@@ -11,6 +11,7 @@ import {useRoomAudio} from '../lib/useRoomAudio';
 import {useMediaAssets,MediaAvatar,EntryMedia} from './MediaAssets';
 import {RoomGiftFlights} from './RoomGiftFlights';
 import {sendDirectGift} from '../lib/gifts';
+import {walletApi} from '../lib/walletApi';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Volume2, 
@@ -109,6 +110,24 @@ export const VoiceRoomView: React.FC<Props> = ({
   const [giftQuantity, setGiftQuantity] = useState<number>(1);
   const [giftBusy, setGiftBusy] = useState<boolean>(false);
   const [giftStatus, setGiftStatus] = useState<string>('');
+  const [giftMode,setGiftMode]=useState<'classic'|'lucky'>('classic');
+  const [luckyCatalog,setLuckyCatalog]=useState<any[]>([]);
+  const [luckyEnabled,setLuckyEnabled]=useState(false);
+  const [luckyMultipliers,setLuckyMultipliers]=useState<number[]>([5,10,50,100]);
+  const [luckyLoading,setLuckyLoading]=useState(false);
+  const [luckyBalance,setLuckyBalance]=useState<number|null>(null);
+  const luckyPending=useRef(new Map<string,string>());
+  useEffect(()=>{if(!showGiftModal||giftMode!=='lucky')return;
+   let live=true;setLuckyLoading(true);setGiftStatus('🍀 Lucky Gift লোড হচ্ছে…');
+   void walletApi('lucky-gift',{action:'catalog'}).then((catalog:any)=>{
+    if(!live)return;setLuckyCatalog(Array.isArray(catalog.items)?catalog.items:[]);
+    setLuckyEnabled(catalog.enabled===true);
+    setLuckyMultipliers(Array.isArray(catalog.multipliers)?catalog.multipliers:[5,10,50,100]);
+    setGiftStatus(catalog.enabled===true?'':'Lucky Gift এখনো অ্যাডমিন থেকে চালু হয়নি।');
+   },()=>{if(live){setLuckyEnabled(false);setGiftStatus('Lucky Gift সার্ভার এখন পাওয়া যাচ্ছে না।')}})
+   .finally(()=>{if(live)setLuckyLoading(false)});
+   return()=>{live=false};
+  },[showGiftModal,giftMode]);
 
   useEffect(()=>{
     if(roomProfileOpen){
@@ -265,6 +284,41 @@ export const VoiceRoomView: React.FC<Props> = ({
     ? customGifts.map((g: any) => ({ emoji: g.icon || g.emoji || '🎁', name: g.name, cost: g.price || g.cost || 10, image: g.image }))
     : GIFTS
   );
+
+  const shownGiftItems=giftMode==='lucky'?luckyCatalog:allAvailableGifts;
+
+  async function handleLuckyGift(){
+   if(giftBusy||luckyLoading||!luckyEnabled)return;
+   const item=luckyCatalog[selectedGiftIndex];
+   if(!item||!Number.isSafeInteger(item.cost)||item.cost<1)return;
+   const targets=[...new Set(giftRecipients)].filter(uid=>liveMembers.some(m=>m.uid===uid)||liveSeats.some(s=>s?.uid===uid));
+   if(!targets.length){setGiftStatus('লাকি গিফট পাঠাতে অন্তত একজন রুমের সদস্য বেছে নিন।');return;}
+   const price=item.cost*giftQuantity*targets.length;
+   if(!Number.isSafeInteger(price)||price<=0||price>100000000){setGiftStatus('গিফটের সংখ্যা কমিয়ে দিন।');return;}
+   if(price>(luckyBalance??user.coins)){setGiftStatus('ওয়ালেটে যথেষ্ট কয়েন নেই।');return;}
+   setGiftBusy(true);setGiftStatus('🍀 Lucky Gift পাঠানো হচ্ছে…');
+   let delivered=0,won=0,lastBalance=luckyBalance??user.coins;
+   try{
+    for(const uid of targets){
+     const key=JSON.stringify([room.id,item.id,uid,giftQuantity]);
+     const requestId=luckyPending.current.get(key)||crypto.randomUUID();
+     luckyPending.current.set(key,requestId);
+     const result:any=await walletApi('lucky-gift',{
+      action:'send',receiverId:uid,roomId:room.id,itemId:item.id,quantity:giftQuantity,requestId
+     });
+     if(!Number.isSafeInteger(result.balance))throw Error('সার্ভার থেকে ওয়ালেট ব্যালেন্স আসেনি।');
+     luckyPending.current.delete(key);
+     lastBalance=result.balance;delivered++;won+=Number(result.luckyReward||0);
+     setLuckyBalance(lastBalance);
+     if(Number(result.luckyReward)>0){
+      setGiftOverlay({emoji:'🍀',text:`WIN ×${result.luckyMultiplier} · 🪙 ${Number(result.luckyReward).toLocaleString()}`});
+      setTimeout(()=>setGiftOverlay(null),10000);
+     }
+    }
+    setGiftStatus(`✅ ${delivered} জনকে ${giftQuantity}টি করে Lucky Gift পাঠানো হয়েছে।${won>0?' মোট WIN 🪙 '+won.toLocaleString():''}`);
+   }catch(e){setGiftStatus(`⚠️ ${delivered} জনের গিফট সফল। বাকিগুলো থেমেছে: ${(e as Error)?.message||'Server unavailable'}`)}
+   finally{setGiftBusy(false)}
+  }
 
   async function handleRealTimeGift() {
     if (giftBusy) return;
@@ -545,6 +599,17 @@ export const VoiceRoomView: React.FC<Props> = ({
               <button onClick={() => setShowGiftModal(false)} className="back-card">‹ ফিরে যান</button>
             </div>
 
+            <div className="mb-2 flex gap-2" role="tablist" aria-label="Gift categories">
+              {(['classic','lucky'] as const).map(mode=><button key={mode} role="tab" aria-selected={giftMode===mode}
+                disabled={giftBusy} type="button" onClick={()=>{setGiftMode(mode);setSelectedGiftIndex(0);setGiftStatus('')}}
+                className={`flex-1 rounded-xl py-2 font-black text-sm ${giftMode===mode?'bg-gradient-to-r from-fuchsia-700 to-amber-500 text-white':'bg-white/10 text-purple-200'}`}>
+                {mode==='classic'?'🎁 Classic':'🍀 Lucky'}
+              </button>)}
+            </div>
+            {giftMode==='lucky'&&<p className="text-center text-xs text-amber-200 mb-2 p-1 rounded-lg bg-purple-950/80">
+              Chance to get {luckyMultipliers.join(' / ')} times coins back · {luckyLoading?'লোড হচ্ছে…':luckyEnabled?'সার্ভার-নির্ধারিত পুরস্কার':'অ্যাডমিন চালু করলে Send করা যাবে'}
+            </p>}
+
             {/* Recipient Selection */}
             <div className="mb-2">
               <div className="flex items-center justify-between text-xs mb-1.5">
@@ -613,7 +678,7 @@ export const VoiceRoomView: React.FC<Props> = ({
 
             {/* Gifts Grid */}
             <div className="grid grid-cols-4 gap-2 mb-3 overflow-y-auto max-h-[30vh]">
-              {allAvailableGifts.map((g, i) => (
+              {shownGiftItems.map((g, i) => (
                 <button
                   key={i}
                   type="button"
@@ -624,7 +689,7 @@ export const VoiceRoomView: React.FC<Props> = ({
                       : 'bg-white/5 hover:bg-white/10 border-white/10'
                   }`}
                 >
-                  <span className="text-3xl mb-0.5">{g.emoji}</span>
+                  <span className="text-3xl mb-0.5">{g.image?<img src={g.image} alt={g.name} className="w-14 h-14 object-contain"/>:g.emoji}</span>
                   <span className="font-bold text-xs truncate max-w-full">{g.name}</span>
                   <span className="text-[10px] text-amber-300 font-bold mt-0.5">🪙 {g.cost.toLocaleString()}</span>
                 </button>
@@ -636,7 +701,7 @@ export const VoiceRoomView: React.FC<Props> = ({
               <div className="flex items-center justify-between text-xs">
                 <span className="text-purple-200">সংখ্যা বেছে নিন:</span>
                 <div className="flex gap-1.5">
-                  {[1, 7, 77, 177, 777].map(num => (
+                  {(giftMode==='lucky'?[1,7,17,77,111,777]:[1,7,77,177,777]).map(num => (
                     <button
                       key={num}
                       type="button"
@@ -661,21 +726,21 @@ export const VoiceRoomView: React.FC<Props> = ({
                 <div>
                   <small className="text-gray-400 block text-[10px]">মোট খরচ:</small>
                   <b className="text-amber-300 text-sm">
-                    🪙 {((allAvailableGifts[selectedGiftIndex]?.cost || 0) * giftQuantity * Math.max(1, giftRecipients.length)).toLocaleString()} কয়েন
+                    🪙 {((shownGiftItems[selectedGiftIndex]?.cost || 0) * giftQuantity * Math.max(1, giftRecipients.length)).toLocaleString()} কয়েন
                   </b>
                 </div>
                 <button
                   type="button"
-                  disabled={giftBusy}
-                  onClick={() => void handleRealTimeGift()}
+                  disabled={giftBusy||giftMode==='lucky'&&(!luckyEnabled||luckyLoading)}
+                  onClick={() => void (giftMode==='lucky'?handleLuckyGift():handleRealTimeGift())}
                   className="px-5 py-2 rounded-xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 text-white font-black text-sm hover:brightness-110 active:scale-95 shadow-lg shadow-pink-500/30 disabled:opacity-50"
                 >
-                  {giftBusy ? 'পাঠাচ্ছে…' : '🚀 Send Gift'}
+                  {giftBusy ? 'পাঠাচ্ছে…' : giftMode==='lucky' ? '🍀 Send Lucky' : '🚀 Send Gift'}
                 </button>
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-gray-400 px-1">
-                <span>ওয়ালেট ব্যালেন্স: <b className="text-amber-400">🪙 {user.coins.toLocaleString()}</b></span>
+                <span>ওয়ালেট ব্যালেন্স: <b className="text-amber-400">🪙 {(luckyBalance??user.coins).toLocaleString()}</b></span>
                 <button type="button" onClick={onOpenWallet} className="text-cyan-300 underline font-bold">রিচার্জ করুন ›</button>
               </div>
             </div>
