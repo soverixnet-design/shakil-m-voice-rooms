@@ -1,14 +1,16 @@
 import {createHash} from 'node:crypto';
 import tls from 'tls-sig-api-v2';
 import {createAgoraVoiceConfig} from './agora-voice.js';
+import {createLiveKitVoiceConfig,liveKitIsConfigured} from './livekit-voice.js';
 const fail=(message,code='unavailable')=>Object.assign(Error(message),{code});
 // Quotas are operator-supplied remaining participant-minutes, never assumed trial entitlements.
 export function voiceProviders(env=process.env){
  const providers=[];
  for(const id of (env.VOICE_PROVIDER_ORDER||'agora,tencent').split(',')){
-  const name=id.trim(),prefix=name.toUpperCase(),cap=Number(env[prefix+'_FREE_MINUTES']);
+  const name=id.trim(),prefix=name.toUpperCase(),cap=Number(name==='livekit'?env.LIVEKIT_MINUTES_BUDGET:env[prefix+'_FREE_MINUTES']);
   if(name==='agora'&&env.AGORA_APP_ID&&env.AGORA_APP_CERTIFICATE)providers.push({name,cap:Number.isFinite(cap)&&cap>0?cap:null});
   if(name==='tencent'&&/^\d+$/.test(env.TENCENT_SDK_APP_ID||'')&&/^[a-f0-9]{64}$/i.test(env.TENCENT_SECRET_KEY||'')&&env.TENCENT_ADVANCED_PERMISSION_ENABLED==='true'&&cap>0&&/^[A-Za-z0-9_-]{1,40}$/.test(env.VOICE_QUOTA_CYCLE||'')&&Number.isFinite(Date.parse(env.TENCENT_FREE_UNTIL||'')))providers.push({name,cap,expiresAt:Date.parse(env.TENCENT_FREE_UNTIL)});
+  if(name==='livekit'&&liveKitIsConfigured(env))providers.push({name,cap});
  }
  return providers.some(p=>p.name==='tencent')?providers.filter(p=>p.cap!==null):providers;
 }
@@ -44,6 +46,7 @@ export function createRoutedVoiceConfig(store,{env=process.env,clock=Date.now}={
    return {provider:provider.name,epoch,canPublish,leaseUntil:until,reservedMinutes:used[provider.name],quotaMinutes:provider.cap};
   });
   if(route.provider==='agora')return {...await createAgoraVoiceConfig(store,{appId:env.AGORA_APP_ID,certificate:env.AGORA_APP_CERTIFICATE,clock,lifetime:Math.max(1,Math.floor((route.leaseUntil-clock())/1000))})(data,uid),...route,serverNow:now};
+  if(route.provider==='livekit')return {...createLiveKitVoiceConfig({env,roomId:data.roomId,uid,canPublish:route.canPublish,clock}),...route,serverNow:now};
   const appId=Number(env.TENCENT_SDK_APP_ID),signer=new tls.Api(appId,env.TENCENT_SECRET_KEY);
   const channel='room_'+createHash('sha256').update(data.roomId).digest('hex').slice(0,48);
   if(!/^[A-Za-z0-9_-]{1,32}$/.test(uid))throw fail('voice-user-id-unsupported');
