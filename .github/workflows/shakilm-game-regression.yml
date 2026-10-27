@@ -19,6 +19,8 @@ jobs:
         # Main branch's root npm lockfile currently disagrees with package.json.
         # Ignore it for this diagnostic run; do not rewrite tracked app files.
         run: npm install --no-save --package-lock=false --no-audit
+      - name: Install backend dependencies from its own lockfile
+        run: npm ci --prefix functions --omit=dev --no-audit
       - name: Test game, wallet, voice and recovery services
         run: npm run test:games
       - name: Confirm original web app still builds
