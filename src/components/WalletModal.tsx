@@ -26,11 +26,11 @@ interface Props {
 
 const PACKAGES: RechargePackage[] = [
   { usd: 1, coins: 1000 },
-  { usd: 5, coins: 5500, badge: '+10% বোনাস' },
-  { usd: 10, coins: 12000, badge: '+20% বোনাস' },
-  { usd: 20, coins: 26000, badge: '+30% বোনাস' },
-  { usd: 50, coins: 70000, badge: '+40% বোনাস' },
-  { usd: 100, coins: 150000, badge: '+50% বোনাস' },
+  { usd: 5, coins: 5500, badge: '+10% Bonus' },
+  { usd: 10, coins: 12000, badge: '+20% Bonus' },
+  { usd: 20, coins: 26000, badge: '+30% Bonus' },
+  { usd: 50, coins: 70000, badge: '+40% Bonus' },
+  { usd: 100, coins: 150000, badge: '+50% Bonus' },
 ];
 
 export const WalletModal: React.FC<Props> = ({
@@ -59,30 +59,30 @@ export const WalletModal: React.FC<Props> = ({
     e.preventDefault();
     const amt = parseInt(sendAmount);
     if (!sendTargetId.trim()) {
-      setFeedbackMsg({ text: 'গ্রাহকের ইউজার আইডি লিখুন', success: false });
+      setFeedbackMsg({ text: 'Enter the recipient's user ID', success: false });
       return;
     }
     if (isNaN(amt) || amt <= 0) {
-      setFeedbackMsg({ text: 'সঠিক কয়েন সংখ্যা দিন', success: false });
+      setFeedbackMsg({ text: 'Enter a valid coin amount', success: false });
       return;
     }
     if (amt > userCoins) {
-      setFeedbackMsg({ text: 'আপনার ওয়ালেটে পর্যাপ্ত কয়েন নেই', success: false });
+      setFeedbackMsg({ text: 'Insufficient coins in your wallet', success: false });
       return;
     }
     if (sendTargetId.trim() === userId) {
-      setFeedbackMsg({ text: 'নিজের অ্যাকাউন্টে কয়েন পাঠানো যাবে না', success: false });
+      setFeedbackMsg({ text: 'You cannot transfer coins to your own account', success: false });
       return;
     }
 
-    const success = onSendCoins(sendTargetId.trim(), amt, sendNote.trim() || 'কয়েন ট্রান্সফার');
+    const success = onSendCoins(sendTargetId.trim(), amt, sendNote.trim() || 'Coin transfer');
     if (success) {
-      setFeedbackMsg({ text: `সফলভাবে ${amt.toLocaleString()} কয়েন পাঠানো হয়েছে!`, success: true });
+      setFeedbackMsg({ text: `Successfully sent ${amt.toLocaleString()} coins!`, success: true });
       setSendTargetId('');
       setSendAmount('');
       setSendNote('');
     } else {
-      setFeedbackMsg({ text: 'ট্রান্সফার ব্যর্থ হয়েছে', success: false });
+      setFeedbackMsg({ text: 'Coin transfer failed', success: false });
     }
   };
 
@@ -94,8 +94,8 @@ export const WalletModal: React.FC<Props> = ({
           <div className="flex items-center gap-2">
             <span className="text-2xl">👛</span>
             <div>
-              <h2 className="font-black text-lg text-amber-300">কয়েন ওয়ালেট (Wallet)</h2>
-              <p className="text-[11px] text-gray-300">রিচার্জ, ট্রান্সফার ও ব্যালেন্স হিস্ট্রি</p>
+              <h2 className="font-black text-lg text-amber-300">Coin Wallet</h2>
+              <p className="text-[11px] text-gray-300">Recharge, transfers and balance history</p>
             </div>
           </div>
           <button
@@ -110,20 +110,20 @@ export const WalletModal: React.FC<Props> = ({
         <div className="p-4 bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-indigo-500/20 border-b border-white/10">
           <div className="bg-black/40 rounded-2xl p-4 border border-amber-400/30 flex items-center justify-between">
             <div>
-              <span className="text-xs text-amber-200/80 font-bold block">বর্তমান মোট ব্যালেন্স</span>
+              <span className="text-xs text-amber-200/80 font-bold block">Current total balance</span>
               <div className="text-3xl font-black text-amber-400 flex items-center gap-2 mt-0.5">
                 <span>🪙</span>
                 <span>{userCoins.toLocaleString()}</span>
               </div>
             </div>
             <div className="text-right">
-              <span className="text-[10px] text-gray-400 block">আপনার আইডি</span>
+              <span className="text-[10px] text-gray-400 block">Your ID</span>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="font-mono font-bold text-sm text-cyan-300">{userId}</span>
                 <button
                   onClick={handleCopyId}
                   className="p-1 rounded bg-white/10 hover:bg-white/20 active:scale-95"
-                  title="কপি করুন"
+                  title="Copy"
                 >
                   {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                 </button>
@@ -135,10 +135,10 @@ export const WalletModal: React.FC<Props> = ({
         {/* Tab Navigation */}
         <div className="flex border-b border-white/10 bg-black/20 px-2 pt-2 gap-1 overflow-x-auto">
           {[
-            { id: 'recharge', label: 'রিচার্জ', icon: CreditCard },
-            { id: 'send', label: 'কয়েন পাঠান', icon: Send },
-            { id: 'receive', label: 'কয়েন গ্রহণ', icon: QrCode },
-            { id: 'history', label: 'ইতিহাস', icon: History },
+            { id: 'recharge', label: 'Recharge', icon: CreditCard },
+            { id: 'send', label: 'Send coins', icon: Send },
+            { id: 'receive', label: 'Receive coins', icon: QrCode },
+            { id: 'history', label: 'History', icon: History },
           ].map(t => {
             const Icon = t.icon;
             const active = tab === t.id;
@@ -185,13 +185,13 @@ export const WalletModal: React.FC<Props> = ({
                   <span className="text-3xl">🎁</span>
                   <div>
                     <span className="font-black text-sm text-amber-300 block">First Recharge Bonus</span>
-                    <span className="text-[11px] text-amber-100/80">প্রথম রিচার্জে বিশেষ ফ্রেম ও বোনাস কয়েন!</span>
+                    <span className="text-[11px] text-amber-100/80">Special frame and bonus coins on your first recharge!</span>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xs font-bold text-gray-300 mb-2">কয়েন প্যাকেজ বাছাই করুন</h3>
+                <h3 className="text-xs font-bold text-gray-300 mb-2">Choose a coin package</h3>
                 <div className="grid grid-cols-2 gap-2.5">
                   {PACKAGES.map((pkg, idx) => (
                     <div
@@ -209,14 +209,14 @@ export const WalletModal: React.FC<Props> = ({
                           <span className="font-black text-base text-amber-400 block leading-tight">
                             {pkg.coins.toLocaleString()}
                           </span>
-                          <span className="text-[10px] text-gray-400">কয়েন</span>
+                          <span className="text-[10px] text-gray-400">Coins</span>
                         </div>
                       </div>
                       <button
                         onClick={() => onRecharge(pkg.coins, pkg.usd)}
                         className="w-full py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-black font-black text-xs rounded-xl shadow active:scale-95"
                       >
-                        ${pkg.usd} (রিচার্জ)
+                        ${pkg.usd} (Recharge)
                       </button>
                     </div>
                   ))}
@@ -229,16 +229,16 @@ export const WalletModal: React.FC<Props> = ({
           {tab === 'send' && (
             <form onSubmit={handleSendSubmit} className="space-y-4">
               <div className="bg-black/30 p-3 rounded-2xl border border-white/10 text-xs text-gray-300 leading-relaxed">
-                💡 আপনি যেকোনো রুমের বন্ধু বা ব্যবহারকারীকে তার Shakil M আইডি দিয়ে সরাসরি কয়েন পাঠাতে পারেন।
+                💡 You can send coins directly to any room member using their Shakil M user ID.
               </div>
 
               <div>
                 <label className="text-xs font-bold text-gray-300 block mb-1.5">
-                  প্রাপকের আইডি (Recipient User ID) *
+                  Recipient user ID *
                 </label>
                 <input
                   type="text"
-                  placeholder="যেমন: 103948 বা SM103948"
+                  placeholder="Example: 103948 or SM103948"
                   value={sendTargetId}
                   onChange={e => setSendTargetId(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-amber-400 text-sm font-mono"
@@ -248,7 +248,7 @@ export const WalletModal: React.FC<Props> = ({
 
               <div>
                 <label className="text-xs font-bold text-gray-300 block mb-1.5">
-                  কয়েন সংখ্যা (Amount) *
+                  Coin amount *
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-2.5 text-amber-400">🪙</span>
@@ -256,7 +256,7 @@ export const WalletModal: React.FC<Props> = ({
                     type="number"
                     min="1"
                     max={userCoins}
-                    placeholder="পাঠানোর পরিমাণ"
+                    placeholder="Amount to send"
                     value={sendAmount}
                     onChange={e => setSendAmount(e.target.value)}
                     className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-black/50 border border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-amber-400 text-sm font-bold"
@@ -280,18 +280,18 @@ export const WalletModal: React.FC<Props> = ({
                     onClick={() => setSendAmount(String(userCoins))}
                     className="px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-[11px] font-bold"
                   >
-                    সব (Max)
+                    All (Max)
                   </button>
                 </div>
               </div>
 
               <div>
                 <label className="text-xs font-bold text-gray-300 block mb-1.5">
-                  নোট বা শুভেচ্ছা বার্তা (ঐচ্ছিক)
+                  Note or greeting (optional)
                 </label>
                 <input
                   type="text"
-                  placeholder="যেমন: জন্মদিনের শুভেচ্ছা / গেম টিপ"
+                  placeholder="Example: Happy birthday / Game tip"
                   value={sendNote}
                   onChange={e => setSendNote(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-amber-400 text-xs"
@@ -302,7 +302,7 @@ export const WalletModal: React.FC<Props> = ({
                 type="submit"
                 className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-sm rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
               >
-                <Send size={16} /> কয়েন পাঠান
+                <Send size={16} /> Send coins
               </button>
             </form>
           )}
@@ -320,7 +320,7 @@ export const WalletModal: React.FC<Props> = ({
               </div>
 
               <div>
-                <span className="text-xs text-gray-400 block mb-1">আপনার রিসিভ কোড ও আইডি:</span>
+                <span className="text-xs text-gray-400 block mb-1">Your receive code and ID:</span>
                 <div className="inline-flex items-center gap-2 bg-black/50 px-4 py-2 rounded-xl border border-amber-400/50">
                   <span className="font-mono text-xl font-black text-amber-300">SM{userId}</span>
                   <button
@@ -328,13 +328,13 @@ export const WalletModal: React.FC<Props> = ({
                     className="p-1.5 bg-amber-400 text-black rounded-lg font-bold text-xs flex items-center gap-1 active:scale-95"
                   >
                     {copied ? <Check size={14} /> : <Copy size={14} />}
-                    {copied ? 'কপি হয়েছে' : 'কপি'}
+                    {copied ? 'Copied' : 'Copy'}
                   </button>
                 </div>
               </div>
 
               <p className="text-xs text-gray-400 max-w-xs mx-auto leading-relaxed">
-                বন্ধুদের এই আইডি দিন অথবা রুমে শেয়ার করুন। তারা সেন্ড অপশনে এই আইডি দিলে সরাসরি আপনার ওয়ালেটে কয়েন জমা হবে।
+                Share this ID with friends or in a room. They can use it in Send Coins to transfer coins directly to your wallet.
               </p>
             </div>
           )}
@@ -344,7 +344,7 @@ export const WalletModal: React.FC<Props> = ({
             <div className="space-y-2">
               {transactions.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-xs">
-                  এখনও কোনো লেনদেনের রেকর্ড নেই
+                  No transactions yet
                 </div>
               ) : (
                 transactions.map((t, idx) => {
