@@ -51,3 +51,13 @@ test('both unhealthy endpoints fail closed and invalid backup host is rejected',
   assert.equal(isBackendUnavailable(Object.assign(Error('offline'),{code:'functions/unavailable'})),true);
   assert.equal(isBackendUnavailable(Object.assign(Error('bad-bet'),{code:'functions/invalid-argument'})),false);
 });
+
+test('dedicated DigitalOcean HTTPS name works without accepting lookalike hosts',async()=>{
+  const backup='https://shakilm-api.soverixnet.online';
+  const selector=createGameServerSelector({request:async url=>String(url).startsWith(render)
+    ?new Response(JSON.stringify({status:'database-unavailable'}),{status:503})
+    :ok()});
+  assert.equal(await selector.choose(render,backup),backup);
+  await assert.rejects(selector.choose(render,'https://shakilm-api.soverixnet.online.evil.example'),/Render/);
+  await assert.rejects(selector.choose(render,'http://shakilm-api.soverixnet.online'),/Render/);
+});
