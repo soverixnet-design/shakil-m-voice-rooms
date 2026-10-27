@@ -28,7 +28,7 @@ const seed=()=>({
  'users/sender':{name:'Sender',id:'100001',status:'active',currentRoomId:'room1',coins:500,giftSentCount:0,giftSentCoins:0},
  'users/receiver':{name:'Receiver',id:'100002',status:'active',currentRoomId:'room1',coins:10,giftReceivedCount:0,giftReceivedCoins:0}
 });
-const request={action:'send',roomId:'room1',receiverId:'receiver',itemId:'kitty',quantity:2,requestId:'abcdefghijklmnop'};
+const request={action:'send',roomId:'room1',receiverId:'receiver',itemId:'kitty',quotedCost:20,quantity:2,requestId:'abcdefghijklmnop'};
 
 test('Lucky Gift catalog has positive server prices and recognized multipliers',()=>{
  assert.deepEqual(DEFAULT_LUCKY_GIFTS.map(g=>g.cost).slice(0,4),[20,40,60,60]);
@@ -62,6 +62,7 @@ test('one Lucky Gift send transfers real coins and recipient diamonds atomically
  assert.deepEqual(replay,result);
  assert.equal(docs.get('users/sender').coins,660);
  await assert.rejects(service.luckyGift({...request,quantity:3},'sender'),/request-conflict/);
+ await assert.rejects(service.luckyGift({...request,quotedCost:21},'sender'),/request-conflict/);
 });
 
 test('self gifts update both sender coins and own diamonds only once',async()=>{
