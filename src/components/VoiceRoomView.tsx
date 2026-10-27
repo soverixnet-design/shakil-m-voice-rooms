@@ -304,7 +304,7 @@ export const VoiceRoomView: React.FC<Props> = ({
      const requestId=luckyPending.current.get(key)||crypto.randomUUID();
      luckyPending.current.set(key,requestId);
      const result:any=await walletApi('lucky-gift',{
-      action:'send',receiverId:uid,roomId:room.id,itemId:item.id,quantity:giftQuantity,requestId
+      action:'send',receiverId:uid,roomId:room.id,itemId:item.id,quotedCost:item.cost,quantity:giftQuantity,requestId
      });
      if(!Number.isSafeInteger(result.balance))throw Error('সার্ভার থেকে ওয়ালেট ব্যালেন্স আসেনি।');
      luckyPending.current.delete(key);
