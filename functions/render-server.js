@@ -5,6 +5,7 @@ import {createEventService} from './event-service.js';
 import {createReferralService} from './referral-service.js';
 import {createRoutedVoiceConfig,voiceProviders} from './voice-routing.js';
 import {createSupabaseDatabase} from './supabase-database.js';
+import {createSweepLease} from './sweep-lease.js';
 import {migrateSocialData,migrateGameData} from './social-migration.js';
 import {createSocialService} from './social-service.js';
 import {createSocialWalletStore} from './social-wallet-store.js';
@@ -18,6 +19,7 @@ import {createGameService} from './service.js';
 import {createGameHttpServer} from './http-server.js';
 const PROJECT='gen-lang-client-0043151803',DATABASE='ai-studio-22dd0b7a-14da-47df-9bc8-d4b58ab5ab0b';
 let service,verifyToken,database,serverApp,socialDatabase,ready=false;
+let claimSweepLease=async()=>true;
 try{
  const source=process.env.FIREBASE_SERVICE_ACCOUNT_JSON||readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS||'/etc/secrets/firebase-service-account.json','utf8');
  const account=JSON.parse(source);
@@ -36,12 +38,14 @@ async function checkDatabase(){
  }
  if(writeError)throw writeError;
 }
+if(process.env.REQUIRE_SUPABASE==='1'&&(!ready||!process.env.SUPABASE_DATABASE_URL))throw Error('Required Firebase and Supabase configuration missing');
 const server=createGameHttpServer({service,verifyToken,origins,ready,voiceRelayConfigured:Boolean(process.env.TURN_SHARED_SECRET&&process.env.TURN_URLS),checkReady:checkDatabase});
 if(process.env.SUPABASE_DATABASE_URL){
  let probe;
  try{probe=createSupabaseDatabase();await probe.check();
   if(ready){const migration=await migrateSocialData(database,probe);Object.assign(service,createWalletService(createSocialWalletStore(probe,database)),createSocialService(probe),createDeviceService(probe));socialDatabase=probe;
   const store=createSocialWalletStore(probe,database);
+  claimSweepLease=createSweepLease(store);
   Object.assign(service,createSellerDirectoryService(probe),createReferralService(store),createEventService(probe),createStaffService(probe,getAuth(serverApp)));
   const disabledGame=async()=>{throw Object.assign(Error('game-ledger-not-migrated'),{code:'unavailable'});};
   service.bet=disabledGame;service.sync=disabledGame;service.sweep=async()=>{};
@@ -51,12 +55,20 @@ if(process.env.SUPABASE_DATABASE_URL){
   console.log('Supabase game migration:',JSON.stringify(games));
   console.log('Supabase social migration:',JSON.stringify(migration));}
   console.log('Supabase connection verified; profiles and voice rooms use Supabase when migration is complete.');}
- catch(error){const reasons={'28P01':'authentication-failed','3D000':'database-not-found','ENOTFOUND':'host-not-found','ETIMEDOUT':'connection-timeout','supabase-schema-incomplete':'schema-incomplete','wrong-supabase-project':'wrong-project','invalid-supabase-connection':'invalid-connection'};console.error('Supabase startup check failed:',reasons[error.code]||reasons[error.message]||(/^[A-Z0-9_]{2,64}$/.test(String(error.code))?error.code:'connection-failed'));}
+ catch(error){const reasons={'28P01':'authentication-failed','3D000':'database-not-found','ENOTFOUND':'host-not-found','ETIMEDOUT':'connection-timeout','supabase-schema-incomplete':'schema-incomplete','wrong-supabase-project':'wrong-project','invalid-supabase-connection':'invalid-connection'};console.error('Supabase startup check failed:',reasons[error.code]||reasons[error.message]||(/^[A-Z0-9_]{2,64}$/.test(String(error.code))?error.code:'connection-failed'));if(process.env.REQUIRE_SUPABASE==='1')throw Error('Required Supabase backend unavailable');}
  finally{if(probe&&probe!==socialDatabase)await probe.close();}
 }
 const port=Number(process.env.PORT||10000);server.listen(port,'0.0.0.0',()=>console.log(`EarnBD game server listening on port ${port}; ${ready?'configured':'setup required'}`));
-let sweeping=false;
+let sweeping=false,claimPending=false;
 async function sweep(){if(!ready||sweeping)return;sweeping=true;try{if(writeError)await checkDatabase();const jobs=await Promise.allSettled([service.sweep(),service.sweepEvents?service.sweepEvents():Promise.resolve()]);for(const result of jobs)if(result.status==='rejected')console.error('Settlement retry pending:',result.reason?.code||'internal')}catch(e){console.error('Settlement retry pending:',e.code||'internal')}finally{sweeping=false}}
-if(ready){void sweep();const timer=setInterval(sweep,10000);timer.unref();}
+async function settlementTick(){
+ if(!ready||claimPending)return;
+ claimPending=true;
+ let leader=false;
+ try{leader=await claimSweepLease()}catch(e){console.error('Settlement lease unavailable:',e.code||'database-connection-failed')}
+ finally{claimPending=false}
+ if(leader)void sweep();
+}
+if(ready){void settlementTick();const timer=setInterval(settlementTick,10000);timer.unref();}
 function shutdown(){server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),10000).unref()}
 process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown);
