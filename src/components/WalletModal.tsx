@@ -59,7 +59,7 @@ export const WalletModal: React.FC<Props> = ({
     e.preventDefault();
     const amt = parseInt(sendAmount);
     if (!sendTargetId.trim()) {
-      setFeedbackMsg({ text: 'Enter the recipient's user ID', success: false });
+      setFeedbackMsg({ text: "Enter the recipient's user ID", success: false });
       return;
     }
     if (isNaN(amt) || amt <= 0) {
