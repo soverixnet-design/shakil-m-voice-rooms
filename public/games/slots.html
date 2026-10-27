@@ -79,7 +79,7 @@ function fin(res,bet){const r=ev(res),w=Math.round(r.m*bet);bal+=w;today+=w;busy
 if(w>0){cols.forEach((c,i)=>{if(i<r.n)c.querySelectorAll('.ce')[c.querySelectorAll('.ce').length-2].classList.add('hit')});beep(880,.35);mg(`🎉 +${fm(w)}`);if(w>=bet*10){banner(w);}}else mg('আবার চেষ্টা করুন');
 best=Math.max(best,w);H.unshift({b:bet,r:res.map(k=>TX[k]).join(' '),w});H=H.slice(0,40);try{localStorage.setItem('sl_h',JSON.stringify(H));localStorage.setItem('sl_w',best)}catch(e){}ui();
 if(auto)setTimeout(spin,w>0?1800:700)}
-let av='',nm='আপনি';function banner(w){$('#wa').innerHTML=av?`<img src="${av}">`:'👤';$('#wt').textContent=fm(w)+' coins';$('#wb').classList.add('on');setTimeout(()=>$('#wb').classList.remove('on'),3000)}
+let av='',nm='You';function banner(w){$('#wa').innerHTML=av?`<img src="${av}">`:'👤';$('#wt').textContent=fm(w)+' coins';$('#wb').classList.add('on');setTimeout(()=>$('#wb').classList.remove('on'),3000)}
 let lt,lg=0;const sp=$('#sp');sp.onpointerdown=()=>{lg=0;lt=setTimeout(()=>{lg=1;auto=!auto;sp.classList.toggle('auto',!!auto);sp.firstChild.textContent=auto?'AUTO':'SPIN';if(auto)spin()},600)};
 sp.onpointerup=sp.onpointerleave=()=>{clearTimeout(lt)};sp.onclick=()=>{if(lg)return;if(auto){auto=0;sp.classList.remove('auto');sp.firstChild.textContent='SPIN';return}spin()};
 $('#mi').onclick=()=>{bi=Math.max(0,bi-1);ui();beep(500,.05)};$('#pb').onclick=()=>{bi=Math.min(BETS.length-1,bi+1);ui();beep(600,.05)};$('#fast').onclick=()=>{fast=!fast;$('#fast').classList.toggle('on',!!fast)};

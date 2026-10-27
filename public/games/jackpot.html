@@ -66,7 +66,7 @@ let lp=0;setTimeout(()=>lbar.style.width='10%',50);const lh=setInterval(()=>{lp+
 const $=s=>document.querySelector(s),fmt=n=>n>=1e6?+(n/1e6).toFixed(2)+'M':n>=1e3?+(n/1e3).toFixed(0)+'K':n;
 const F=[['🍋',5],['🍇',5],['🥝',5],['🍒',40],0,['🍑',5],['🍉',20],['🍌',10],['🍓',10]],RING=[0,1,2,5,8,7,6,3],CH=[10000,100000,500000,1000000];
 let bal=1000000;try{bal=+localStorage.getItem('jf_b')||1000000}catch(e){}
-let ss0=617,chip=CH[0],bets=Array(9).fill(0),last=null,hist=[],t=20,phase='load',rd=1500,td=0,jp=21817399,auto=0,on=1,av='',nm='আপনি',ac;
+let ss0=617,chip=CH[0],bets=Array(9).fill(0),last=null,hist=[],t=20,phase='load',rd=1500,td=0,jp=21817399,auto=0,on=1,av='',nm='You',ac;
 function snd(f,d){if(!on)return;try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;g.gain.value=.07;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
 const tiles=F.map((f,i)=>{const d=document.createElement('button');d.className='t'+(i>2&&i!=5&&i<6||i>5?' p':'');if(f){d.innerHTML=`<b>${f[0]}</b><i>${f[1]} times</i><u></u>`;d.onclick=()=>bet(i)}else{d.id='tm';d.className='';d.disabled=true}$('#g').appendChild(d);return d});
 tiles.forEach((d,i)=>{if(i==3||i==6||i==7||i==8)d.classList.add('p')});

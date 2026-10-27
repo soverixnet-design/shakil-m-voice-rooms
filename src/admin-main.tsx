@@ -14,7 +14,7 @@ const OWNER='yfastvpn@gmail.com';
 export const isOwner=(user:any)=>Boolean(user?.emailVerified&&user.email?.toLowerCase()===OWNER);
 function AdminPortal(){
  const [user,setUser]=useState<any>(null),[checking,setChecking]=useState(true),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[loaded,setLoaded]=useState(false);
- const [state,setState]=useState<any>({name:'অ্যাডমিন',av:'👑',coins:0,svip:0,userList:[],rooms:[],rechargeRequests:[],customGifts:DEFAULT_CUSTOM_GIFTS,pk:[{u:1,c:1000},{u:5,c:5500},{u:10,c:12000},{u:20,c:26000},{u:50,c:70000},{u:100,c:150000}],bn:{t:'ভয়েস রুমে আড্ডা দিন, গিফট পাঠান, গেম খেলুন! 🎉',g:0},invPct:5,welcomeCoins:50000});
+ const [state,setState]=useState<any>({name:'Admin',av:'👑',coins:0,svip:0,userList:[],rooms:[],rechargeRequests:[],customGifts:DEFAULT_CUSTOM_GIFTS,pk:[{u:1,c:1000},{u:5,c:5500},{u:10,c:12000},{u:20,c:26000},{u:50,c:70000},{u:100,c:150000}],bn:{t:'ভয়েস রুমে আড্ডা দিন, গিফট পাঠান, গেম খেলুন! 🎉',g:0},invPct:5,welcomeCoins:50000});
  const access=useAccess(user),delegated=Boolean(access?.active&&Object.values(access.permissions||{}).some(Boolean));
  const [extensions,setExtensions]=useState(false);
  const lock=useRef(false);
@@ -28,7 +28,7 @@ function AdminPortal(){
   const error=()=>{if(active)setMessage('Firebase ডেটা লোড হয়নি। অনুমতি ও সংযোগ পরীক্ষা করুন।')};
   const stops=[
    onSnapshot(doc(db,'system','config'),s=>{setState((p:any)=>({...p,...(s.data()||{})}));mark('config')},error),
-   onSnapshot(doc(db,'users',user.uid),s=>{setState((p:any)=>({...p,...(s.data()||{}),name:s.data()?.name||user.displayName||'অ্যাডমিন',av:s.data()?.avatar||'👑',id:s.data()?.id||user.uid}));mark('profile')},error),
+   onSnapshot(doc(db,'users',user.uid),s=>{setState((p:any)=>({...p,...(s.data()||{}),name:s.data()?.name||user.displayName||'Admin',av:s.data()?.avatar||'👑',id:s.data()?.id||user.uid}));mark('profile')},error),
    onSnapshot(collection(db,'rooms'),s=>{setState((p:any)=>({...p,rooms:s.docs.filter(d=>!d.data().archived).map(d=>({...d.data(),id:d.id}))}));mark('rooms')},error)
   ];return()=>{active=false;stops.forEach(stop=>stop())};
  },[user?.uid]);
