@@ -227,3 +227,13 @@ test('notification tokens are private, identity bound and cannot be overwritten 
 });
 
 test('content staff can publish animated room backgrounds but cannot grant roles or change wallets; revocation stops uploads',async()=>{const f=fixture();f.put('admins/alice',{active:true,permissions:{content:true}});const asset={kind:'room_background',name:'Animated room',image:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///w==',active:true};await f.service.social({action:'commit',writes:[update('assets/background',asset)]},identity('alice'));assert.equal(decodeFields(f.docs.get('assets/background').fields).kind,'room_background');await assert.rejects(f.service.social({action:'commit',writes:[update('admins/bob',{active:true,permissions:{seller:true}})]},identity('alice')),{code:'permission-denied'});await assert.rejects(f.service.social({action:'commit',writes:[update('users/bob',{coins:99999})]},identity('alice')),{code:'permission-denied'});f.put('admins/alice',{active:false,permissions:{content:true}});await assert.rejects(f.service.social({action:'commit',writes:[update('assets/other',asset)]},identity('alice')),{code:'permission-denied'});});
+
+test('only the backend can access the game settlement lease',async()=>{
+ const f=fixture();
+ f.put('system/gameSweepLease',{owner:'backend',expiresAt:now+45000});
+ const owner={uid:'alice',email:'yfastvpn@gmail.com',email_verified:true};
+ for(const user of [identity('alice'),owner]){
+  await assert.rejects(f.service.social({action:'get',path:'system/gameSweepLease'},user),{code:'permission-denied'});
+  await assert.rejects(f.service.social({action:'commit',writes:[update('system/gameSweepLease',{owner:'tampered'})]},user),{code:'permission-denied'});
+ }
+});
