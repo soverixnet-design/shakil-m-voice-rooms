@@ -1,0 +1,25 @@
+name: Shakil M Lucky Gift Checks
+
+on:
+  push:
+    branches:
+      - feature/shakilm-lucky-gifts-20261027
+  workflow_dispatch:
+
+jobs:
+  verify-lucky-gifts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated app dependencies without changing tracked lockfiles
+        run: npm install --no-save --package-lock=false --legacy-peer-deps --no-audit
+      - name: Install backend dependencies from pinned lockfile
+        run: npm ci --prefix functions --omit=dev --no-audit
+      - name: Game, wallet and Lucky Gift regression tests
+        run: npm run test:games
+      - name: Verify original room web design still builds
+        run: npm run build
