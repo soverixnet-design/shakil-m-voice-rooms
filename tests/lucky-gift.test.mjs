@@ -38,7 +38,7 @@ test('Lucky Gift catalog has positive server prices and recognized multipliers',
 });
 
 test('invalid or disabled odds fail closed without a random payout',()=>{
- assert.throws(()=>validateLuckySettings({enabled:false,...normal}),/lucky-gifts-disabled/);
+ assert.throws(()=>validateLuckySettings({...normal,enabled:false}),/lucky-gifts-disabled/);
  assert.throws(()=>validateLuckySettings({...normal,chancesBps:{'5':10000,'10':1,'50':0,'100':0}}),/lucky-config-invalid/);
  assert.throws(()=>validateLuckySettings({...normal,maxPayout:0}),/lucky-config-invalid/);
  assert.throws(()=>luckyOutcome(100000000,validateLuckySettings({...enabled,maxPayout:100}),()=>0),/lucky-payout-limit/);
