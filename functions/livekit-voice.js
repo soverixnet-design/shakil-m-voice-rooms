@@ -6,8 +6,7 @@ export function liveKitIsConfigured(env=process.env){
  return env.LIVEKIT_ENABLED==='true'&&
   /^wss:\/\/[^\s/@]+(?:\:[0-9]+)?(?:\/[^\s]*)?$/.test(env.LIVEKIT_URL||'')&&
   /^[A-Za-z0-9_-]{3,128}$/.test(env.LIVEKIT_API_KEY||'')&&
-  typeof env.LIVEKIT_API_SECRET==='string'&&env.LIVEKIT_API_SECRET.length>=32&&
-  Number.isFinite(Number(env.LIVEKIT_MINUTES_BUDGET))&&Number(env.LIVEKIT_MINUTES_BUDGET)>0;
+  typeof env.LIVEKIT_API_SECRET==='string'&&env.LIVEKIT_API_SECRET.length>=32;
 }
 
 // The Akira LiveKit server can be shared, but the room namespace and credentials
