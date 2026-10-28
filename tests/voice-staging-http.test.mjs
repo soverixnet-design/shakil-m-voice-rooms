@@ -107,3 +107,17 @@ test('LiveKit-primary is opt-in for unassigned rooms and never overrides an expl
   assert.equal(f.getWrites(),0);
  });
 });
+
+
+test('allowed browser preflight includes the existing installation device header',async()=>{
+ await withServer(async(f,url)=>{
+  const response=await fetch(url+'/api/voice-config',{method:'OPTIONS',headers:{
+   Origin:'https://allowed.example.test',
+   'Access-Control-Request-Method':'POST',
+   'Access-Control-Request-Headers':'authorization,content-type,x-earnbd-device'
+  }});
+  assert.equal(response.status,204);
+  assert.match(response.headers.get('access-control-allow-headers'),/X-EarnBD-Device/i);
+  assert.equal(f.getWrites(),0);
+ });
+});
