@@ -35,6 +35,7 @@ test('staging exposes only health and authenticated voice, never game/wallet act
   const health=await (await fetch(url+'/health')).json();
   assert.equal(health.mode,'voice-only-staging');
   assert.equal(health.firestoreWrites,false);
+  assert.equal(health.livekitPrimaryForUnassignedRooms,false);
   assert.equal((await fetch(url+'/api/bet',{method:'POST'})).status,404);
   assert.equal((await fetch(url+'/api/gift',{method:'POST'})).status,404);
   assert.equal((await fetch(url+'/api/voice-config',{method:'POST'})).status,401);
