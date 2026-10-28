@@ -39,7 +39,7 @@ interface Props {
   room: VoiceRoom;
   user: UserProfile;
   customGifts?: any[];
-  onUpdateCoins: (newCoins: number, note: string) => void;
+  onGiftBalanceConfirmed: (newCoins: number, note: string) => void;
   onOpenGame: (gameId: string) => void;
   onOpenWallet: () => void;
   onMinimize: () => void;
@@ -51,14 +51,14 @@ interface Props {
 }
 
 const GIFTS = [
-  { emoji: '❤️', name: 'Heart', cost: 1 },
-  { emoji: '🌹', name: 'Rose', cost: 10 },
-  { emoji: '⭐', name: 'Star', cost: 250 },
-  { emoji: '💍', name: 'Love Ring', cost: 750 },
-  { emoji: '💎', name: 'Diamond', cost: 1100 },
-  { emoji: '🚗', name: 'VIP Car', cost: 2000 },
-  { emoji: '🚀', name: 'Rocket', cost: 5000 },
-  { emoji: '👑', name: 'Crown', cost: 15000 },
+  { emoji: '❤️', name: 'Heart', serverName: 'হার্ট', cost: 1 },
+  { emoji: '🌹', name: 'Rose', serverName: 'গোলাপ', cost: 10 },
+  { emoji: '⭐', name: 'Star', serverName: 'স্টার', cost: 250 },
+  { emoji: '💍', name: 'Love Ring', serverName: 'লাভ রিং', cost: 750 },
+  { emoji: '💎', name: 'Diamond', serverName: 'ডায়মন্ড', cost: 1100 },
+  { emoji: '🚗', name: 'VIP Car', serverName: 'VIP কার', cost: 2000 },
+  { emoji: '🚀', name: 'Rocket', serverName: 'রকেট', cost: 5000 },
+  { emoji: '👑', name: 'Crown', serverName: 'ক্রাউন', cost: 15000 },
 ];
 
 const REACTIONS = ['❤️', '👏', '😂', '🔥', '😍', '🎉'];
@@ -69,7 +69,7 @@ export const VoiceRoomView: React.FC<Props> = ({
   room:roomInput,
   user,
   customGifts,
-  onUpdateCoins,
+  onGiftBalanceConfirmed,
   onOpenGame,
   onOpenWallet,
   onMinimize,
@@ -375,18 +375,22 @@ export const VoiceRoomView: React.FC<Props> = ({
           avatar: '👤'
         };
 
-        await sendDirectGift(db, {
+        const result = await sendDirectGift(db, {
           senderId: myUid || auth.currentUser?.uid || '',
           receiverId: targetUid,
           roomId: room.id,
-          item,
+          // Backend default catalog has legacy names; keep English labels in UI.
+          item: { ...item, name: (item as any).serverName || item.name },
           quantity: giftQuantity
         });
+        if (Number.isSafeInteger(result?.balance) && result.balance >= 0) {
+          onGiftBalanceConfirmed(result.balance, `Sent ${item.name} gifts in the room`);
+        }
         sentCount++;
       }
 
-      onUpdateCoins(user.coins - totalCost, `Sent ${item.name} gifts in the room (${sentCount} recipients)`);
-      setRoomCoinTotal(tot => tot + totalCost);
+      // The gift API atomically debits coins and emits the room gift event.
+      // Do not debit the wallet or count the same room gift a second time.
 
       setChatMessages(prev => [
         ...prev,
