@@ -664,8 +664,8 @@ export default function App() {
   const invText = () => `🎙️ EarnBD Voice Rooms-এ আমার সাথে যোগ দিন! সাইন-আপের সময় আমার ইনভাইট কোড দিন: SM${S.id}\n${inviteLink()}`;
 
   const roomActionBusy=useRef(false);
-  async function leaveActiveRoom(){const roomId=activeRoom?.id,uid=fbUser?.uid;if(!roomId||!uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুম ছাড়ার অনুরোধ চলছে…');try{await runTransaction(db,async tx=>{const ref=doc(db,'users',uid),snap=await tx.get(ref);if(snap.data()?.currentRoomId===roomId)tx.update(ref,{currentRoomId:null,roomSeat:null,activeRoom:null,lastSeen:serverTimestamp()})});setActiveRoom(null);setIsRoomMinimized(false);toast('You left the room')}catch{toast('Could not leave the room. Please try again.')}finally{roomActionBusy.current=false}}
-  async function enterRoom(candidate:any){if(!fbUser?.uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('রুমে ঢুকছি…');try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await runTransaction(db,async tx=>{const ref=doc(db,'users',fbUser.uid),snap=await tx.get(ref),profile=snap.data();tx.update(ref,{currentRoomId:room.id,roomSeat:profile?.currentRoomId===room.id?(profile?.roomSeat??null):null,online:true,lastSeen:serverTimestamp(),activeRoom:{id:room.id,name:room.name,host:room.host||'',hostId:room.hostId||'',cv:room.cv||'🎙️',sc:room.sc||8}})});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='resource-exhausted'?'Firebase daily write quota is exhausted. Rooms, games and voice updates cannot be saved until the quota resets or the database is moved.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}finally{roomActionBusy.current=false}}
+  async function leaveActiveRoom(){const roomId=activeRoom?.id,uid=fbUser?.uid;if(!roomId||!uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('Leaving room…');try{await runTransaction(db,async tx=>{const ref=doc(db,'users',uid),snap=await tx.get(ref);if(snap.data()?.currentRoomId===roomId)tx.update(ref,{currentRoomId:null,roomSeat:null,activeRoom:null,lastSeen:serverTimestamp()})});setActiveRoom(null);setIsRoomMinimized(false);toast('You left the room')}catch{toast('Could not leave the room. Please try again.')}finally{roomActionBusy.current=false}}
+  async function enterRoom(candidate:any){if(!fbUser?.uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('Joining room…');try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}await runTransaction(db,async tx=>{const ref=doc(db,'users',fbUser.uid),snap=await tx.get(ref),profile=snap.data();tx.update(ref,{currentRoomId:room.id,roomSeat:profile?.currentRoomId===room.id?(profile?.roomSeat??null):null,online:true,lastSeen:serverTimestamp(),activeRoom:{id:room.id,name:room.name,host:room.host||'',hostId:room.hostId||'',cv:room.cv||'🎙️',sc:room.sc||8}})});setActiveRoom(room);setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='resource-exhausted'?'Firebase daily write quota is exhausted. Rooms, games and voice updates cannot be saved until the quota resets or the database is moved.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}finally{roomActionBusy.current=false}}
   if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} stage={authStage} onRetry={()=>setAuthRetry(n=>n+1)}/>;
 
   return (
@@ -2303,7 +2303,7 @@ export default function App() {
           onOpenWallet={() => {setTab('wallet');setIsRoomMinimized(true)}}
           onMinimize={() => {
             setIsRoomMinimized(true);
-            toast('রুম মিনিমাইজ করা হয়েছে');
+            toast('Room minimized');
           }}
           onLeaveRoom={() => {void leaveActiveRoom()}}
           onClose={() => {void leaveActiveRoom()}}
@@ -2329,10 +2329,10 @@ export default function App() {
         <div
           onClick={() => {
             setIsGameMinimized(false);
-            toast('গেম বড় করা হয়েছে');
+            toast('Game restored');
           }}
           className="fixed top-20 right-3 z-50 bg-gradient-to-tr from-amber-500 via-pink-600 to-purple-600 border-2 border-yellow-300 text-white rounded-2xl p-2.5 shadow-[0_8px_25px_rgba(0,0,0,0.85)] flex items-center gap-2 cursor-pointer active:scale-95 animate-pulse"
-          title="মিনিমাইজড গেম বড় করুন"
+          title="Restore minimized game"
         >
           <span className="text-2xl drop-shadow">
             {activeGame === 'food_wheel' ? '🍽️' : activeGame === 'greedy_lion' ? '🦁' : activeGame === 'jackpot_fruit' ? '🍒' :
@@ -2357,10 +2357,10 @@ export default function App() {
               
               setActiveGame(null);
               setIsGameMinimized(false);
-              toast('গেম বন্ধ করা হয়েছে');
+              toast('Game closed');
             }}
             className="w-5 h-5 rounded-full bg-black/50 text-gray-300 hover:text-white flex items-center justify-center text-[10px]"
-            title="গেম বন্ধ করুন"
+            title="Close game"
           >
             ✕
           </button>
@@ -2381,7 +2381,7 @@ export default function App() {
                 <div className="min-w-0">
                   <b className="text-xs text-white truncate block">🎙️ {activeRoom.name}</b>
                   <span className="text-[10px] text-cyan-300 font-bold block truncate">
-                    হোস্ট: {activeRoom.host} · রুমে আছেন
+                    Host: {activeRoom.host} · In room
                   </span>
                 </div>
               </div>
@@ -2389,26 +2389,15 @@ export default function App() {
                 <button
                   onClick={() => {
                     setIsGameMinimized(true);
-                    toast('গেম মিনিমাইজ করা হয়েছে (রুম দেখুন)');
+                    toast('Game minimized. Room audio continues.');
                   }}
                   className="px-2.5 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/50 rounded-xl text-xs font-black flex items-center gap-1 active:scale-95 shadow"
-                  title="গেম মিনিমাইজ করুন ও রুম দেখুন"
+                  title="Minimize game and view room"
                 >
                   <ChevronDown size={14} />
-                  <span>মিনিমাইজ</span>
+                  <span>Minimize</span>
                 </button>
-                <button
-                  onClick={() => {
-  
-                    setActiveGame(null);
-                    setIsGameMinimized(false);
-                    toast('রুমে ফিরে এসেছেন');
-                  }}
-                  className="px-2.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-400/40 rounded-xl text-xs font-bold active:scale-95"
-                  title="গেম বন্ধ করে রুমে থাকুন"
-                >
-                  <span>✕ বন্ধ</span>
-                </button>
+
               </div>
             </div>
           )}
