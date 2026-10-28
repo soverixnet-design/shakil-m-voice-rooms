@@ -18,7 +18,7 @@ export function createVoiceStagingHttpServer({database,verifyIdToken,env=process
    if(!allowed.has(origin))return fail(res,403,'permission-denied');
    res.setHeader('Access-Control-Allow-Origin',origin);
    res.setHeader('Vary','Origin');
-   res.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type');
+   res.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type, X-EarnBD-Device');
    res.setHeader('Access-Control-Allow-Methods','GET, POST, OPTIONS');
   }
   const path=new URL(req.url||'/','http://localhost').pathname;
