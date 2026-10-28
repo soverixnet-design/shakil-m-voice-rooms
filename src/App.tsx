@@ -294,6 +294,11 @@ export default function App() {
   const [showUserDirectory, setShowUserDirectory] = useState(false);
   const [incomingGift, setIncomingGift] = useState<any>(null);
   const [activePage, setActivePage] = useState<string | null>(null);
+  const pageHistory = useRef<string[]>([]);
+  useEffect(() => {
+    if (!activePage) pageHistory.current = [];
+    else if (pageHistory.current[pageHistory.current.length - 1] !== activePage) pageHistory.current.push(activePage);
+  }, [activePage]);
   const [activeRoom, setActiveRoom] = useState<any | null>(null);
   const [pendingRoom,setPendingRoom]=useState<any|null>(null);
   const [lobbyScreen,setLobbyScreen]=useState<LobbyScreen>('rooms');
@@ -379,6 +384,31 @@ export default function App() {
 
   // User Recharge Permission Guard Modal State
   const [selectedRechargePackage, setSelectedRechargePackage] = useState<{ u: number; c: number } | null>(null);
+
+  // Native Android back follows the app's stateful screens, not WebView URL history.
+  // Room sheets get first chance to consume this cancelable event in capture phase.
+  useEffect(() => {
+    const back = (event: Event) => {
+      if (event.defaultPrevented) return;
+      if (showUserDirectory) { event.preventDefault(); setShowUserDirectory(false); return; }
+      if (showCreateRoomModal) { event.preventDefault(); setShowCreateRoomModal(false); return; }
+      if (selectedRechargePackage) { event.preventDefault(); setSelectedRechargePackage(null); return; }
+      if (pendingRoom) { event.preventDefault(); setPendingRoom(null); return; }
+      if (activeGame && !isGameMinimized) { event.preventDefault(); setActiveGame(null); setIsGameMinimized(false); return; }
+      if (activePage) {
+        event.preventDefault();
+        const stack = pageHistory.current;
+        if (stack[stack.length - 1] === activePage) stack.pop();
+        setActivePage(stack.length ? stack[stack.length - 1] : null);
+        return;
+      }
+      if (activeRoom && !isRoomMinimized) { event.preventDefault(); setIsRoomMinimized(true); return; }
+      if (activeGame) { event.preventDefault(); setActiveGame(null); setIsGameMinimized(false); return; }
+      if (tab !== 'home' || lobbyScreen !== 'rooms') { event.preventDefault(); setTab('home'); setLobbyScreen('rooms'); return; }
+    };
+    window.addEventListener('earnbd-native-back', back);
+    return () => window.removeEventListener('earnbd-native-back', back);
+  }, [showUserDirectory, showCreateRoomModal, selectedRechargePackage, pendingRoom, activeGame, isGameMinimized, activePage, activeRoom, isRoomMinimized, tab, lobbyScreen]);
 
   const giftProgress = giftLevel(S.giftSentCoins);
   const lv = giftProgress.level;
