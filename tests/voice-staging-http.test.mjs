@@ -156,6 +156,20 @@ test('LiveKit staging reads authoritative membership and fails closed without Fi
   assert.equal((await post(url,validToken)).status,403);
  }finally{await new Promise(resolve=>server.close(resolve));}
 });
+test('valid member without an optional room control document can obtain a LiveKit token',async()=>{
+ const server=createVoiceStagingHttpServer({env,verifyIdToken:async()=>({uid:'alice'}),readRoomMembership:async()=>[
+  {currentRoomId:'room-one',roomSeat:1,status:'active'},
+  {sc:8,voiceProvider:'livekit'},
+  null
+ ]});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const url='http://127.0.0.1:'+server.address().port;
+ try{
+  const response=await post(url,validToken);
+  assert.equal(response.status,200);
+  assert.equal((await response.json()).data.canPublish,true);
+ }finally{await new Promise(resolve=>server.close(resolve));}
+});
 test('Render membership API errors cannot create LiveKit room access',async()=>{
  const reader=createSocialMembershipReader({request:async()=>({ok:false,status:403})});
  await assert.rejects(reader({uid:'alice',roomId:'room-one',idToken:validToken}),/social-membership-unavailable/);
