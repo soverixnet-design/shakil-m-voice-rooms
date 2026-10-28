@@ -20,6 +20,12 @@ export function useRoomAudio(roomId:string,micOn:boolean,soundOn:boolean,canSpea
   if(!enabled||!flags.current.canSpeak){error.current='Take a seat before turning on your microphone.';setStatus(error.current);return false;}
   const session=current.current;error.current='';intent.current=true;unlock();
   try{
+   // Ask for microphone access immediately on the user's mic tap. Waiting for
+   // the voice token first can hide the Android permission prompt on slow links.
+   if(navigator.mediaDevices?.getUserMedia){
+    const probe=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    probe.getTracks().forEach(track=>track.stop());
+   }
    if(!session||session.dead)throw Error('voice-not-ready');
    await withTimeout(session.start(),120000);
    if(session.dead||current.current!==session)throw Error('voice-not-ready');
