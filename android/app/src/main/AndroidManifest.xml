@@ -7,7 +7,7 @@
  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
  <uses-permission android:name="android.permission.WAKE_LOCK"/>
- <application android:label="EarnBD Shakil" android:icon="@drawable/earnbd_logo" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:enableOnBackInvokedCallback="false" android:allowBackup="false" android:usesCleartextTraffic="false">
+ <application android:label="${appLabel}" android:icon="@drawable/earnbd_logo" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:enableOnBackInvokedCallback="false" android:allowBackup="false" android:usesCleartextTraffic="false">
   <service android:name=".RoomAudioService" android:exported="false" android:foregroundServiceType="mediaPlayback|microphone"/>
   <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
  </application>
