@@ -23,6 +23,8 @@ jobs:
         run: npm ci --prefix functions --omit=dev --no-audit
       - name: Verify voice auth isolation, LiveKit token signing, and client fallback
         run: node --import tsx --test tests/voice-staging-http.test.mjs tests/livekit-voice.test.mjs tests/voice-staging-client.test.mjs
+      - name: Check isolated preview deployment scripts (no server writes)
+        run: python3 -m unittest discover -s tests -p 'test_preview_*.py' -v
       - name: Typecheck all frontend code
         run: npm run lint
       - name: Build opt-in voice test bundle (no deployment)
