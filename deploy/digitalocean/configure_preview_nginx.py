@@ -25,7 +25,6 @@ LOCATION = """
     location ^~ /shakilm-preview/ {
         alias /opt/shakilm-preview/current/;
         index index.html;
-        try_files $uri $uri/ /shakilm-preview/index.html;
         add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
         add_header Cache-Control "no-store" always;
     }
