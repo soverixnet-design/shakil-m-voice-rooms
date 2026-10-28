@@ -203,6 +203,25 @@ export const VoiceRoomView: React.FC<Props> = ({
   const [roomRoles,setRoomRoles]=useState<Record<string,any>>({}),[roomControls,setRoomControls]=useState<Record<string,any>>({}),[policyOpen,setPolicyOpen]=useState(false),[policyTarget,setPolicyTarget]=useState(''),[policyStatus,setPolicyStatus]=useState('');
   const myUid=auth.currentUser?.uid||'';
   const [seatPolicyReady,setSeatPolicyReady]=useState(false);
+  // Room popups have priority over the underlying room and lobby on Android Back.
+  useEffect(() => {
+    const back = (event: Event) => {
+      if (showExitConfirm) { event.preventDefault(); setShowExitConfirm(false); }
+      else if (showGiftModal) { event.preventDefault(); if (!giftBusy) setShowGiftModal(false); }
+      else if (policyOpen) { event.preventDefault(); setPolicyOpen(false); }
+      else if (roomProfileOpen) { event.preventDefault(); setRoomProfileOpen(false); }
+      else if (selectedSeatUser) { event.preventDefault(); setSelectedSeatUser(null); }
+      else if (seatAction !== null) { event.preventDefault(); setSeatAction(null); }
+      else if (showGameDrawer) { event.preventDefault(); setShowGameDrawer(false); }
+      else if (eventsOpen) { event.preventDefault(); setEventsOpen(false); }
+      else if (toolsOpen) { event.preventDefault(); setToolsOpen(false); }
+      else if (moreOpen) { event.preventDefault(); setMoreOpen(false); }
+      else if (chatOpen) { event.preventDefault(); setChatOpen(false); }
+      else if (showReactionModal) { event.preventDefault(); setShowReactionModal(false); }
+    };
+    window.addEventListener('earnbd-native-back', back, true);
+    return () => window.removeEventListener('earnbd-native-back', back, true);
+  }, [showExitConfirm, showGiftModal, giftBusy, policyOpen, roomProfileOpen, selectedSeatUser, seatAction, showGameDrawer, eventsOpen, toolsOpen, moreOpen, chatOpen, showReactionModal]);
   const [lockedSeats,setLockedSeats]=useState<number[]>([]),[policyBusy,setPolicyBusy]=useState(false),[adminId,setAdminId]=useState('');
   useEffect(()=>{setSeatPolicyReady(false);return onSnapshot(doc(db,'rooms',room.id,'seatPolicy','config'),{includeMetadataChanges:true},s=>{if(!s.metadata.fromCache){setLockedSeats(s.data()?.locked||[]);setSeatPolicyReady(true)}},()=>{setSeatPolicyReady(false);setSeatError('Seat permissions could not load. Publish the latest Firebase rules.')})},[room.id]);
   const [policyUsers,setPolicyUsers]=useState<Record<string,any>>({});
