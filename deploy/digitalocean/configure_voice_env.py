@@ -112,7 +112,7 @@ def main():
             "LIVEKIT_URL=" + url,
             "LIVEKIT_API_KEY=" + api_key,
             "LIVEKIT_API_SECRET=" + api_secret,
-            "LIVEKIT_MINUTES_BUDGET=90",
+            "LIVEKIT_PRIMARY_FOR_UNSET_ROOMS=false",
             "ALLOWED_ORIGINS=" + ORIGINS,
         ]
         temporary = None
