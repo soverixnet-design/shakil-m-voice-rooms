@@ -13,6 +13,8 @@ services:
     environment:
       PORT: "10000"
       NODE_ENV: production
+      # Off until the Render-to-DigitalOcean cutover has been verified.
+      EARNBD_ENABLE_SWEEP: "${EARNBD_ENABLE_SWEEP:-false}"
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
       ALLOWED_ORIGINS: https://earnbd.work,https://www.earnbd.work,https://soverixnet-design.github.io,https://voice.soverixnet.online
     volumes:
