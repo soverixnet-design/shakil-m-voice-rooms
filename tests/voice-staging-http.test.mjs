@@ -12,7 +12,7 @@ function fixture(){
  const rows=new Map([
   ['users/alice',{currentRoomId:'room-one',roomSeat:0}],
   ['users/bob',{currentRoomId:'room-one',roomSeat:null}],
-  ['rooms/room-one',{sc:8}]
+  ['rooms/room-one',{sc:8,voiceProvider:'livekit'}]
  ]);
  let writes=0;
  const database={doc:path=>({get:async()=>({data:()=>rows.get(path)}),set:()=>{writes++;throw Error('unexpected-write');}})};
@@ -75,6 +75,16 @@ test('unapproved browser origins are rejected even with a token',async()=>{
    headers:{Origin:'https://evil.example.test','Content-Type':'application/json',Authorization:'Bearer '+validToken},
    body:JSON.stringify({roomId:'room-one'})});
   assert.equal(denied.status,403);
+  assert.equal(f.getWrites(),0);
+ });
+});
+
+test('all participants follow the room provider flag and no caller may split a Render room',async()=>{
+ await withServer(async(f,url)=>{
+  f.rows.get('rooms/room-one').voiceProvider='agora';
+  const denied=await post(url,validToken);
+  assert.equal(denied.status,409);
+  assert.equal((await denied.json()).error.code,'voice-provider-not-livekit');
   assert.equal(f.getWrites(),0);
  });
 });
