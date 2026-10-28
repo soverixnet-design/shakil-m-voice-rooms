@@ -3,16 +3,16 @@ import tls from 'tls-sig-api-v2';
 import {createAgoraVoiceConfig} from './agora-voice.js';
 import {createLiveKitVoiceConfig,liveKitIsConfigured} from './livekit-voice.js';
 const fail=(message,code='unavailable')=>Object.assign(Error(message),{code});
-// Quotas are operator-supplied remaining participant-minutes, never assumed trial entitlements.
+// Only third-party providers use metered trial quotas. Self-hosted LiveKit is limited by server capacity, not a minute allowance.
 export function voiceProviders(env=process.env){
  const providers=[];
- for(const id of (env.VOICE_PROVIDER_ORDER||'agora,tencent').split(',')){
-  const name=id.trim(),prefix=name.toUpperCase(),cap=Number(name==='livekit'?env.LIVEKIT_MINUTES_BUDGET:env[prefix+'_FREE_MINUTES']);
+ for(const id of (env.VOICE_PROVIDER_ORDER||'livekit,agora,tencent').split(',')){
+  const name=id.trim(),prefix=name.toUpperCase(),cap=Number(env[prefix+'_FREE_MINUTES']);
   if(name==='agora'&&env.AGORA_APP_ID&&env.AGORA_APP_CERTIFICATE)providers.push({name,cap:Number.isFinite(cap)&&cap>0?cap:null});
   if(name==='tencent'&&/^\d+$/.test(env.TENCENT_SDK_APP_ID||'')&&/^[a-f0-9]{64}$/i.test(env.TENCENT_SECRET_KEY||'')&&env.TENCENT_ADVANCED_PERMISSION_ENABLED==='true'&&cap>0&&/^[A-Za-z0-9_-]{1,40}$/.test(env.VOICE_QUOTA_CYCLE||'')&&Number.isFinite(Date.parse(env.TENCENT_FREE_UNTIL||'')))providers.push({name,cap,expiresAt:Date.parse(env.TENCENT_FREE_UNTIL)});
-  if(name==='livekit'&&liveKitIsConfigured(env))providers.push({name,cap});
+  if(name==='livekit'&&liveKitIsConfigured(env))providers.push({name,cap:null});
  }
- return providers.some(p=>p.name==='tencent')?providers.filter(p=>p.cap!==null):providers;
+ return providers.some(p=>p.name==='tencent')?providers.filter(p=>p.cap!==null||p.name==='livekit'):providers;
 }
 export function createRoutedVoiceConfig(store,{env=process.env,clock=Date.now}={}){
  const providers=voiceProviders(env);
@@ -37,7 +37,7 @@ export function createRoutedVoiceConfig(store,{env=process.env,clock=Date.now}={
    const changed=previous.provider!==provider.name||previous.cycle!==cycle;
    const epoch=changed?(previous.epoch||0)+1:previous.epoch||1;
    let until=lease.until;
-   if(!same){until=now+90000;used[provider.name]=(used[provider.name]||0)+1.5;tx.set(budgetRef,{reservedMinutes:used,updatedAt:now});tx.set(leaseRef,{cycle,provider:provider.name,until});}
+   if(!same){until=now+90000;if(provider.cap!==null){used[provider.name]=(used[provider.name]||0)+1.5;tx.set(budgetRef,{reservedMinutes:used,updatedAt:now});}tx.set(leaseRef,{cycle,provider:provider.name,until});}
    if(changed)tx.set(routeRef,{provider:provider.name,cycle,epoch,changedAt:now});
    // Successful authenticated RTC renewal also keeps room membership visible.
    // Never change a confirmed seat while refreshing presence.
