@@ -19,6 +19,33 @@ EXPECTED_PROJECT = "gen-lang-client-0043151803"
 ORIGINS = "https://soverixnet-design.github.io,https://localhost,capacitor://localhost,http://localhost"
 
 
+def parse_yaml_scalar(raw):
+    """Parse a plain or quoted scalar without executing YAML tags or commands."""
+    value = raw.strip()
+    if not value:
+        raise ValueError("Unsupported LiveKit key format")
+    if value.startswith('"'):
+        try:
+            parsed, end = json.JSONDecoder().raw_decode(value)
+        except json.JSONDecodeError:
+            raise ValueError("Unsupported LiveKit key format") from None
+        if value[end:].strip() and not value[end:].strip().startswith("#"):
+            raise ValueError("Unsupported LiveKit key format")
+        value = parsed
+    elif value.startswith("'"):
+        quoted = re.match(r"^'((?:[^']|'')*)'(?=\s|$)", value)
+        if not quoted:
+            raise ValueError("Unsupported LiveKit key format")
+        if value[quoted.end():].strip() and not value[quoted.end():].strip().startswith("#"):
+            raise ValueError("Unsupported LiveKit key format")
+        value = quoted.group(1).replace("''", "'")
+    else:
+        value = value.split(" #", 1)[0].strip()
+    if not isinstance(value, str):
+        raise ValueError("Unsupported LiveKit key format")
+    return value
+
+
 def read_one_livekit_key(path):
     in_keys = False
     pairs = []
@@ -31,17 +58,24 @@ def read_one_livekit_key(path):
             continue
         if not line[0].isspace():
             break
-        match = re.fullmatch(
-            r"\s+([A-Za-z0-9_-]{3,128}):\s*([A-Za-z0-9_+/=-]{32,256})\s*(?:#.*)?",
-            line,
-        )
-        if not match:
-            raise ValueError("Unexpected LiveKit key syntax; cannot safely configure")
-        pairs.append(match.groups())
+        mapping = re.fullmatch(r"\s+([^:]+):\s*(.*?)\s*", line)
+        if not mapping:
+            raise ValueError("Unsupported LiveKit key format")
+        key = parse_yaml_scalar(mapping.group(1))
+        secret = parse_yaml_scalar(mapping.group(2))
+        if not re.fullmatch(r"[A-Za-z0-9_-]{3,128}", key):
+            raise ValueError("Unsupported LiveKit key format")
+        if len(secret) < 32 or len(secret) > 256:
+            raise ValueError("LiveKit secret length unsupported")
+        # Docker Compose env files interpolate '$'; never write values whose
+        # encoding could change or inject additional environment variables.
+        unsafe = {"$", "#", chr(96), chr(39), chr(34), chr(92), ";"}
+        if any(ord(c) < 33 or ord(c) > 126 or c in unsafe for c in secret):
+            raise ValueError("LiveKit secret characters unsupported")
+        pairs.append((key, secret))
     if len(pairs) != 1:
         raise ValueError("Exactly one supported LiveKit API key is required")
     return pairs[0]
-
 
 def validate_url(value):
     parts = urlsplit(value)
@@ -98,9 +132,21 @@ def main():
                 temporary.unlink(missing_ok=True)
         print("VOICE_ENV_READY mode=600 firebase_project=matched livekit_keys=1")
         print("Credentials were not displayed; Akira and Render were not changed.")
-    except (ValueError, OSError, json.JSONDecodeError) as error:
-        # Never include secret file contents or exception values in output.
-        print("VOICE_ENV_NOT_CREATED: check Firebase, LiveKit YAML and URL prerequisites")
+    except ValueError as error:
+        safe_reasons = {
+            "Unsupported LiveKit key format",
+            "LiveKit secret length unsupported",
+            "LiveKit secret characters unsupported",
+            "Exactly one supported LiveKit API key is required",
+            "Firebase project ID mismatch",
+            "voice.env already exists; refusing to overwrite",
+            "Provide the existing public TLS WebSocket URL (wss://host)",
+        }
+        reason = str(error) if str(error) in safe_reasons else "Invalid config prerequisites"
+        print("VOICE_ENV_NOT_CREATED: " + reason)
+        raise SystemExit(1) from None
+    except OSError:
+        print("VOICE_ENV_NOT_CREATED: Missing or unreadable configuration file")
         raise SystemExit(1) from None
 
 
