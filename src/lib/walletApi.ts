@@ -19,7 +19,7 @@ function resolveServerUrl(){
  return pending;
 }
 export async function walletApi(action:'sync'|'gift'|'lucky-gift'|'exchange'|'voice-config'|'referral'|'events'|'staff'|'sellers'|'devices',data:any){
- // Off by default. Only explicitly LiveKit-enabled rooms use DigitalOcean.
+ // Off by default. The rollout may put unassigned rooms on DigitalOcean LiveKit.
  // Never fall back one participant alone: it would split the room's audio.
  if(action==='voice-config'&&voiceStagingEnabled(import.meta.env.VITE_SHAKILM_VOICE_STAGING)){
   const roomId=data?.roomId;
@@ -28,7 +28,7 @@ export async function walletApi(action:'sync'|'gift'|'lucky-gift'|'exchange'|'vo
   let room;
   try{room=await withTimeout(getDoc(doc(db,'rooms',roomId)),5000);}
   catch{throw Object.assign(Error('room-route-unavailable'),{code:'functions/unavailable'});}
-  if(roomUsesStagingVoice(room.data()))return (await callVoiceStaging(data)).data;
+  if(roomUsesStagingVoice(room.data(),import.meta.env.VITE_SHAKILM_LIVEKIT_PRIMARY==='true'))return (await callVoiceStaging(data)).data;
  }
  return (await callSharedGame<any>(await resolveServerUrl(),action,data)).data;
 }
