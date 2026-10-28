@@ -21,3 +21,15 @@ test('one room uses a single provider: Render by default, LiveKit only when the 
   }
  }
 });
+
+
+test('opt-in LiveKit-primary routes unassigned rooms together, while explicit legacy rooms remain on Render',()=>{
+ assert.equal(roomUsesStagingVoice({},true),true);
+ assert.equal(roomUsesStagingVoice({voiceProvider:undefined},true),true);
+ assert.equal(roomUsesStagingVoice({voiceProvider:'livekit'},false),true);
+ assert.equal(roomUsesStagingVoice({voiceProvider:'agora'},true),false);
+ assert.equal(roomUsesStagingVoice({voiceProvider:'tencent'},true),false);
+ assert.equal(roomUsesStagingVoice({voiceProvider:'render'},true),false);
+ assert.equal(roomUsesStagingVoice({voiceProvider:null},true),false);
+ assert.equal(roomUsesStagingVoice(null,true),false);
+});
