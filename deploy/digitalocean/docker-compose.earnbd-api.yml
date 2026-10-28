@@ -1,0 +1,37 @@
+# Opt-in, isolated EarnBD social/game/wallet API on the existing Akira host.
+# Akira, LiveKit, PostgreSQL, and the existing voice-only staging service stay unchanged.
+# Never start until /etc/shakilm-secrets/earnbd-api.env is populated privately.
+services:
+  earnbd-api:
+    build:
+      context: ../..
+      dockerfile: deploy/digitalocean/Dockerfile.earnbd-api
+    container_name: shakilm-earnbd-api
+    restart: unless-stopped
+    env_file:
+      - /etc/shakilm-secrets/earnbd-api.env
+    environment:
+      PORT: "10000"
+      NODE_ENV: production
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
+      ALLOWED_ORIGINS: https://earnbd.work,https://www.earnbd.work,https://soverixnet-design.github.io,https://voice.soverixnet.online
+    volumes:
+      - /etc/shakilm-secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
+    ports:
+      - "127.0.0.1:4317:10000"
+    mem_limit: 512m
+    cpus: 0.75
+    pids_limit: 100
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:10000/health').then(async r=>{const b=await r.json();process.exit(r.ok&&b.status==='ok'&&b.database==='connected'&&b.socialDatabase==='supabase'&&b.gamesDatabase==='supabase'?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 12s
+      retries: 3
+      start_period: 90s
