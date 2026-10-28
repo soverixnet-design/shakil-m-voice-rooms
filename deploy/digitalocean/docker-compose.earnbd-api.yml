@@ -4,8 +4,8 @@
 services:
   earnbd-api:
     build:
-      context: ../..
-      dockerfile: deploy/digitalocean/Dockerfile.earnbd-api
+      context: ../../functions
+      dockerfile: Dockerfile.earnbd-api
     container_name: shakilm-earnbd-api
     restart: unless-stopped
     env_file:
