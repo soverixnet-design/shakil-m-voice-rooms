@@ -2292,9 +2292,13 @@ export default function App() {
           room={activeRoom}
           user={S}
           customGifts={S.customGifts}
-          onUpdateCoins={(newCoins: number, reason: string) => {
-            const diff = newCoins - S.coins;
-            updateCoins(diff, reason);
+          onGiftBalanceConfirmed={(newCoins: number, reason: string) => {
+            // The authenticated gift endpoint already committed this balance.
+            // Reflect its receipt in the UI; a second wallet transaction would double-debit.
+            if (!Number.isSafeInteger(newCoins) || newCoins < 0) return;
+            coinsRef.current = newCoins;
+            setS((prev: any) => ({ ...prev, coins: newCoins,
+              hist: [`🪙 ${reason} · Balance ${newCoins.toLocaleString('en-US')}`, ...prev.hist.slice(0, 30)] }));
           }}
           onOpenGame={(gameId: string) => {
             // Keep room active in background while playing game!
