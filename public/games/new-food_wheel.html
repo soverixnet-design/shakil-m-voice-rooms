@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ফুড হুইল গেম</title>
+<title>Food Wheel Game</title>
 <style>
 :root{--teal:#00bcb0;--red:#d62828;--wood:#a8472b;--gold:#ffe66d;--cream:#fff1d6;--ink:#4a2410;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -119,22 +119,22 @@ html,body{height:100%;margin:0;background:#1a1020;font-family:system-ui,-apple-s
 <link rel="stylesheet" href="food-wheel-live.css?v=1"></head>
 <body>
 <div id="app">
-  <div id="room"><b>🎙 ভয়েস রুম</b><div class="mics"><i></i><i></i></div></div>
+  <div id="room"><b>🎙 Voice Room</b><div class="mics"><i></i><i></i></div></div>
   <div id="game">
-    <div class="top"><span>আজকের রাউন্ড: <span id="rn">—</span></span>
-      <span><button id="mode" title="রুমের ভিতর/বাইরে">⛶</button><button id="help">?</button></span></div>
-    <div id="stage"><div id="wheel"><div id="hub"><span class="big" id="big">🍽</span><span id="ht">সংযোগ হচ্ছে…</span><big id="tm">—</big></div></div></div>
+    <div class="top"><span>Current round: <span id="rn">—</span></span>
+      <span><button id="mode" title="Room view">⛶</button><button id="help">?</button></span></div>
+    <div id="stage"><div id="wheel"><div id="hub"><span class="big" id="big">🍽</span><span id="ht">Connecting…</span><big id="tm">—</big></div></div></div>
     <div class="mid">
       <div class="panel"><div class="av">👩</div><span>🪙 <span id="jp">—</span></span></div>
-      <div class="panel" id="hist">আমার হিস্ট্রি ›</div>
+      <div class="panel" id="hist">My history ›</div>
     </div>
     <div class="bottom">
-      <div id="res"><span class="l">ফলাফল:</span></div>
+      <div id="res"><span class="l">Results:</span></div>
       <div id="chips"></div>
       <div class="foot"><div class="av">🧑</div>
         <div class="pill"><small>—</small>🪙 <span id="bal">—</span></div>
-        <div class="pill"><small>আজকের আয়</small>🪙 <span id="rev">0</span></div>
-        <button id="auto">অটো প্লে</button></div>
+        <div class="pill"><small>Today's winnings</small>🪙 <span id="rev">0</span></div>
+        <button id="auto">Ranking</button></div>
     </div>
     <div id="banner"></div><div id="winners"></div><div id="toast"></div>
     <div id="sheet"><div class="in" id="sin"></div></div>
