@@ -69,6 +69,7 @@ def main():
                 "node:24-alpine", "sh", "-euc",
                 "npm install --no-save --package-lock=false --legacy-peer-deps --no-audit --no-fund && npm run build",
             ]
+            print("PREVIEW_BUILD_RUNNING: installing frontend dependencies and building test bundle", flush=True)
             log_path = ROOT / "build.log"
             with log_path.open("wb") as log:
                 os.fchmod(log.fileno(), 0o600)
