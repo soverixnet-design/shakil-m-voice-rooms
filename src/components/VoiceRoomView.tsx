@@ -250,10 +250,13 @@ export const VoiceRoomView: React.FC<Props> = ({
   const [seatBusy,setSeatBusy]=useState(false),[seatError,setSeatError]=useState('');
   const seatLock=useRef(false);
   const liveSeats=Array.from({length:seatCount},(_,index)=>liveMembers.filter(m=>m.roomSeat===index).sort((a,b)=>a.uid.localeCompare(b.uid))[0]||null);
-  useEffect(()=>{let stopped=false;setRoomReady(false);setSeatedIndex(null);setIsMicOn(false);enteredAt.current=Date.now();const uid=auth.currentUser?.uid;if(!uid)return;
+  useEffect(()=>{let stopped=false;const confirmed=(roomInput as any).membershipConfirmed===true;const savedSeat=(roomInput as any).confirmedSeat;
+    setRoomReady(confirmed);setSeatedIndex(confirmed&&Number.isInteger(savedSeat)?savedSeat:null);
+    setIsMicOn(false);enteredAt.current=Date.now();const uid=auth.currentUser?.uid;if(!uid)return;
     const ref=doc(db,'users',uid);
     const stop=onSnapshot(ref,snap=>{const profile=snap.data();if(stopped||profile?.currentRoomId!==room.id)return;setRoomReady(true);setSeatedIndex(Number.isInteger(profile.roomSeat)?profile.roomSeat:null)},()=>setSeatError('Could not load seat information. Check your connection.'));
-    void runTransaction(db,tx=>ensureVoiceMembership(tx,ref,room.id,(room as any).entrySeat??null,serverTimestamp())).then(seat=>{if(!stopped){setRoomReady(true);setSeatedIndex(seat)}}).catch(()=>{if(!stopped)setSeatError('Could not save room connection. Rejoin the room.')});
+    // The lobby already committed membership; skip its duplicate network transaction.
+    if(!confirmed)void runTransaction(db,tx=>ensureVoiceMembership(tx,ref,room.id,(room as any).entrySeat??null,serverTimestamp())).then(seat=>{if(!stopped){setRoomReady(true);setSeatedIndex(seat)}}).catch(()=>{if(!stopped)setSeatError('Could not save room connection. Rejoin the room.')});
     return()=>{stopped=true;stop()};
   },[room.id]);
   const handleSeatClick = async (index:number) => {
