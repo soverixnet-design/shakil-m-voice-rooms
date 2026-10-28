@@ -33,3 +33,23 @@ Agora/Tencent are metered/trial providers. Our DigitalOcean-hosted LiveKit is in
 - Health includes livekitPrimaryForUnassignedRooms; this is a boolean, not a secret.
 - Public voice endpoint rejects unauthenticated POST with 401.
 - Verify Akira and Render independently; do not restart their containers.
+
+## Isolated browser preview
+
+Preview URL after deploying: https://voice.soverixnet.online/shakilm-preview/
+
+- The custom voice HTTPS vhost and existing LiveKit WSS signaling remain separate Nginx location routes on the same hostname.
+- Build the test frontend from the staged Git branch using deploy/digitalocean/build_voice_preview.py. It runs in a resource-limited disposable node:24-alpine container, builds with both Vite voice flags on, and atomically points /opt/shakilm-preview/current to the new release.
+- Use deploy/digitalocean/configure_preview_nginx.py to install one static prefix on the existing LiveKit HTTPS virtual host. It validates and backs up Nginx with rollback on failure.
+- Use deploy/digitalocean/enable_preview_voice.py only after the preview route is live; it adds the preview origin and enables LiveKit-primary for the isolated staging token service. Restart only the shakilm-voice-only-staging container afterward.
+- Browser-based Google popup sign-in may require adding voice.soverixnet.online to Firebase Authorized domains. Use an existing EMAIL/PASSWORD test account if enabled rather than changing Firebase without authorization.
+- Both phones must open the preview URL, use separate authenticated accounts, and join the same dedicated low-traffic test room. Do not mix preview clients and current earnbd.work clients in one active room.
+- The preview is public but tagged noindex. It reuses Firebase production data; DO NOT test gifts, wallet transfers, games or admin mutations here. Only test voice, seat and mute states.
+- A successful HTTP health check is not an end-to-end RTC audio test.
+
+## Rollback
+
+- Production earnbd.work is unaffected throughout.
+- To disable preview voice admission, set LIVEKIT_PRIMARY_FOR_UNSET_ROOMS=false in the protected staging env and restart only the staging container. Do not print the env file.
+- The Nginx setup creates a timestamped backup under /etc/nginx and does not remove the original LiveKit proxy route.
+- The preview build uses versioned releases and an atomic current symlink; older releases remain available for recovery.
