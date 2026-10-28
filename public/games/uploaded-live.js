@@ -37,7 +37,7 @@ if(game==='jackpot_fruit'){toggle.style.display='none';const originalBar=documen
 const tools=document.createElement('nav');tools.id='game-tools';tools.setAttribute('aria-label','Game details');
 for(const [key,label] of [['history','📒 My history'],['daily','🏆 Ranking'],['players','👥 Players']]){const b=document.createElement('button');b.textContent=label;b.onclick=()=>{tab=key;panel.style.display='block';rows()};tools.append(b)}
 const account=document.createElement('section');account.id='game-account';account.setAttribute('data-no-translate','true');
-account.innerHTML='<div id="game-avatar"></div><div class="game-account-copy"><strong id="game-name"></strong><small id="game-id"></small><b id="game-coins"></b></div><button id="game-recharge" aria-label="Wallet">＋</button><div class="game-today"><small>Today's winnings</small><b id="game-today"></b></div>';
+account.innerHTML='<div id="game-avatar"></div><div class="game-account-copy"><strong id="game-name"></strong><small id="game-id"></small><b id="game-coins"></b></div><button id="game-recharge" aria-label="Wallet">＋</button><div class="game-today"><small>Daily winnings</small><b id="game-today"></b></div>';
 account.querySelector('button').onclick=()=>send('live-wallet');
 const host=$('app')||document.body;host.append(tools,account);
 const panelClose=document.createElement('button');panelClose.id='game-details-close';panelClose.textContent='✕ Close';panelClose.onclick=()=>panel.style.display='none';panel.prepend(panelClose);
