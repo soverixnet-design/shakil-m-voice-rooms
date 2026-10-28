@@ -24,7 +24,7 @@ import android.view.*;
 
 /** Android shell: application stays inside this Activity, with origin-scoped microphone access. */
 public class MainActivity extends Activity {
- private static final String APP_URL="https://earnbd.work/";
+ private static final String APP_URL=BuildConfig.APP_URL;
  private AudioManager audioManager;
  private int previousAudioMode;
  private boolean previousSpeaker;
@@ -86,7 +86,9 @@ public class MainActivity extends Activity {
 
 
  private boolean trusted(Uri uri) {
-  return uri!=null && "https".equals(uri.getScheme()) && (uri.getHost()!=null && (uri.getHost().endsWith("earnbd.work") || uri.getHost().endsWith(".run.app") || uri.getHost().endsWith("github.io"))) && uri.getUserInfo()==null;
+  if(uri==null || !"https".equals(uri.getScheme()) || uri.getUserInfo()!=null || uri.getHost()==null)return false;
+  if(BuildConfig.VOICE_PREVIEW)return "voice.soverixnet.online".equals(uri.getHost());
+  return uri.getHost().endsWith("earnbd.work") || uri.getHost().endsWith(".run.app") || uri.getHost().endsWith("github.io");
  }
  @Override public void onCreate(Bundle state) {
   super.onCreate(state);
