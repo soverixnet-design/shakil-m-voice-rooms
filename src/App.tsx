@@ -665,7 +665,27 @@ export default function App() {
 
   const roomActionBusy=useRef(false);
   async function leaveActiveRoom(){const roomId=activeRoom?.id,uid=fbUser?.uid;if(!roomId||!uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('Leaving room…');try{await runTransaction(db,async tx=>{const ref=doc(db,'users',uid),snap=await tx.get(ref);if(snap.data()?.currentRoomId===roomId)tx.update(ref,{currentRoomId:null,roomSeat:null,activeRoom:null,lastSeen:serverTimestamp()})});setActiveRoom(null);setIsRoomMinimized(false);toast('You left the room')}catch{toast('Could not leave the room. Please try again.')}finally{roomActionBusy.current=false}}
-  async function enterRoom(candidate:any){if(!fbUser?.uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('Joining room…');try{const snap=await getDoc(doc(db,'rooms',String(candidate.id)));if(!snap.exists()){toast('Room not found.');return;}const room:any={...snap.data(),id:snap.id};if(room.locked===true&&room.hostId!==fbUser.uid){const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));if(role.data()?.role!=='admin'){toast('This room is locked.');return;}}const confirmedSeat=await runTransaction(db,async tx=>{const ref=doc(db,'users',fbUser.uid),snap=await tx.get(ref),profile=snap.data();const seat=profile?.currentRoomId===room.id?(profile?.roomSeat??null):null;tx.update(ref,{currentRoomId:room.id,roomSeat:seat,online:true,lastSeen:serverTimestamp(),activeRoom:{id:room.id,name:room.name,host:room.host||'',hostId:room.hostId||'',cv:room.cv||'🎙️',sc:room.sc||8}});return seat;});setActiveRoom({...room,membershipConfirmed:true,confirmedSeat});setIsRoomMinimized(false);setPendingRoom(null)}catch(e:any){toast(e.code==='resource-exhausted'?'Firebase daily write quota is exhausted. Rooms, games and voice updates cannot be saved until the quota resets or the database is moved.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}finally{roomActionBusy.current=false}}
+  async function enterRoom(candidate:any){if(!fbUser?.uid||roomActionBusy.current)return;roomActionBusy.current=true;toast('Joining room…');try{
+    const roomId=String(candidate.id);
+    // Verify the room and read the current profile concurrently; this saves a full
+    // network round-trip before the same version-checked membership transaction.
+    const roomRequest=getDoc(doc(db,'rooms',roomId));
+    const joined=await runTransaction(db,async tx=>{
+      const ref=doc(db,'users',fbUser.uid);
+      const [profileSnap,roomSnap]=await Promise.all([tx.get(ref),roomRequest]);
+      if(!roomSnap.exists())throw Object.assign(Error('Room not found.'),{code:'room-not-found'});
+      const room:any={...roomSnap.data(),id:roomSnap.id};
+      if(room.locked===true&&room.hostId!==fbUser.uid){
+        const role=await getDoc(doc(db,'rooms',room.id,'roles',fbUser.uid));
+        if(role.data()?.role!=='admin')throw Object.assign(Error('This room is locked.'),{code:'room-locked'});
+      }
+      const profile=profileSnap.data();
+      const seat=profile?.currentRoomId===room.id?(profile?.roomSeat??null):null;
+      tx.update(ref,{currentRoomId:room.id,roomSeat:seat,online:true,lastSeen:serverTimestamp(),activeRoom:{id:room.id,name:room.name,host:room.host||'',hostId:room.hostId||'',cv:room.cv||'🎙️',sc:room.sc||8}});
+      return {room,confirmedSeat:seat};
+    });
+    setActiveRoom({...joined.room,membershipConfirmed:true,confirmedSeat:joined.confirmedSeat});setIsRoomMinimized(false);setPendingRoom(null);
+  }catch(e:any){toast(e.code==='room-not-found'?'Room not found.':e.code==='room-locked'?'This room is locked.':e.code==='resource-exhausted'?'The database is temporarily unavailable. Please try again.':e.code==='permission-denied'?'This room is locked or you do not have permission to enter.':'Room connection failed. Please try again.')}finally{roomActionBusy.current=false}}
   if(!isAuthenticated||!fbUser)return <AuthScreen checking={authChecking} error={authError} stage={authStage} onRetry={()=>setAuthRetry(n=>n+1)}/>;
 
   return (
