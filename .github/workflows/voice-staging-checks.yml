@@ -28,4 +28,5 @@ jobs:
       - name: Build opt-in voice test bundle (no deployment)
         env:
           VITE_SHAKILM_VOICE_STAGING: 'true'
+          VITE_SHAKILM_LIVEKIT_PRIMARY: 'true'
         run: npm run build
