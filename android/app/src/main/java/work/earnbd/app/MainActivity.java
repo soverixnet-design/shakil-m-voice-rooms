@@ -156,13 +156,23 @@ public class MainActivity extends Activity {
  @Override protected void onSaveInstanceState(Bundle out){web.saveState(out);super.onSaveInstanceState(out);}
  private long lastBackPressTime = 0;
  @Override public void onBackPressed(){
-  long now = System.currentTimeMillis();
-  if (now - lastBackPressTime < 2500) {
-   finishAffinity();
+  if(web!=null&&!isFinishing()&&trusted(Uri.parse(web.getUrl()==null?"":web.getUrl()))){
+   // React screens are state-driven: URL history alone cannot close in-app sheets.
+   web.evaluateJavascript("(function(){var e=new Event('earnbd-native-back',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})()",handled->{
+    if("true".equals(handled))lastBackPressTime=0;
+    else handleBackAtHome();
+   });
    return;
   }
-  lastBackPressTime = now;
-  Toast.makeText(this, "অ্যাপ বন্ধ করতে আবার ব্যাক চাপুন", Toast.LENGTH_SHORT).show();
+  handleBackAtHome();
+ }
+ private void handleBackAtHome(){
+  // Preserve audio when the user backgrounds an active voice room.
+  if(roomAudio){moveTaskToBack(true);return;}
+  long now=System.currentTimeMillis();
+  if(now-lastBackPressTime<2500){finishAffinity();return;}
+  lastBackPressTime=now;
+  Toast.makeText(this,"Press Back again to exit",Toast.LENGTH_SHORT).show();
  }
  private void prepareVoiceAudio(){audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);audioManager.setSpeakerphoneOn(true);}
  @Override protected void onResume(){super.onResume();activityVisible=true;}
