@@ -7,10 +7,10 @@ android {
     namespace 'work.earnbd.app'
     compileSdk 36
     defaultConfig {
-        applicationId voicePreviewBuild ? 'work.earnbd.app.voicepreview' : 'work.earnbd.app'
+        applicationId(voicePreviewBuild ? 'work.earnbd.app.voicepreview' : 'work.earnbd.app')
         manifestPlaceholders = [appLabel: voicePreviewBuild ? 'EarnBD Voice Test' : 'EarnBD Shakil']
-        buildConfigField 'String', 'APP_URL', voicePreviewBuild ? '"https://voice.soverixnet.online/shakilm-preview/"' : '"https://earnbd.work/"'
-        buildConfigField 'boolean', 'VOICE_PREVIEW', voicePreviewBuild ? 'true' : 'false'
+        buildConfigField('String', 'APP_URL', voicePreviewBuild ? '"https://voice.soverixnet.online/shakilm-preview/"' : '"https://earnbd.work/"')
+        buildConfigField('boolean', 'VOICE_PREVIEW', voicePreviewBuild ? 'true' : 'false')
         minSdk 23
         targetSdk 36
         versionCode 10
