@@ -26,6 +26,7 @@ export function createVoiceStagingHttpServer({database,verifyIdToken,env=process
   if(req.method==='GET'&&path==='/health')return send(res,liveKitIsConfigured(env)?200:503,{
    status:liveKitIsConfigured(env)?'ok':'configuration-required',
    mode:'voice-only-staging',provider:'livekit',firestoreWrites:false,
+   livekitPrimaryForUnassignedRooms:env.LIVEKIT_PRIMARY_FOR_UNSET_ROOMS==='true',
    routes:['GET /health','POST /api/voice-config']
   });
   if(path!=='/api/voice-config')return fail(res,404,'not-found');
