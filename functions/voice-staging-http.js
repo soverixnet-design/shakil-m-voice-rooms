@@ -66,7 +66,9 @@ export function createVoiceStagingHttpServer({database,verifyIdToken,env=process
    ]);
    const [user,room,control={}]=docs.map(d=>d.data?.());
    if(!user||!room||user.currentRoomId!==roomId||['banned','archived','suspended'].includes(user.status)||control.blocked)return fail(res,403,'permission-denied');
-   if(room.voiceProvider!=='livekit')return fail(res,409,'voice-provider-not-livekit');
+   // Room-level choice is authoritative. Default LiveKit requires the same explicit
+   // staged rollout switch on server AND all test clients.
+   if(room.voiceProvider!=='livekit'&&!(env.LIVEKIT_PRIMARY_FOR_UNSET_ROOMS==='true'&&room.voiceProvider===undefined))return fail(res,409,'voice-provider-not-livekit');
    const seatCount=room.sc||(room.d?12:8);
    const canPublish=Number.isInteger(user.roomSeat)&&user.roomSeat>=0&&user.roomSeat<seatCount&&!control.muted;
    const config=createLiveKitVoiceConfig({env,roomId,uid:identity.uid,canPublish,clock});
