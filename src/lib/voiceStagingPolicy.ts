@@ -5,6 +5,9 @@ export function voiceStagingEnabled(flag:string|undefined):boolean{
 }
 // All users of a room must select the same voice provider; per-user failover
 // would split conversations across incompatible LiveKit and Agora networks.
-export function roomUsesStagingVoice(room:unknown):boolean{
- return !!room&&typeof room==='object'&&(room as {voiceProvider?:unknown}).voiceProvider==='livekit';
+export function roomUsesStagingVoice(room:unknown,livekitPrimaryForUnassignedRooms=false):boolean{
+ if(!room||typeof room!=='object')return false;
+ const provider=(room as {voiceProvider?:unknown}).voiceProvider;
+ // Explicit room choices always win. Default LiveKit is an opt-in whole-app rollout.
+ return provider==='livekit'||(livekitPrimaryForUnassignedRooms&&provider===undefined);
 }
