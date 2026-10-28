@@ -15,7 +15,7 @@ document.querySelectorAll('[data-g]').forEach(b=>{cells[Number(b.dataset.g)]=b;b
 // A completed touch sends once; its compatibility click must not send a second bet.
 cells.forEach((cell,index)=>{
  let press=null,lastPointerTap=-Infinity;
- const activate=()=>{if(ageApproved&&state?.connected&&state.phase==='bet'){tone();send('live-bet',{index,amount:chip});cell.classList.add('tap-feedback');setTimeout(()=>cell.classList.remove('tap-feedback'),120)}};
+ const activate=()=>{if(ageApproved&&(state?.connected||state?.canQueueBet)&&state.phase==='bet'){tone();send('live-bet',{index,amount:chip});cell.classList.add('tap-feedback');setTimeout(()=>cell.classList.remove('tap-feedback'),120)}};
  cell.classList.add('live-bet-cell');cell.setAttribute('role','button');cell.tabIndex=0;cell.setAttribute('aria-label',`${items[index]?.[0]||(['Salad','Pizza'][index-8])||'Bet'} — Place bet`);
  cell.addEventListener('pointerdown',event=>{if(event.isPrimary===false||event.button!==0)return;press={id:event.pointerId,x:event.clientX,y:event.clientY};try{cell.setPointerCapture(event.pointerId)}catch{}});
  cell.addEventListener('pointercancel',()=>{press=null});
