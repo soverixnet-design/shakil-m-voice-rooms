@@ -1,15 +1,23 @@
 plugins {
     id 'com.android.application'
 }
+// An isolated package for phone tests. Normal Android builds keep their original ID and URL.
+def voicePreviewBuild = providers.gradleProperty('voicePreview').orNull == 'true'
 android {
     namespace 'work.earnbd.app'
     compileSdk 36
     defaultConfig {
-        applicationId 'work.earnbd.app'
+        applicationId voicePreviewBuild ? 'work.earnbd.app.voicepreview' : 'work.earnbd.app'
+        manifestPlaceholders = [appLabel: voicePreviewBuild ? 'EarnBD Voice Test' : 'EarnBD Shakil']
+        buildConfigField 'String', 'APP_URL', voicePreviewBuild ? '"https://voice.soverixnet.online/shakilm-preview/"' : '"https://earnbd.work/"'
+        buildConfigField 'boolean', 'VOICE_PREVIEW', voicePreviewBuild ? 'true' : 'false'
         minSdk 23
         targetSdk 36
         versionCode 10
         versionName '1.9.0'
+    }
+    buildFeatures {
+        buildConfig true
     }
     signingConfigs {
         release {
