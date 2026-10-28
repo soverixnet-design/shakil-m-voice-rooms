@@ -61,6 +61,10 @@ if(process.env.SUPABASE_DATABASE_URL){
 const port=Number(process.env.PORT||10000);server.listen(port,'0.0.0.0',()=>console.log(`EarnBD game server listening on port ${port}; ${ready?'configured':'setup required'}`));
 let sweeping=false;
 async function sweep(){if(!ready||sweeping)return;sweeping=true;try{if(writeError)await checkDatabase();const jobs=await Promise.allSettled([service.sweep(),service.sweepEvents?service.sweepEvents():Promise.resolve()]);for(const result of jobs)if(result.status==='rejected')console.error('Settlement retry pending:',result.reason?.code||'internal')}catch(e){console.error('Settlement retry pending:',e.code||'internal')}finally{sweeping=false}}
-if(ready){void sweep();const timer=setInterval(sweep,10000);timer.unref();}
+// A second container must never run settlement jobs before traffic cutover.
+// Render keeps its existing default; Akira-sidecar staging sets this to false.
+const backgroundSweepEnabled=process.env.EARNBD_ENABLE_SWEEP!=='false';
+if(ready&&backgroundSweepEnabled){void sweep();const timer=setInterval(sweep,10000);timer.unref();}
+else if(ready)console.log('EarnBD background settlements are disabled for staging.');
 function shutdown(){server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),10000).unref()}
 process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown);
