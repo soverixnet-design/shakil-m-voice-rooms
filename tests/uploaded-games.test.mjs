@@ -21,3 +21,15 @@ for(const game of ['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'])tes
 });
 
 for(const game of ['greedy_lion','lion_wheel','night_wheel','jackpot_fruit'])test(game+' displays the real viewer identity and supports room layout and dismissible details',()=>{const a=fixture(game);try{a.render({...state,viewerName:'Actual viewer',viewerPublicId:'100004',viewerAvatar:'🙂',inRoom:true});const d=a.dom.window.document;assert.equal(d.getElementById('game-id').textContent,'ID 100004');assert.equal(d.getElementById('game-name').textContent,'Actual viewer');assert.equal(d.getElementById('game-coins').textContent,'🪙 25,000');assert(d.body.classList.contains('in-room'));d.querySelector('#game-tools button').click();assert.equal(d.getElementById('live-panel').style.display,'block');d.getElementById('game-details-close').click();assert.equal(d.getElementById('live-panel').style.display,'none');a.render({...state,inRoom:false});assert(!d.body.classList.contains('in-room'));d.getElementById('game-recharge').click();assert(a.sent.some(x=>x.type==='live-wallet'));}finally{a.dom.window.close()}});
+
+test('a confirmed bet window forwards one tap while reconnecting for authoritative server recheck',()=>{
+ const a=fixture('jackpot_fruit');try{
+  a.render({...state,connected:false,canQueueBet:true});
+  const cell=a.dom.window.document.querySelector('[data-index="0"]');
+  cell.click();
+  assert.deepEqual(a.sent.filter(x=>x.type==='live-bet').map(x=>[x.index,x.amount]),[[0,1000]]);
+  a.render({...state,connected:false,canQueueBet:false});
+  cell.click();
+  assert.equal(a.sent.filter(x=>x.type==='live-bet').length,1);
+ }finally{a.dom.window.close()}
+});
