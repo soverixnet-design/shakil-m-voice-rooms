@@ -1,0 +1,31 @@
+name: Verify isolated Shakil M voice staging
+
+on:
+  push:
+    branches: [feature/shakilm-voice-only-do-staging-20261028]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install frontend dependencies without rewriting lockfiles
+        run: npm install --no-save --package-lock=false --legacy-peer-deps --no-audit
+      - name: Install pinned backend dependencies
+        run: npm ci --prefix functions --omit=dev --no-audit
+      - name: Verify voice auth isolation, LiveKit token signing, and client fallback
+        run: node --import tsx --test tests/voice-staging-http.test.mjs tests/livekit-voice.test.mjs tests/voice-staging-client.test.mjs
+      - name: Typecheck all frontend code
+        run: npm run lint
+      - name: Build opt-in voice test bundle (no deployment)
+        env:
+          VITE_SHAKILM_VOICE_STAGING: 'true'
+        run: npm run build
