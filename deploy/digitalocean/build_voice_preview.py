@@ -37,6 +37,8 @@ def main():
             raise ValueError("INVALID_COMMIT")
         if not shutil.which("docker"):
             raise ValueError("DOCKER_NOT_INSTALLED")
+        if ROOT.is_symlink():
+            raise ValueError("PREVIEW_ROOT_SYMLINK_NOT_ALLOWED")
         ROOT.mkdir(mode=0o755, parents=False, exist_ok=True)
         releases = ROOT / "releases"
         releases.mkdir(mode=0o755, exist_ok=True)
