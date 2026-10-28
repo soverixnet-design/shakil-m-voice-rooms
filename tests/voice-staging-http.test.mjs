@@ -88,3 +88,21 @@ test('all participants follow the room provider flag and no caller may split a R
   assert.equal(f.getWrites(),0);
  });
 });
+
+
+test('LiveKit-primary is opt-in for unassigned rooms and never overrides an explicit legacy room',async()=>{
+ await withServer(async(f,url)=>{
+  delete f.rows.get('rooms/room-one').voiceProvider;
+  const denied=await post(url,validToken);
+  assert.equal(denied.status,409);
+  env.LIVEKIT_PRIMARY_FOR_UNSET_ROOMS='true';
+  try{
+   const allowed=await post(url,validToken);
+   assert.equal(allowed.status,200);
+   assert.equal((await allowed.json()).data.provider,'livekit');
+   f.rows.get('rooms/room-one').voiceProvider='agora';
+   assert.equal((await post(url,validToken)).status,409);
+  }finally{delete env.LIVEKIT_PRIMARY_FOR_UNSET_ROOMS}
+  assert.equal(f.getWrites(),0);
+ });
+});
