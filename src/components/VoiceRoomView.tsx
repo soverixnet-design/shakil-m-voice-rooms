@@ -453,7 +453,7 @@ export const VoiceRoomView: React.FC<Props> = ({
                   void handleSeatClick(idx);
                 }
               }}>
-                <button className="sr-only" aria-label={`Seat ${idx+1}`} onClick={e=>{e.stopPropagation();if(seat?.uid&&seat.uid!==myUid)setSelectedSeatUser({...seat,seatIndex:idx});else void handleSeatClick(idx)}}>Seat {idx+1}</button>{canLockSeats&&<button className="seat-edit-trigger" aria-label={`Manage seat ${idx+1}`} onClick={e=>{e.stopPropagation();setSeatAction(idx)}}>⚙</button>}<div data-gift-uid={seat?.uid} data-gift-seat={seat?.uid?'true':undefined} className={`s3 ${lockedSeats.includes(idx)?'seat-is-locked':''} ${seat ? 'on' : ''} ${(isUserSeatedHere && isMicOn || voice.speakers.includes(seat?.uid)&&!roomControls[seat?.uid]?.muted) ? 'talk' : ''}`}>
+                <button className="sr-only" aria-label={`Seat ${idx+1}`} onClick={e=>{e.stopPropagation();if(seat?.uid&&seat.uid!==myUid)setSelectedSeatUser({...seat,seatIndex:idx});else void handleSeatClick(idx)}}>Seat {idx+1}</button><div data-gift-uid={seat?.uid} data-gift-seat={seat?.uid?'true':undefined} className={`s3 ${lockedSeats.includes(idx)?'seat-is-locked':''} ${seat ? 'on' : ''} ${(isUserSeatedHere && isMicOn || voice.speakers.includes(seat?.uid)&&!roomControls[seat?.uid]?.muted) ? 'talk' : ''}`}>
                   {lockedSeats.includes(idx)&&seat&&<small className="seat-lock-badge">🔒</small>}{seat ? (
                     <MediaAvatar avatar={seat.avatar} frame={mediaAssets.find(a=>a.id===(activeRankingAward(seat)?.frameId||seat.customFrameId))?.image} size={48}/>
                   ) : (
