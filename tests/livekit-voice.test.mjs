@@ -16,8 +16,8 @@ test('Akira-style LiveKit provider is explicitly opt-in and never changes existi
  assert.equal(liveKitIsConfigured(f.env),false);
  assert.deepEqual(voiceProviders(f.env),[]);
  f.env.LIVEKIT_ENABLED='true';delete f.env.LIVEKIT_MINUTES_BUDGET;
- assert.deepEqual(voiceProviders(f.env),[]);
- f.env.LIVEKIT_MINUTES_BUDGET='3';f.env.LIVEKIT_URL='ws://unsecured.test';
+ assert.deepEqual(voiceProviders(f.env).map(p=>p.name),['livekit']);
+ f.env.LIVEKIT_URL='ws://unsecured.test';
  assert.deepEqual(voiceProviders(f.env),[]);
 });
 
@@ -51,13 +51,15 @@ test('blocked users or non-members cannot mint LiveKit access tokens or reserve 
  await assert.rejects(f.config()({roomId:'my-room'},'alice'),/permission-denied/);
 });
 
-test('LiveKit is bound to an explicit minute budget and existing Agora fallback remains available',async()=>{
+test('self-hosted LiveKit is always the primary unmetered provider and Agora remains configured as standby',async()=>{
  const f=fixture();f.env.AGORA_APP_ID='a'.repeat(32);f.env.AGORA_APP_CERTIFICATE='b'.repeat(32);f.env.AGORA_FREE_MINUTES='6';
  f.env.VOICE_PROVIDER_ORDER='livekit,agora';f.env.LIVEKIT_MINUTES_BUDGET='1.5';
+ assert.deepEqual(voiceProviders(f.env).map(p=>[p.name,p.cap]),[['livekit',null],['agora',6]]);
  const first=await f.config()({roomId:'my-room'},'alice');
  const second=await f.config()({roomId:'my-room'},'bob');
- assert.equal(first.provider,'livekit');assert.equal(second.provider,'agora');
- assert.equal(f.rows.get('system/voiceBudget_test-voice-202610').reservedMinutes.livekit,1.5);
+ assert.equal(first.provider,'livekit');assert.equal(second.provider,'livekit');
+ assert.equal(first.quotaMinutes,null);
+ assert.equal(f.rows.has('system/voiceBudget_test-voice-202610'),false);
 });
 
 test('LiveKit signing rejects malformed room and user identities',()=>{
