@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createVoiceStagingHttpServer} from '../functions/voice-staging-http.js';
+import {createVoiceStagingHttpServer,createSocialMembershipReader} from '../functions/voice-staging-http.js';
 
 const env={
  LIVEKIT_ENABLED:'true',LIVEKIT_URL:'wss://voice.example.test',
@@ -120,4 +120,43 @@ test('allowed browser preflight includes the existing installation device header
   assert.match(response.headers.get('access-control-allow-headers'),/X-EarnBD-Device/i);
   assert.equal(f.getWrites(),0);
  });
+});
+
+test('Render membership reader uses the signed Firebase identity, room document and device policy',async()=>{
+ const seen=[];
+ const fields=path=>path==='users/alice'?{currentRoomId:{stringValue:'room-one'},roomSeat:{integerValue:'2'},status:{stringValue:'active'}}:
+  path==='rooms/room-one'?{sc:{integerValue:'8'},voiceProvider:{stringValue:'livekit'}}:
+  {muted:{booleanValue:false},blocked:{booleanValue:false}};
+ const reader=createSocialMembershipReader({request:async(_url,options)=>{
+  const body=JSON.parse(options.body);
+  seen.push({path:body.path,auth:options.headers.Authorization,device:options.headers['X-EarnBD-Device']});
+  return {ok:true,json:async()=>({data:{fields:fields(body.path)}})};
+ }});
+ const docs=await reader({uid:'alice',roomId:'room-one',idToken:validToken,deviceId:'verified-device'});
+ assert.equal(docs[0].currentRoomId,'room-one');
+ assert.equal(docs[0].roomSeat,2);
+ assert.equal(docs[1].sc,8);
+ assert.equal(docs[2].muted,false);
+ assert.deepEqual(seen.map(x=>x.path),['users/alice','rooms/room-one','rooms/room-one/controls/alice']);
+ assert.ok(seen.every(x=>x.auth==='Bearer '+validToken&&x.device==='verified-device'));
+});
+test('LiveKit staging reads authoritative membership and fails closed without Firestore fallback',async()=>{
+ let joined=true;
+ const server=createVoiceStagingHttpServer({env,verifyIdToken:async()=>({uid:'alice'}),
+  readRoomMembership:async()=>[
+   {currentRoomId:joined?'room-one':'another-room',roomSeat:0,status:'active'},
+   {sc:8,voiceProvider:'livekit'},
+   {muted:false,blocked:false}
+  ]});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const url='http://127.0.0.1:'+server.address().port;
+ try{
+  assert.equal((await post(url,validToken)).status,200);
+  joined=false;
+  assert.equal((await post(url,validToken)).status,403);
+ }finally{await new Promise(resolve=>server.close(resolve));}
+});
+test('Render membership API errors cannot create LiveKit room access',async()=>{
+ const reader=createSocialMembershipReader({request:async()=>({ok:false,status:403})});
+ await assert.rejects(reader({uid:'alice',roomId:'room-one',idToken:validToken}),/social-membership-unavailable/);
 });
